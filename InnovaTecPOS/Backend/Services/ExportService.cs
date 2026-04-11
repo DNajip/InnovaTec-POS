@@ -8,6 +8,8 @@ using iText.IO.Image;
 using iText.Kernel.Geom;
 using Microsoft.AspNetCore.Hosting;
 using System.IO;
+using iText.Kernel.Font;
+using iText.IO.Font.Constants;
 
 namespace InnovaTecPOS.Backend.Services;
 
@@ -30,40 +32,81 @@ public class ExportService : IExportService
     {
         using (var workbook = new XLWorkbook())
         {
-            var worksheet = workbook.Worksheets.Add("Inventario");
+            var worksheet = workbook.Worksheets.Add("Auditoría Inventario");
             
-            // Estilo Encabezado
-            var header = worksheet.Cell(1, 1);
-            worksheet.Cell(1, 1).Value = "Producto";
-            worksheet.Cell(1, 2).Value = "Marca";
-            worksheet.Cell(1, 3).Value = "Modelo";
-            worksheet.Cell(1, 4).Value = "Categoría";
-            worksheet.Cell(1, 5).Value = "Precio Venta";
-            worksheet.Cell(1, 6).Value = "Stock";
-            worksheet.Cell(1, 7).Value = "Valoración";
+            // TITULOS DE CABECERA
+            string[] headers = { 
+                "CÓDIGO", "PRODUCTO", "MARCA", "MODELO", "COLOR", "CAPACIDAD", 
+                "CATEGORÍA", "PRECIO VENTA", "STOCK ACT.", "STOCK MIN.", 
+                "ESTADO SALUD", "ÚLTIMA MOV.", "VALORIZACIÓN" 
+            };
 
-            var headerRange = worksheet.Range("A1:G1");
-            headerRange.Style.Font.Bold = true;
-            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#3498db");
-            headerRange.Style.Font.FontColor = XLColor.White;
+            for (int i = 0; i < headers.Length; i++)
+            {
+                var cell = worksheet.Cell(1, i + 1);
+                cell.Value = headers[i];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#1e293b"); // Slate 800
+                cell.Style.Font.FontColor = XLColor.White;
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            }
 
             int row = 2;
             foreach (var p in products)
             {
-                worksheet.Cell(row, 1).Value = p.Nombre;
-                worksheet.Cell(row, 2).Value = p.Marca;
-                worksheet.Cell(row, 3).Value = p.Modelo;
-                worksheet.Cell(row, 4).Value = p.IdCategoriaNavigation?.Nombre ?? "S/C";
-                worksheet.Cell(row, 5).Value = p.PrecioVenta;
-                worksheet.Cell(row, 6).Value = p.StockActual;
-                worksheet.Cell(row, 7).FormulaA1 = $"E{row}*F{row}";
+                worksheet.Cell(row, 1).Value = p.CodigoBarras ?? "S/N";
+                worksheet.Cell(row, 2).Value = p.Nombre;
+                worksheet.Cell(row, 3).Value = p.Marca ?? "N/A";
+                worksheet.Cell(row, 4).Value = p.Modelo ?? "N/A";
+                worksheet.Cell(row, 5).Value = p.Color ?? "N/A";
+                worksheet.Cell(row, 6).Value = p.Almacenamiento ?? "N/A";
+                worksheet.Cell(row, 7).Value = p.IdCategoriaNavigation?.Nombre ?? "S/C";
                 
-                worksheet.Cell(row, 5).Style.NumberFormat.Format = "C$ #,##0.00";
-                worksheet.Cell(row, 7).Style.NumberFormat.Format = "C$ #,##0.00";
+                // Financiero
+                worksheet.Cell(row, 8).Value = p.PrecioVenta;
+                worksheet.Cell(row, 8).Style.NumberFormat.Format = "$ #,##0.00";
+
+                // Stock
+                worksheet.Cell(row, 9).Value = p.StockActual;
+                worksheet.Cell(row, 10).Value = p.StockMinimo;
+
+                // Estado Salud (Lógica)
+                var statusCell = worksheet.Cell(row, 11);
+                if (p.StockActual == 0) {
+                    statusCell.Value = "AGOTADO";
+                    statusCell.Style.Font.FontColor = XLColor.White;
+                    statusCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#dc2626"); // Red
+                } else if (p.StockActual <= p.StockMinimo) {
+                    statusCell.Value = "CRÍTICO";
+                    statusCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#f59e0b"); // Amber
+                } else {
+                    statusCell.Value = "ESTABLE";
+                    statusCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#10b981"); // Emerald
+                    statusCell.Style.Font.FontColor = XLColor.White;
+                }
+                statusCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                // Última Mov
+                var lastMov = p.Movimientos.OrderByDescending(m => m.FechaMov).FirstOrDefault();
+                worksheet.Cell(row, 12).Value = lastMov?.FechaMov.ToString("dd/MM/yyyy") ?? "S/R";
+                worksheet.Cell(row, 12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                // Valorización (FÓRMULA VIVA)
+                // Columna H(8) * I(9)
+                worksheet.Cell(row, 13).FormulaA1 = $"H{row}*I{row}";
+                worksheet.Cell(row, 13).Style.NumberFormat.Format = "$ #,##0.00";
+                worksheet.Cell(row, 13).Style.Font.Bold = true;
+
                 row++;
             }
 
+            // --- ESTILOS FINALES ---
+            var range = worksheet.Range(1, 1, row - 1, headers.Length);
+            range.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            range.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            
             worksheet.Columns().AdjustToContents();
+            worksheet.SheetView.FreezeRows(1); // Congelar Cabecera
 
             using (var stream = new MemoryStream())
             {
@@ -77,70 +120,141 @@ public class ExportService : IExportService
     {
         try
         {
-            Console.WriteLine("PDF: Starting generation...");
+            Console.WriteLine("PDF: Starting detailed horizontal generation...");
             using (var stream = new MemoryStream())
             {
                 var writer = new PdfWriter(stream);
                 var pdf = new PdfDocument(writer);
-                var document = new Document(pdf, PageSize.A4);
-                document.SetMargins(20, 20, 20, 20);
+                // MODO HORIZONTAL (LANDSCAPE)
+                var document = new Document(pdf, PageSize.A4.Rotate());
+                document.SetMargins(25, 25, 25, 25);
 
-                // Header con Logo
+                PdfFont boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+                PdfFont regularFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+                PdfFont italicFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
+
+                // --- HEADER SECTION ---
+                Table headerTable = new Table(UnitValue.CreatePercentArray(new float[] { 10, 90 })).UseAllAvailableWidth();
+                headerTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
+
                 string logoPath = System.IO.Path.Combine(_env.WebRootPath, "images", "logo.png");
-                Console.WriteLine($"PDF: Looking for logo at {logoPath}");
                 if (System.IO.File.Exists(logoPath))
                 {
-                    try
-                    {
-                        ImageData data = ImageDataFactory.Create(logoPath);
-                        Image img = new Image(data).SetWidth(150).SetHorizontalAlignment(HorizontalAlignment.LEFT);
-                        document.Add(img);
-                        Console.WriteLine("PDF: Logo added successfully.");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"PDF: Error adding logo: {ex.Message}");
-                    }
+                    ImageData data = ImageDataFactory.Create(logoPath);
+                    Image img = new Image(data).SetWidth(50).SetHorizontalAlignment(HorizontalAlignment.LEFT);
+                    headerTable.AddCell(new Cell().Add(img).SetBorder(iText.Layout.Borders.Border.NO_BORDER));
                 }
                 else
                 {
-                    Console.WriteLine("PDF: Logo not found, skipping.");
+                    headerTable.AddCell(new Cell().SetBorder(iText.Layout.Borders.Border.NO_BORDER));
                 }
 
-                var title = new Paragraph("REPORTE DE INVENTARIO");
-                title.SetFontSize(20);
-                title.SetTextAlignment(TextAlignment.CENTER);
-                document.Add(title);
+                Cell bizInfoCell = new Cell().SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPaddingLeft(5);
+                bizInfoCell.Add(new Paragraph("INNOVATEC").SetFontSize(20).SetFont(boldFont).SetFontColor(iText.Kernel.Colors.ColorConstants.DARK_GRAY).SetFixedLeading(18));
+                bizInfoCell.Add(new Paragraph("Soluciones Tecnológicas | RUC: 629-190602-1000V").SetFontSize(9).SetFont(italicFont).SetFontColor(iText.Kernel.Colors.ColorConstants.GRAY));
+                bizInfoCell.Add(new Paragraph($"Propietario: Jackson Polanco Espinoza | Contacto: 57340535").SetFontSize(9).SetFont(regularFont));
+                headerTable.AddCell(bizInfoCell);
 
-                var datePara = new Paragraph($"Fecha de generación: {DateTime.Now:dd/MM/yyyy HH:mm}");
-                datePara.SetTextAlignment(TextAlignment.RIGHT);
-                datePara.SetFontSize(10);
-                document.Add(datePara);
-                
+                document.Add(headerTable);
                 document.Add(new Paragraph("\n"));
 
-                // Tabla
-                Table table = new Table(UnitValue.CreatePercentArray(new float[] { 30, 15, 20, 15, 20 }));
+                // --- SUMMARY KPI SECTION (Minimalist) ---
+                int totalStock = products.Sum(p => p.StockActual);
+                int stockBajo = products.Count(p => p.StockActual > 0 && p.StockActual <= p.StockMinimo);
+                int sinStock = products.Count(p => p.StockActual == 0);
+
+                Table kpiTable = new Table(UnitValue.CreatePercentArray(new float[] { 33.3f, 33.3f, 33.3f })).UseAllAvailableWidth();
+                kpiTable.SetMarginBottom(15);
+
+                kpiTable.AddCell(CreateKpiCell("TOTAL UNIDADES", totalStock.ToString(), iText.Kernel.Colors.ColorConstants.DARK_GRAY, boldFont));
+                kpiTable.AddCell(CreateKpiCell("PRODUCTOS EN CRÍTICO", stockBajo.ToString(), new iText.Kernel.Colors.DeviceRgb(217, 119, 6), boldFont));
+                kpiTable.AddCell(CreateKpiCell("PRODUCTOS AGOTADOS", sinStock.ToString(), new iText.Kernel.Colors.DeviceRgb(220, 38, 38), boldFont));
+
+                document.Add(kpiTable);
+
+                // --- DATA TABLE ---
+                // 7 Columnas: Código, Producto Detallado, Categoría, Precio Venta, Stock (A/M), Estado, Última Mov.
+                Table table = new Table(UnitValue.CreatePercentArray(new float[] { 14, 28, 14, 10, 10, 10, 14 }));
                 table.UseAllAvailableWidth();
                 
-                table.AddHeaderCell(new Cell().Add(new Paragraph("Producto")).SetBackgroundColor(iText.Kernel.Colors.ColorConstants.LIGHT_GRAY));
-                table.AddHeaderCell(new Cell().Add(new Paragraph("Categoría")).SetBackgroundColor(iText.Kernel.Colors.ColorConstants.LIGHT_GRAY));
-                table.AddHeaderCell(new Cell().Add(new Paragraph("Precio")).SetBackgroundColor(iText.Kernel.Colors.ColorConstants.LIGHT_GRAY));
-                table.AddHeaderCell(new Cell().Add(new Paragraph("Stock")).SetBackgroundColor(iText.Kernel.Colors.ColorConstants.LIGHT_GRAY).SetTextAlignment(TextAlignment.CENTER));
-                table.AddHeaderCell(new Cell().Add(new Paragraph("Total")).SetBackgroundColor(iText.Kernel.Colors.ColorConstants.LIGHT_GRAY).SetTextAlignment(TextAlignment.RIGHT));
+                iText.Kernel.Colors.Color headerBg = new iText.Kernel.Colors.DeviceRgb(30, 41, 59); // Slate 800
+                
+                table.AddHeaderCell(CreateStyledHeaderCell("Código", headerBg, boldFont));
+                table.AddHeaderCell(CreateStyledHeaderCell("Producto Detalle", headerBg, boldFont));
+                table.AddHeaderCell(CreateStyledHeaderCell("Categoría", headerBg, boldFont));
+                table.AddHeaderCell(CreateStyledHeaderCell("Precio Venta", headerBg, boldFont).SetTextAlignment(TextAlignment.RIGHT));
+                table.AddHeaderCell(CreateStyledHeaderCell("Stock (A/M)", headerBg, boldFont).SetTextAlignment(TextAlignment.CENTER));
+                table.AddHeaderCell(CreateStyledHeaderCell("Estado", headerBg, boldFont).SetTextAlignment(TextAlignment.CENTER));
+                table.AddHeaderCell(CreateStyledHeaderCell("Última Mov.", headerBg, boldFont).SetTextAlignment(TextAlignment.CENTER));
 
+                int count = 0;
                 foreach (var p in products)
                 {
-                    table.AddCell(new Paragraph(p.Nombre ?? "Sin Nombre"));
-                    table.AddCell(new Paragraph(p.IdCategoriaNavigation?.Nombre ?? "S/C"));
-                    table.AddCell(new Paragraph($"C$ {p.PrecioVenta:N2}"));
-                    table.AddCell(new Paragraph(p.StockActual.ToString()).SetTextAlignment(TextAlignment.CENTER));
-                    table.AddCell(new Paragraph($"C$ {(p.PrecioVenta * p.StockActual):N2}").SetTextAlignment(TextAlignment.RIGHT));
+                    bool isEven = count % 2 == 0;
+                    iText.Kernel.Colors.Color rowBg = isEven ? iText.Kernel.Colors.ColorConstants.WHITE : new iText.Kernel.Colors.DeviceRgb(248, 250, 252); 
+                    
+                    // Código
+                    table.AddCell(new Cell().Add(new Paragraph(p.CodigoBarras ?? "S/N")).SetBackgroundColor(rowBg).SetPadding(4).SetFontSize(8.5f));
+                    
+                    // Producto Detallado
+                    string fullDesc = $"{p.Nombre} {p.Marca} {p.Modelo}";
+                    if (!string.IsNullOrEmpty(p.Color) || !string.IsNullOrEmpty(p.Almacenamiento))
+                    {
+                        fullDesc += $" ({p.Color}{(string.IsNullOrEmpty(p.Almacenamiento) ? "" : " - " + p.Almacenamiento)})";
+                    }
+                    table.AddCell(new Cell().Add(new Paragraph(fullDesc)).SetBackgroundColor(rowBg).SetPadding(4).SetFontSize(8.5f));
+                    
+                    // Categoría
+                    table.AddCell(new Cell().Add(new Paragraph(p.IdCategoriaNavigation?.Nombre ?? "S/C")).SetBackgroundColor(rowBg).SetPadding(4).SetFontSize(8.5f));
+                    
+                    // Precio Venta
+                    table.AddCell(new Cell().Add(new Paragraph($"C$ {p.PrecioVenta:N2}")).SetBackgroundColor(rowBg).SetPadding(4).SetFontSize(8.5f).SetTextAlignment(TextAlignment.RIGHT));
+                    
+                    // Stock (A/M)
+                    table.AddCell(new Cell().Add(new Paragraph($"{p.StockActual} / {p.StockMinimo}")).SetBackgroundColor(rowBg).SetPadding(4).SetFontSize(8.5f).SetTextAlignment(TextAlignment.CENTER));
+                    
+                    // Estado
+                    Paragraph estadoPara = new Paragraph();
+                    iText.Kernel.Colors.Color statusColor = iText.Kernel.Colors.ColorConstants.DARK_GRAY;
+                    string statusText = "OK";
+
+                    if (p.StockActual == 0)
+                    {
+                        statusText = "AGOTADO";
+                        statusColor = new iText.Kernel.Colors.DeviceRgb(220, 38, 38);
+                    }
+                    else if (p.StockActual <= p.StockMinimo)
+                    {
+                        statusText = "CRÍTICO";
+                        statusColor = new iText.Kernel.Colors.DeviceRgb(217, 119, 6);
+                    }
+                    else
+                    {
+                        statusText = "ESTABLE";
+                        statusColor = new iText.Kernel.Colors.DeviceRgb(22, 163, 74);
+                    }
+                    estadoPara.Add(statusText);
+                    estadoPara.SetFont(boldFont).SetFontColor(statusColor);
+                    table.AddCell(new Cell().Add(estadoPara).SetBackgroundColor(rowBg).SetPadding(4).SetFontSize(8.5f).SetTextAlignment(TextAlignment.CENTER));
+                    
+                    // Última Movización
+                    var lastMov = p.Movimientos.OrderByDescending(m => m.FechaMov).FirstOrDefault();
+                    string movDate = lastMov?.FechaMov.ToString("dd/MM/yy") ?? "S/R";
+                    table.AddCell(new Cell().Add(new Paragraph(movDate)).SetBackgroundColor(rowBg).SetPadding(4).SetFontSize(8.5f).SetTextAlignment(TextAlignment.CENTER));
+                    
+                    count++;
                 }
 
                 document.Add(table);
+
+                // --- FOOTER ---
+                document.Add(new Paragraph("\n"));
+                Paragraph footerNote = new Paragraph($"Reporte de Auditoría de Inventario - InnovaTecPOS - Generado el {DateTime.Now:dd/MM/yyyy HH:mm}");
+                footerNote.SetFontSize(7).SetFont(italicFont).SetTextAlignment(TextAlignment.CENTER).SetFontColor(iText.Kernel.Colors.ColorConstants.GRAY);
+                document.Add(footerNote);
+
                 document.Close();
-                Console.WriteLine("PDF: Generation completed successfully.");
+                Console.WriteLine("PDF: Detailed Horizontal Generation completed successfully.");
                 return stream.ToArray();
             }
         }
@@ -151,5 +265,21 @@ public class ExportService : IExportService
                 Console.WriteLine($"Inner Exception: {ex.InnerException.Message}");
             throw;
         }
+    }
+
+    private Cell CreateKpiCell(string title, string value, iText.Kernel.Colors.Color color, PdfFont font)
+    {
+        Paragraph pTitle = new Paragraph(title).SetFontSize(7).SetFont(font).SetFontColor(iText.Kernel.Colors.ColorConstants.GRAY);
+        Paragraph pValue = new Paragraph(value).SetFontSize(12).SetFont(font).SetFontColor(color);
+        
+        return new Cell().Add(pTitle).Add(pValue).SetPadding(5).SetTextAlignment(TextAlignment.CENTER).SetBorder(new iText.Layout.Borders.SolidBorder(iText.Kernel.Colors.ColorConstants.LIGHT_GRAY, 0.5f));
+    }
+
+    private Cell CreateStyledHeaderCell(string text, iText.Kernel.Colors.Color bg, PdfFont font)
+    {
+        Paragraph p = new Paragraph(text);
+        p.SetFont(font);
+        p.SetFontColor(iText.Kernel.Colors.ColorConstants.WHITE);
+        return new Cell().Add(p).SetBackgroundColor(bg).SetPadding(5).SetFontSize(9);
     }
 }

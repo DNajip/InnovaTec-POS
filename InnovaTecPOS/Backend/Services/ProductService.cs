@@ -72,6 +72,7 @@ public class ProductService : IProductService
     {
         var query = _context.Productos
             .Include(p => p.IdCategoriaNavigation)
+            .Include(p => p.Movimientos)
             .AsQueryable();
 
         if (!includeInactive)

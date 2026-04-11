@@ -631,3 +631,115 @@ html, body {
     background: transparent;
     box-shadow: none;
 }
+
+/* --- Clientes Module --- */
+.cli-container {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.cli-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cli-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.cli-table-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+.cli-search-bar {
+    background: white;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.client-name-cell {
+    display: flex;
+    flex-direction: column;
+}
+
+.client-full-name {
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.client-id {
+    font-size: 0.75rem;
+    color: #95a5a6;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.warranty-timeline {
+    width: 100%;
+    margin-top: 5px;
+}
+
+.warranty-bar-outer {
+    height: 6px;
+    background: #f1f2f6;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.warranty-bar-inner {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.5s ease;
+}
+
+.status-active { background-color: var(--success-color); }
+.status-warning { background-color: #f1c40f; }
+.status-expired { background-color: var(--danger-color); }
+
+.purchase-history-card {
+    border: 1px solid #f1f2f6;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    transition: all 0.2s;
+}
+
+.purchase-history-card:hover {
+    border-color: var(--primary-color);
+    background-color: #f8f9fa;
+}
+
+.cli-nav-tabs .nav-link {
+    border: none;
+    color: #95a5a6;
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    border-bottom: 3px solid transparent;
+}
+
+.cli-nav-tabs .nav-link.active {
+    color: var(--primary-color);
+    background: transparent;
+    border-bottom-color: var(--primary-color);
+}
+
+.cli-badge-count {
+    background: var(--primary-color);
+    color: white;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 5px;
+    vertical-align: middle;
+}

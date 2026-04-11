@@ -204,7 +204,6 @@ E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\InnovaT
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\InnovaTecPOS.genruntimeconfig.cache
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\ref\InnovaTecPOS.dll
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\9zswrxkkl2-{0}-1fvc1jvqs0-1fvc1jvqs0.gz
-E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\o93v90apvs-{0}-4vfqcxh3r8-4vfqcxh3r8.gz
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\ClosedXML.dll
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\ClosedXML.Parser.dll
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\DocumentFormat.OpenXml.dll
@@ -229,3 +228,4 @@ E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\System.
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\BouncyCastle.Cryptography.dll
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\BouncyCastle.Crypto.dll
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\itext.bouncy-castle-adapter.dll
+E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\o93v90apvs-{0}-um08zvlz1b-um08zvlz1b.gz
