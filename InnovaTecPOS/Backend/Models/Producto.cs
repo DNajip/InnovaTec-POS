@@ -21,7 +21,7 @@ public partial class Producto
 
     public int? IdCategoria { get; set; }
 
-    public string TipoProducto { get; set; } = "ARTICULO";
+
 
     public decimal? PrecioCompra { get; set; }
 

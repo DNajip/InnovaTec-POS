@@ -19,7 +19,7 @@ public partial class VStockCritico
 
     public string EstadoStock { get; set; } = null!;
 
-    public string TipoProducto { get; set; } = null!;
+    public string Categoria { get; set; } = null!;
 
     public int? ImeiDisponibles { get; set; }
 }

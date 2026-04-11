@@ -10,7 +10,7 @@ public interface IProductService
     Task<List<EquiposImei>> GetAvailableImeisAsync(int idProducto);
     
     // Inventory methods
-    Task<List<Producto>> GetAllProductsAsync(string? search = null, string? tipoFiltro = null);
+    Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null);
     Task<InventoryStatsDto> GetInventoryStatsAsync();
     Task<List<Categoria>> GetCategoriasAsync();
     Task<Producto?> GetProductByIdAsync(int id);
@@ -38,12 +38,12 @@ public class ProductService : IProductService
         term = term.ToLower();
 
         return await _context.Productos
+            .Include(p => p.IdCategoriaNavigation)
             .Where(p => p.Activo == true &&
                         p.StockActual > 0 &&
                         (p.Nombre.ToLower().Contains(term) ||
                          (p.CodigoBarras != null && p.CodigoBarras.Contains(term))))
             .Take(10)
-            .AsNoTracking()
             .ToListAsync();
     }
 
@@ -55,9 +55,11 @@ public class ProductService : IProductService
             .ToListAsync();
     }
 
-    public async Task<List<Producto>> GetAllProductsAsync(string? search = null, string? tipoFiltro = null)
+    public async Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null)
     {
-        var query = _context.Productos.Where(p => p.Activo == true);
+        var query = _context.Productos
+            .Include(p => p.IdCategoriaNavigation)
+            .Where(p => p.Activo == true);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -66,9 +68,9 @@ public class ProductService : IProductService
                                     (p.CodigoBarras != null && p.CodigoBarras.Contains(search)));
         }
 
-        if (!string.IsNullOrWhiteSpace(tipoFiltro) && tipoFiltro != "TODOS")
+        if (idCategoria.HasValue && idCategoria.Value > 0)
         {
-            query = query.Where(p => p.TipoProducto.Trim() == tipoFiltro);
+            query = query.Where(p => p.IdCategoria == idCategoria.Value);
         }
 
         return await query.OrderBy(p => p.Nombre).ToListAsync();

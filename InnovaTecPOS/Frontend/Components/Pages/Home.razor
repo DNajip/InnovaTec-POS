@@ -127,7 +127,7 @@
             Description = prod.Nombre,
             UnitPrice = prod.PrecioVenta,
             Quantity = 1,
-            RequiresImei = prod.TipoProducto == "TELEFONO"
+            RequiresImei = prod.IdCategoriaNavigation?.ManejaImei == true
         });
 
         SearchTerm = "";

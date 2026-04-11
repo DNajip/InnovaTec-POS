@@ -12,6 +12,7 @@ public partial class Categoria
     public string? Descripcion { get; set; }
 
     public int IdEstado { get; set; }
+    public bool ManejaImei { get; set; }
 
     public virtual Estado IdEstadoNavigation { get; set; } = null!;
 

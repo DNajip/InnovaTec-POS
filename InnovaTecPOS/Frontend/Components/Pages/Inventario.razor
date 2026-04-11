@@ -73,10 +73,12 @@
                    @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleKeyUp" />
         </div>
         
-        <div class="btn-group">
-            <button type="button" class="btn @(FiltroTipo == "TODOS" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetFiltro("TODOS")'>Todos</button>
-            <button type="button" class="btn @(FiltroTipo == "TELEFONO" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetFiltro("TELEFONO")'>Teléfonos</button>
-            <button type="button" class="btn @(FiltroTipo == "ARTICULO" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetFiltro("ARTICULO")'>Artículos</button>
+        <div class="btn-group category-filters">
+            <button type="button" class="btn @(selectedCategoryId == null ? "btn-primary" : "btn-outline-secondary")" @onclick="() => SetFiltro(null)">Todos</button>
+            @foreach (var cat in categorias)
+            {
+                <button type="button" class="btn @(selectedCategoryId == cat.IdCategoria ? "btn-primary" : "btn-outline-secondary")" @onclick="() => SetFiltro(cat.IdCategoria)">@cat.Nombre</button>
+            }
         </div>
     </div>
 
@@ -121,7 +123,7 @@
                             <td>
                                 <div class="d-flex align-items-center gap-3">
                                     <div class="kpi-icon" style="width: 40px; height: 40px; font-size: 1rem; flex-shrink: 0;">
-                                        <i class='fas @(prod.TipoProducto.Trim() == "TELEFONO" ? "fa-mobile-alt" : "fa-tag")'></i>
+                                        <i class='fas @(prod.IdCategoriaNavigation?.ManejaImei == true ? "fa-mobile-alt" : "fa-tag")'></i>
                                     </div>
                                     <div style="min-width: 200px;">
                                         <span class="d-block fw-bold">@prod.Nombre</span>
@@ -130,7 +132,9 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="badge-tipo badge-tipo-@(prod.TipoProducto.Trim().ToLower())">@prod.TipoProducto.Trim()</span>
+                                <span class="badge-tipo @(prod.IdCategoriaNavigation?.ManejaImei == true ? "badge-tipo-telefono" : "badge-tipo-articulo")">
+                                    @(prod.IdCategoriaNavigation?.Nombre ?? "S/C")
+                                </span>
                             </td>
                             <td class="text-end fw-semibold">C$ @prod.PrecioVenta.ToString("N2")</td>
                             <td class="text-center">
@@ -198,13 +202,7 @@
                                 <input type="text" class="form-control bg-transparent border-0" placeholder="Escanear o ingresar..." @bind="newProduct.CodigoBarras">
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold small text-uppercase">Tipo de Producto</label>
-                            <select class="form-select bg-light border-0 py-2 rounded-3 fw-bold" @bind="newProduct.TipoProducto">
-                                <option value="ARTICULO">ARTÍCULO / PRODUCTO</option>
-                                <option value="TELEFONO">TELÉFONO / EQUIPO</option>
-                            </select>
-                        </div>
+
                         <div class="col-md-8">
                             <label class="form-label fw-bold small text-uppercase">Nombre del Producto</label>
                             <div class="input-group-custom p-1 bg-light rounded-3 d-flex align-items-center px-3">
@@ -427,7 +425,7 @@
     private List<Categoria> categorias = new();
     private InventoryStatsDto stats = new();
     private string SearchTerm = "";
-    private string FiltroTipo = "TODOS";
+    private int? selectedCategoryId = null;
     private System.Timers.Timer? debounceTimer;
 
     // Modal state
@@ -436,7 +434,7 @@
     private bool showAdjustModal = false;
     
     // Form data
-    private Producto newProduct = new() { Activo = true, StockActual = 0, StockMinimo = 5, TipoProducto = "ARTICULO" };
+    private Producto newProduct = new() { Activo = true, StockActual = 0, StockMinimo = 5 };
     private Producto? editingProduct;
     private Producto? adjustingProduct;
     
@@ -462,7 +460,7 @@
 
     private void OpenRegisterModal()
     {
-        newProduct = new Producto { Activo = true, StockActual = 0, StockMinimo = 5, TipoProducto = "ARTICULO", FechaCreacion = DateTime.Now };
+        newProduct = new Producto { Activo = true, StockActual = 0, StockMinimo = 5, FechaCreacion = DateTime.Now };
         showRegisterModal = true;
         StateHasChanged();
     }
@@ -488,7 +486,6 @@
             StockMinimo = p.StockMinimo,
             Activo = p.Activo,
             IdCategoria = p.IdCategoria,
-            TipoProducto = p.TipoProducto,
             CodigoBarras = p.CodigoBarras,
             Almacenamiento = p.Almacenamiento,
             Color = p.Color,
@@ -546,7 +543,7 @@
     private async Task LoadData()
     {
         stats = await ProductService.GetInventoryStatsAsync();
-        productos = await ProductService.GetAllProductsAsync(SearchTerm, FiltroTipo);
+        productos = await ProductService.GetAllProductsAsync(SearchTerm, selectedCategoryId);
         StateHasChanged();
     }
 
@@ -566,13 +563,13 @@
 
     private async Task HandleSearch()
     {
-        productos = await ProductService.GetAllProductsAsync(SearchTerm, FiltroTipo);
+        productos = await ProductService.GetAllProductsAsync(SearchTerm, selectedCategoryId);
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task SetFiltro(string tipo)
+    private async Task SetFiltro(int? idCategoria)
     {
-        FiltroTipo = tipo;
+        selectedCategoryId = idCategoria;
         await LoadData();
     }
 

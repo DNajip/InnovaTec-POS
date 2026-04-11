@@ -118,6 +118,8 @@ public partial class InnovaTecDbContext : DbContext
                 .HasMaxLength(80)
                 .IsUnicode(false)
                 .HasColumnName("NOMBRE");
+            entity.Property(e => e.ManejaImei)
+                .HasColumnName("MANEJA_IMEI");
 
             entity.HasOne(d => d.IdEstadoNavigation).WithMany(p => p.Categoria)
                 .HasForeignKey(d => d.IdEstado)
@@ -654,11 +656,7 @@ public partial class InnovaTecDbContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("COLOR");
             entity.Property(e => e.CreadoPor).HasColumnName("CREADO_POR");
-            entity.Property(e => e.TipoProducto)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasDefaultValue("ARTICULO")
-                .HasColumnName("TIPO_PRODUCTO");
+
             entity.Property(e => e.EstadoStock)
                 .HasMaxLength(10)
                 .IsUnicode(false)
@@ -1064,10 +1062,10 @@ public partial class InnovaTecDbContext : DbContext
                 .HasNoKey()
                 .ToView("V_STOCK_CRITICO", "INV");
 
-            entity.Property(e => e.TipoProducto)
-                .HasMaxLength(20)
+            entity.Property(e => e.Categoria)
+                .HasMaxLength(80)
                 .IsUnicode(false)
-                .HasColumnName("TIPO_PRODUCTO");
+                .HasColumnName("CATEGORIA");
             entity.Property(e => e.EstadoStock)
                 .HasMaxLength(10)
                 .IsUnicode(false)
