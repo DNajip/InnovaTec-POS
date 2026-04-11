@@ -1,5 +1,6 @@
 @page "/"
 @using InnovaTecPOS.Backend.Services
+@using System.ComponentModel
 @implements IDisposable
 @inject SaleService SaleService
 @inject IProductService ProductService
@@ -88,10 +89,46 @@
         SaleService.PropertyChanged += OnServicePropertyChanged;
     }
 
-    private void HandleSearch(KeyboardEventArgs e)
+    private async Task HandleSearch(KeyboardEventArgs e)
     {
-        debounceTimer.Stop();
-        debounceTimer.Start();
+        if (e.Key == "Enter")
+        {
+            debounceTimer.Stop();
+            await ScannerLookup();
+        }
+        else
+        {
+            debounceTimer.Stop();
+            debounceTimer.Start();
+        }
+    }
+
+    private async Task ScannerLookup()
+    {
+        if (string.IsNullOrWhiteSpace(SearchTerm)) return;
+        var term = SearchTerm.Trim();
+
+        // 1. Try exact barcode match (Priority for scanner)
+        var exactProduct = await ProductService.GetProductByBarcodeAsync(term);
+        if (exactProduct != null)
+        {
+            SelectProduct(exactProduct);
+            return;
+        }
+
+        // 2. Fallback to general search
+        var results = await ProductService.SearchProductsAsync(term);
+        if (results != null && results.Count == 1)
+        {
+            // Only one match? Add it immediately
+            SelectProduct(results[0]);
+        }
+        else if (results != null && results.Count > 1)
+        {
+            // Multiple matches? Show dropdown
+            SearchResults = results;
+            StateHasChanged();
+        }
     }
 
     private async Task OnSearchTimerElapsed()
@@ -120,22 +157,33 @@
 
     private void SelectProduct(InnovaTecPOS.Backend.Models.Producto prod)
     {
-        SaleService.AddItem(new CartItem
+        // Check if product already exists in cart (unless it requires IMEI)
+        var existingItem = SaleService.Items.FirstOrDefault(i => i.IdProducto == prod.IdProducto && !i.RequiresImei);
+        
+        if (existingItem != null)
         {
-            IdProducto = prod.IdProducto,
-            Code = prod.CodigoBarras ?? "",
-            Description = prod.Nombre,
-            UnitPrice = prod.PrecioVenta,
-            Quantity = 1,
-            RequiresImei = prod.IdCategoriaNavigation?.ManejaImei == true
-        });
+            existingItem.Quantity++;
+            SaleService.NotifyAll();
+        }
+        else
+        {
+            SaleService.AddItem(new CartItem
+            {
+                IdProducto = prod.IdProducto,
+                Code = prod.CodigoBarras ?? "",
+                Description = prod.Nombre,
+                UnitPrice = prod.PrecioVenta,
+                Quantity = 1,
+                RequiresImei = prod.IdCategoriaNavigation?.ManejaImei == true
+            });
+        }
 
         SearchTerm = "";
         SearchResults = null;
         StateHasChanged();
     }
 
-    private void OnServicePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    private void OnServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         InvokeAsync(StateHasChanged);
     }

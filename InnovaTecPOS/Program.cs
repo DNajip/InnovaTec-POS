@@ -1,6 +1,7 @@
 using InnovaTecPOS.Frontend.Components;
 using InnovaTecPOS.Backend.Models;
 using InnovaTecPOS.Backend.Services;
+using InnovaTecPOS.Frontend.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +17,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<SaleService>();
 builder.Services.AddScoped<UserSession>();
+builder.Services.AddScoped<ToastService>();
 
 var app = builder.Build();
 

@@ -18,6 +18,7 @@
 
 <body>
     <Routes @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
+    <script src="lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         window.startClock = () => {
             const el = document.getElementById('digital-clock');
@@ -38,6 +39,26 @@
             };
             update();
             setInterval(update, 1000);
+        };
+
+        window.showBootstrapToast = (toastId) => {
+            const toastEl = document.getElementById(toastId);
+            if (toastEl) {
+                const toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+                
+                // Progress bar animation logic
+                const progressBar = document.getElementById('toastProgressBar');
+                if (progressBar) {
+                    progressBar.style.width = '0%';
+                    progressBar.style.transition = 'none';
+                    setTimeout(() => {
+                        progressBar.style.transition = 'width 4s linear';
+                        progressBar.style.width = '100%';
+                    }, 50);
+                }
+                
+                toast.show();
+            }
         };
     </script>
     <script src="_framework/blazor.web.js"></script>

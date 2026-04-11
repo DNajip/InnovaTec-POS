@@ -8,6 +8,7 @@ public interface IProductService
 {
     Task<List<Producto>> SearchProductsAsync(string term);
     Task<List<EquiposImei>> GetAvailableImeisAsync(int idProducto);
+    Task<Producto?> GetProductByBarcodeAsync(string barcode);
     
     // Inventory methods
     Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null);
@@ -43,6 +44,7 @@ public class ProductService : IProductService
                         p.StockActual > 0 &&
                         (p.Nombre.ToLower().Contains(term) ||
                          (p.CodigoBarras != null && p.CodigoBarras.Contains(term))))
+            .AsNoTracking()
             .Take(10)
             .ToListAsync();
     }
@@ -53,6 +55,16 @@ public class ProductService : IProductService
             .Where(i => i.IdProducto == idProducto && i.EstadoImei == "DISPONIBLE")
             .AsNoTracking()
             .ToListAsync();
+    }
+    
+    public async Task<Producto?> GetProductByBarcodeAsync(string barcode)
+    {
+        if (string.IsNullOrWhiteSpace(barcode)) return null;
+
+        return await _context.Productos
+            .Include(p => p.IdCategoriaNavigation)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Activo == true && p.CodigoBarras == barcode);
     }
 
     public async Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null)
@@ -73,12 +85,12 @@ public class ProductService : IProductService
             query = query.Where(p => p.IdCategoria == idCategoria.Value);
         }
 
-        return await query.OrderBy(p => p.Nombre).ToListAsync();
+        return await query.AsNoTracking().OrderBy(p => p.Nombre).ToListAsync();
     }
 
     public async Task<InventoryStatsDto> GetInventoryStatsAsync()
     {
-        var productos = await _context.Productos.Where(p => p.Activo == true).ToListAsync();
+        var productos = await _context.Productos.AsNoTracking().Where(p => p.Activo == true).ToListAsync();
 
         return new InventoryStatsDto
         {
@@ -96,7 +108,9 @@ public class ProductService : IProductService
 
     public async Task<Producto?> GetProductByIdAsync(int id)
     {
-        return await _context.Productos.FindAsync(id);
+        return await _context.Productos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.IdProducto == id);
     }
 
     public async Task CreateProductAsync(Producto producto)
@@ -108,8 +122,27 @@ public class ProductService : IProductService
 
     public async Task UpdateProductAsync(Producto producto)
     {
+        // Load the existing entity from DB (tracked)
+        var existing = await _context.Productos.FirstOrDefaultAsync(p => p.IdProducto == producto.IdProducto);
+        
+        if (existing == null)
+            throw new Exception($"Producto con ID {producto.IdProducto} no encontrado.");
+
         _userSession.CurrentObservation = $"Edición de datos básicos de producto: {producto.Nombre}";
-        _context.Productos.Update(producto);
+
+        // Map ONLY editable fields (ignore computed columns like EstadoStock and Default columns like FechaCreacion)
+        existing.Nombre = producto.Nombre;
+        existing.CodigoBarras = producto.CodigoBarras;
+        existing.Marca = producto.Marca;
+        existing.Modelo = producto.Modelo;
+        existing.Almacenamiento = producto.Almacenamiento;
+        existing.Color = producto.Color;
+        existing.IdCategoria = producto.IdCategoria;
+        existing.PrecioCompra = producto.PrecioCompra;
+        existing.PrecioVenta = producto.PrecioVenta;
+        existing.StockMinimo = producto.StockMinimo;
+        existing.Activo = producto.Activo;
+
         await _context.SaveChangesAsync();
     }
 

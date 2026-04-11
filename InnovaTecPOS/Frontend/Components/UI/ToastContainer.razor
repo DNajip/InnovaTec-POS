@@ -1,0 +1,88 @@
+@using InnovaTecPOS.Frontend.Services
+@implements IDisposable
+@inject ToastService ToastService
+@inject IJSRuntime JSRuntime
+
+<div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index: 11000">
+    <div id="liveToast" class="toast hide border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true" style="border-radius: 12px; min-width: 300px;">
+        <div class="toast-header border-0 bg-transparent pt-3 px-3">
+             <div class="kpi-icon @(_typeClass)" style="width: 32px; height: 32px; font-size: 0.9rem; margin-right: 12px;">
+                <i class="@(_iconClass)"></i>
+            </div>
+            <strong class="me-auto fw-bold" style="color: #2d3436;">@_title</strong>
+            <small class="text-muted">Ahora</small>
+            <button type="button" class="btn-close shadow-none" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body p-3 pt-1 fw-medium" style="color: #636e72;">
+            @_message
+        </div>
+        <div class="progress" style="height: 3px; border-radius: 0 0 12px 12px;">
+            <div class="progress-bar @(_progressClass)" role="progressbar" style="width: 0%; transition: width 4s linear;" id="toastProgressBar"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .toast-success .kpi-icon { background: rgba(39, 174, 96, 0.1); color: #27ae60; }
+    .toast-danger .kpi-icon { background: rgba(231, 76, 60, 0.1); color: #e74c3c; }
+    .toast-info .kpi-icon { background: rgba(52, 152, 219, 0.1); color: #3498db; }
+    .toast-warning .kpi-icon { background: rgba(241, 196, 15, 0.1); color: #f1c40f; }
+    
+    .bg-toast-success { background-color: #27ae60; }
+    .bg-toast-danger { background-color: #e74c3c; }
+    .bg-toast-info { background-color: #3498db; }
+    .bg-toast-warning { background-color: #f1c40f; }
+</style>
+
+@code {
+    private string _message = "";
+    private string _title = "";
+    private string _typeClass = "";
+    private string _iconClass = "";
+    private string _progressClass = "";
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnShow += ShowToast;
+    }
+
+    private void ShowToast(string message, string title, string type)
+    {
+        _message = message;
+        _title = title;
+        
+        switch (type)
+        {
+            case "success":
+                _typeClass = "kpi-blue"; // Reusing existing premium styles if possible, else custom
+                _iconClass = "fas fa-check-circle";
+                _progressClass = "bg-success";
+                break;
+            case "danger":
+                _typeClass = "kpi-red";
+                _iconClass = "fas fa-times-circle";
+                _progressClass = "bg-danger";
+                break;
+            case "warning":
+                _typeClass = "kpi-yellow";
+                _iconClass = "fas fa-exclamation-triangle";
+                _progressClass = "bg-warning";
+                break;
+            default:
+                _typeClass = "kpi-cyan";
+                _iconClass = "fas fa-info-circle";
+                _progressClass = "bg-info";
+                break;
+        }
+
+        InvokeAsync(async () => {
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("showBootstrapToast", "liveToast");
+        });
+    }
+
+    public void Dispose()
+    {
+        ToastService.OnShow -= ShowToast;
+    }
+}

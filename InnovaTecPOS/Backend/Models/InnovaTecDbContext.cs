@@ -638,7 +638,7 @@ public partial class InnovaTecDbContext : DbContext
         {
             entity.HasKey(e => e.IdProducto).HasName("PK_INV_PRODUCTOS");
 
-            entity.ToTable("PRODUCTOS", "INV");
+            entity.ToTable("PRODUCTOS", "INV", t => t.HasTrigger("Trg_Productos_Auditoria"));
 
             entity.HasIndex(e => e.CodigoBarras, "UQ__PRODUCTO__9F4646C2D3E8A062").IsUnique();
 

@@ -5,6 +5,7 @@
 @inject IProductService ProductService
 @inject UserSession UserSession
 @inject NavigationManager Navigation
+@inject ToastService ToastService
 
 <PageTitle>Inventario - InnovaTec</PageTitle>
 
@@ -503,6 +504,7 @@
         if (string.IsNullOrWhiteSpace(newProduct.Nombre)) return;
         
         await ProductService.CreateProductAsync(newProduct);
+        ToastService.ShowSuccess($"Producto '{newProduct.Nombre}' registrado");
         showRegisterModal = false;
         await LoadData();
     }
@@ -532,9 +534,18 @@
     {
         if (editingProduct == null) return;
         
-        await ProductService.UpdateProductAsync(editingProduct);
-        showEditModal = false;
-        await LoadData();
+        try 
+        {
+            await ProductService.UpdateProductAsync(editingProduct);
+            ToastService.ShowSuccess("Los cambios se guardaron correctamente");
+            showEditModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating product: {ex.Message}");
+            ToastService.ShowError($"No se pudieron guardar los cambios: {ex.Message}");
+        }
     }
 
     private void OpenAdjustModal(Producto p)
@@ -568,6 +579,7 @@
 
         string fullObs = $"{obsPrefix} {adjustObservation}".Trim();
         await ProductService.AdjustStockAsync(adjustingProduct.IdProducto, nuevaCantidad, fullObs);
+        ToastService.ShowInfo($"Inventario actualizado para {adjustingProduct.Nombre}");
         
         showAdjustModal = false;
         await LoadData();
