@@ -11,7 +11,7 @@ public interface IProductService
     Task<Producto?> GetProductByBarcodeAsync(string barcode);
     
     // Inventory methods
-    Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null);
+    Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null, bool includeInactive = false);
     Task<InventoryStatsDto> GetInventoryStatsAsync();
     Task<List<Categoria>> GetCategoriasAsync();
     Task<Producto?> GetProductByIdAsync(int id);
@@ -67,11 +67,16 @@ public class ProductService : IProductService
             .FirstOrDefaultAsync(p => p.Activo == true && p.CodigoBarras == barcode);
     }
 
-    public async Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null)
+    public async Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null, bool includeInactive = false)
     {
         var query = _context.Productos
             .Include(p => p.IdCategoriaNavigation)
-            .Where(p => p.Activo == true);
+            .AsQueryable();
+
+        if (!includeInactive)
+        {
+            query = query.Where(p => p.Activo == true);
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -91,14 +96,15 @@ public class ProductService : IProductService
     public async Task<InventoryStatsDto> GetInventoryStatsAsync()
     {
         Console.WriteLine("Service: GetInventoryStatsAsync called");
-        var productos = await _context.Productos.AsNoTracking().Where(p => p.Activo == true).ToListAsync();
+        var allProducts = await _context.Productos.AsNoTracking().ToListAsync();
+        var activeProducts = allProducts.Where(p => p.Activo == true).ToList();
 
         return new InventoryStatsDto
         {
-            TotalProductos = productos.Count,
-            StockBajo = productos.Count(p => p.EstadoStock == "CRITICO"),
-            SinStock = productos.Count(p => p.EstadoStock == "AGOTADO"),
-            Valorizacion = productos.Sum(p => p.PrecioVenta * p.StockActual)
+            TotalProductos = activeProducts.Count,
+            StockBajo = activeProducts.Count(p => p.EstadoStock == "CRITICO"),
+            SinStock = activeProducts.Count(p => p.EstadoStock == "AGOTADO"),
+            Valorizacion = allProducts.Sum(p => p.PrecioVenta * p.StockActual)
         };
     }
 
