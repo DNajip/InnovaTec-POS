@@ -4,46 +4,67 @@
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 
-<div class="login-container">
-    <div class="login-card text-center">
+<div class="login-screen">
+    <div class="login-glass-card text-center">
         <!-- Logo -->
         <div class="login-logo-container">
-            <img src="images/logo.png" alt="InnovaTec" class="login-logo" />
+            <div class="login-brand-logo">
+                <img src="images/logo.png" alt="InnovaTec" class="w-100 h-100 object-fit-contain" />
+            </div>
         </div>
 
         <!-- Titulos -->
-        <h2 class="login-title">INNOVATEC</h2>
-        <p class="login-subtitle">Sistema POS de facturación</p>
+        <h1 class="login-title-premium">INNOVATEC</h1>
+        <span class="login-subtitle-premium">SISTEMA POS DE FACTURACIÓN</span>
 
         <!-- Mensaje de Error -->
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <div class="error-container">
-                <i class="fas fa-exclamation-circle me-2"></i> @errorMessage
+            <div class="error-toast-premium">
+                <i class="fas fa-exclamation-circle fa-lg"></i>
+                <div class="text-start">
+                    <div class="fw-bold">Acceso Denegado</div>
+                    <div class="small">@errorMessage</div>
+                </div>
             </div>
         }
 
         <!-- Formulario -->
-        <form @onsubmit="HandleLogin">
+        <form @onsubmit="HandleLogin" autocomplete="off">
             <div class="text-start">
-                <label class="form-label">CEDULA</label>
-                <div class="input-group-custom">
-                    <i class="fas fa-id-card"></i>
-                    <input type="text" class="form-control-custom" @bind="username" placeholder="Ingrese su cédula" disabled="@isProcessing" />
+                <div class="login-input-group">
+                    <label>Usuario / Cédula</label>
+                    <div class="login-field-wrapper">
+                        <i class="fas fa-id-card field-icon"></i>
+                        <input type="text" 
+                               class="login-control-premium" 
+                               @bind="username" 
+                               placeholder="Ingrese su identificación" 
+                               disabled="@isProcessing" />
+                    </div>
                 </div>
 
-                <label class="form-label">CONTRASEÑA</label>
-                <div class="input-group-custom">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" class="form-control-custom" @bind="password" placeholder="••••••••" disabled="@isProcessing" />
+                <div class="login-input-group">
+                    <label>Contraseña</label>
+                    <div class="login-field-wrapper">
+                        <i class="fas fa-lock field-icon"></i>
+                        <input type="@(showPassword ? "text" : "password")" 
+                               class="login-control-premium" 
+                               @bind="password" 
+                               placeholder="••••••••" 
+                               disabled="@isProcessing" />
+                        <button type="button" class="btn-toggle-pass" @onclick="TogglePassword">
+                            <i class="fas @(showPassword ? "fa-eye-slash" : "fa-eye")"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <button type="submit" class="btn-login" disabled="@isProcessing">
+            <button type="submit" class="btn-login-premium" disabled="@isProcessing">
                 @if (isProcessing)
                 {
                     <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    <span>Procesando...</span>
+                    <span>Autenticando...</span>
                 }
                 else
                 {
@@ -59,12 +80,15 @@
     private string password = "";
     private string? errorMessage;
     private bool isProcessing = false;
+    private bool showPassword = false;
+
+    private void TogglePassword() => showPassword = !showPassword;
 
     private async Task HandleLogin()
     {
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
         {
-            errorMessage = "Por favor, complete todos los campos.";
+            errorMessage = "Debe completar todos los campos obligatorios.";
             return;
         }
 
@@ -75,7 +99,7 @@
         {
             var result = await AuthService.IniciarSesionAsync(username, password);
 
-            if (result.Success)
+            if (result.Success == 1)
             {
                 Navigation.NavigateTo("/");
             }
@@ -86,7 +110,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = "Error de conexión con el servidor.";
+            errorMessage = "No se pudo establecer conexión con el servidor.";
             Console.WriteLine(ex);
         }
         finally

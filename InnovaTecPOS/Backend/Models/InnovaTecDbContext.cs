@@ -1,18 +1,35 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using InnovaTecPOS.Backend.Services;
 
 namespace InnovaTecPOS.Backend.Models;
 
 public partial class InnovaTecDbContext : DbContext
 {
+    private readonly UserSession? _userSession;
+
     public InnovaTecDbContext()
     {
     }
 
-    public InnovaTecDbContext(DbContextOptions<InnovaTecDbContext> options)
+    public InnovaTecDbContext(DbContextOptions<InnovaTecDbContext> options, UserSession userSession)
         : base(options)
     {
+        _userSession = userSession;
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        if (_userSession != null && _userSession.IsAuthenticated)
+        {
+            await Database.ExecuteSqlRawAsync(
+                "EXEC sp_set_session_context 'UsuarioId', @p0; EXEC sp_set_session_context 'Observacion', @p1;",
+                new object[] { _userSession.UserId!, _userSession.CurrentObservation ?? "Ajuste de sistema" },
+                cancellationToken);
+        }
+
+        return await base.SaveChangesAsync(cancellationToken);
     }
 
     public virtual DbSet<Categoria> Categorias { get; set; }

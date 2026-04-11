@@ -12,16 +12,22 @@ public interface IProductService
     // Inventory methods
     Task<List<Producto>> GetAllProductsAsync(string? search = null, string? tipoFiltro = null);
     Task<InventoryStatsDto> GetInventoryStatsAsync();
-    Task AdjustStockAsync(int idProducto, int cantidad, string observacion);
+    Task<List<Categoria>> GetCategoriasAsync();
+    Task<Producto?> GetProductByIdAsync(int id);
+    Task CreateProductAsync(Producto producto);
+    Task UpdateProductAsync(Producto producto);
+    Task AdjustStockAsync(int idProducto, int nuevaCantidad, string observacion);
 }
 
 public class ProductService : IProductService
 {
     private readonly InnovaTecDbContext _context;
+    private readonly UserSession _userSession;
 
-    public ProductService(InnovaTecDbContext context)
+    public ProductService(InnovaTecDbContext context, UserSession userSession)
     {
         _context = context;
+        _userSession = userSession;
     }
 
     public async Task<List<Producto>> SearchProductsAsync(string term)
@@ -81,13 +87,40 @@ public class ProductService : IProductService
         };
     }
 
-    public async Task AdjustStockAsync(int idProducto, int cantidad, string observacion)
+    public async Task<List<Categoria>> GetCategoriasAsync()
+    {
+        return await _context.Categorias.Where(c => c.IdEstado == 1).OrderBy(c => c.Nombre).ToListAsync();
+    }
+
+    public async Task<Producto?> GetProductByIdAsync(int id)
+    {
+        return await _context.Productos.FindAsync(id);
+    }
+
+    public async Task CreateProductAsync(Producto producto)
+    {
+        _userSession.CurrentObservation = $"Creación inicial de producto: {producto.Nombre}";
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdateProductAsync(Producto producto)
+    {
+        _userSession.CurrentObservation = $"Edición de datos básicos de producto: {producto.Nombre}";
+        _context.Productos.Update(producto);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task AdjustStockAsync(int idProducto, int nuevaCantidad, string observacion)
     {
         var producto = await _context.Productos.FindAsync(idProducto);
         if (producto == null) return;
 
-        // Simple adjustment for now. In a real scenario, this should create a Movimiento record.
-        producto.StockActual = cantidad;
+        // Establecer la observación en la sesión antes de guardar. 
+        // El trigger de la BD la capturará desde SESSION_CONTEXT.
+        _userSession.CurrentObservation = observacion;
+        
+        producto.StockActual = nuevaCantidad;
         
         await _context.SaveChangesAsync();
     }

@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "E:\\Programación\\Antigravity\\INNOVATECPOS\\InnovaTecPOS\\InnovaTecPOS.csproj": {}
+    "E:\\Programación\\Antigravity\\InnovaTecPOS\\InnovaTecPOS\\InnovaTecPOS.csproj": {}
   },
   "projects": {
-    "E:\\Programación\\Antigravity\\INNOVATECPOS\\InnovaTecPOS\\InnovaTecPOS.csproj": {
+    "E:\\Programación\\Antigravity\\InnovaTecPOS\\InnovaTecPOS\\InnovaTecPOS.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\Programación\\Antigravity\\INNOVATECPOS\\InnovaTecPOS\\InnovaTecPOS.csproj",
+        "projectUniqueName": "E:\\Programación\\Antigravity\\InnovaTecPOS\\InnovaTecPOS\\InnovaTecPOS.csproj",
         "projectName": "InnovaTecPOS",
-        "projectPath": "E:\\Programación\\Antigravity\\INNOVATECPOS\\InnovaTecPOS\\InnovaTecPOS.csproj",
+        "projectPath": "E:\\Programación\\Antigravity\\InnovaTecPOS\\InnovaTecPOS\\InnovaTecPOS.csproj",
         "packagesPath": "C:\\Users\\Najip\\.nuget\\packages\\",
-        "outputPath": "E:\\Programación\\Antigravity\\INNOVATECPOS\\InnovaTecPOS\\obj\\",
+        "outputPath": "E:\\Programación\\Antigravity\\InnovaTecPOS\\InnovaTecPOS\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

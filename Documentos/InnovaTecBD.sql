@@ -363,6 +363,40 @@ CREATE TABLE INV.MOVIMIENTOS (
 );
 GO
 
+-- TRIGGER PARA AUDITORIA AUTOMATICA DE STOCK
+CREATE TRIGGER INV.TR_PRODUCTO_STOCK_LOG
+ON INV.PRODUCTOS
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Solo actuar si el stock actual cambió
+    IF UPDATE(STOCK_ACTUAL)
+    BEGIN
+        INSERT INTO INV.MOVIMIENTOS (
+            ID_PRODUCTO, ID_TIPO_MOV, CANTIDAD, STOCK_ANTES, 
+            STOCK_DESPUES, OBSERVACION, REGISTRADO_POR, FECHA_MOV
+        )
+        SELECT 
+            i.ID_PRODUCTO,
+            (CASE 
+                WHEN i.STOCK_ACTUAL > d.STOCK_ACTUAL THEN 4 -- AJUSTE_ENTRADA
+                ELSE 5 -- AJUSTE_SALIDA
+             END),
+            ABS(i.STOCK_ACTUAL - d.STOCK_ACTUAL),
+            d.STOCK_ACTUAL,
+            i.STOCK_ACTUAL,
+            ISNULL(CAST(SESSION_CONTEXT(N'Observacion') AS NVARCHAR(200)), 'Ajuste de sistema'),
+            ISNULL(CAST(SESSION_CONTEXT(N'UsuarioId') AS INT), 1), -- Default a Admin si no hay sesión
+            SYSDATETIME()
+        FROM inserted i
+        JOIN deleted d ON i.ID_PRODUCTO = d.ID_PRODUCTO
+        WHERE i.STOCK_ACTUAL <> d.STOCK_ACTUAL;
+    END
+END;
+GO
+
 -- ============================================================
 -- 5. CAJA (CAJA)
 -- ============================================================

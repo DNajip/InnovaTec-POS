@@ -3,6 +3,8 @@
 @using InnovaTecPOS.Backend.DTOs
 @using InnovaTecPOS.Backend.Models
 @inject IProductService ProductService
+@inject UserSession UserSession
+@inject NavigationManager Navigation
 
 <PageTitle>Inventario - InnovaTec</PageTitle>
 
@@ -17,7 +19,7 @@
             <button class="btn btn-outline-secondary me-2">
                 <i class="fas fa-file-excel me-1"></i> Exportar Excel
             </button>
-            <button class="btn btn-primary d-inline-flex align-items-center gap-2">
+            <button class="btn btn-primary d-inline-flex align-items-center gap-2" @onclick="OpenRegisterModal">
                 <i class="fas fa-plus"></i> Nuevo Producto
             </button>
         </div>
@@ -148,10 +150,10 @@
                             </td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center">
-                                    <button class="btn-action" title="Ajustar Stock">
+                                    <button class="btn-action" title="Ajustar Stock" @onclick="() => OpenAdjustModal(prod)">
                                         <i class="fas fa-exchange-alt"></i>
                                     </button>
-                                    <button class="btn-action" title="Editar">
+                                    <button class="btn-action" title="Editar" @onclick="() => OpenEditModal(prod)">
                                         <i class="fas fa-pen"></i>
                                     </button>
                                     <button class="btn-action" title="Detalles">
@@ -167,19 +169,377 @@
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- MODALES (BOOTSTRAP ADAPTADO) -->
+<!-- ============================================================ -->
+
+@if (showRegisterModal)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+                <div class="modal-header bg-white border-0 p-4 pb-0">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="kpi-icon kpi-blue" style="width: 50px; height: 50px;">
+                            <i class="fas fa-box-open"></i>
+                        </div>
+                        <div>
+                            <h4 class="modal-title fw-bold mb-0">Registrar Nuevo Producto</h4>
+                            <p class="text-muted small mb-0">Gestión de Catálogo e Inventario</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Código de Barras</label>
+                            <div class="input-group-custom p-1 bg-light rounded-3 d-flex align-items-center px-3">
+                                <i class="fas fa-barcode text-muted me-2"></i>
+                                <input type="text" class="form-control bg-transparent border-0" placeholder="Escanear o ingresar..." @bind="newProduct.CodigoBarras">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Tipo de Producto</label>
+                            <select class="form-select bg-light border-0 py-2 rounded-3 fw-bold" @bind="newProduct.TipoProducto">
+                                <option value="ARTICULO">ARTÍCULO / PRODUCTO</option>
+                                <option value="TELEFONO">TELÉFONO / EQUIPO</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold small text-uppercase">Nombre del Producto</label>
+                            <div class="input-group-custom p-1 bg-light rounded-3 d-flex align-items-center px-3">
+                                <i class="fas fa-tag text-muted me-2"></i>
+                                <input type="text" class="form-control bg-transparent border-0" placeholder="Ej: Cargador USB-C" @bind="newProduct.Nombre">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-uppercase">Categoría</label>
+                            <select class="form-select bg-light border-0 py-2 rounded-3" @bind="newProduct.IdCategoria">
+                                <option value="">Seleccione...</option>
+                                @foreach (var cat in categorias)
+                                {
+                                    <option value="@cat.IdCategoria">@cat.Nombre</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold small text-uppercase">Marca / Modelo</label>
+                            <div class="d-flex gap-2">
+                                <input type="text" class="form-control bg-light border-0 rounded-3" placeholder="Marca" @bind="newProduct.Marca">
+                                <input type="text" class="form-control bg-light border-0 rounded-3" placeholder="Modelo" @bind="newProduct.Modelo">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Almacenamiento (GB/TB)</label>
+                            <input type="text" class="form-control bg-light border-0 rounded-3" placeholder="Ej: 128GB" @bind="newProduct.Almacenamiento">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Color</label>
+                            <input type="text" class="form-control bg-light border-0 rounded-3" placeholder="Ej: Gris Espacial" @bind="newProduct.Color">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Precio de Compra (NIO)</label>
+                            <div class="input-group-custom p-1 bg-light rounded-3 d-flex align-items-center px-3">
+                                <i class="fas fa-hand-holding-usd text-muted me-2"></i>
+                                <input type="number" class="form-control bg-transparent border-0" @bind="newProduct.PrecioCompra">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Precio de Venta (NIO)</label>
+                            <div class="input-group-custom p-1 bg-light rounded-3 d-flex align-items-center px-3">
+                                <i class="fas fa-money-bill-wave text-muted me-2"></i>
+                                <input type="number" class="form-control bg-transparent border-0" @bind="newProduct.PrecioVenta">
+                            </div>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="flexSwitchCheckChecked" @bind="newProduct.Activo">
+                                <label class="form-check-label fw-bold" for="flexSwitchCheckChecked">Producto Activo</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Stock Inicial</label>
+                            <div class="input-group-custom p-1 bg-light rounded-3 d-flex align-items-center px-3">
+                                <i class="fas fa-cubes text-muted me-2"></i>
+                                <input type="number" class="form-control bg-transparent border-0" @bind="newProduct.StockActual">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Stock Mínimo Alerta</label>
+                            <div class="input-group-custom p-1 bg-light rounded-3 d-flex align-items-center px-3">
+                                <i class="fas fa-bell text-muted me-2"></i>
+                                <input type="number" class="form-control bg-transparent border-0" @bind="newProduct.StockMinimo">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4">
+                    <button class="btn btn-light rounded-pill px-4" @onclick="() => showRegisterModal = false">Cancelar</button>
+                    <button class="btn btn-primary rounded-pill px-4 shadow-sm" @onclick="HandleCreateProduct">
+                        <i class="fas fa-save me-2"></i>Guardar Producto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showEditModal && editingProduct != null)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-header bg-white border-0 p-4 pb-0">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="kpi-icon kpi-blue" style="width: 50px; height: 50px; background: rgba(52, 152, 219, 0.1); color: #3498db;">
+                            <i class="fas fa-pen-nib"></i>
+                        </div>
+                        <div>
+                            <h4 class="modal-title fw-bold mb-0">Editar Producto</h4>
+                            <p class="text-primary small fw-bold mb-0">@editingProduct.Nombre</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold small text-uppercase">Código de Barras</label>
+                            <div class="input-group-custom p-1 bg-light rounded-3 d-flex align-items-center px-3">
+                                <i class="fas fa-barcode text-muted me-2"></i>
+                                <input type="text" class="form-control bg-transparent border-0" @bind="editingProduct.CodigoBarras">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Nombre</label>
+                            <input type="text" class="form-control bg-light border-0 rounded-3" @bind="editingProduct.Nombre">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Marca</label>
+                            <input type="text" class="form-control bg-light border-0 rounded-3" @bind="editingProduct.Marca">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Almacenamiento</label>
+                            <input type="text" class="form-control bg-light border-0 rounded-3" @bind="editingProduct.Almacenamiento">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Color</label>
+                            <input type="text" class="form-control bg-light border-0 rounded-3" @bind="editingProduct.Color">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Precio Compra</label>
+                            <input type="number" class="form-control bg-light border-0 rounded-3" @bind="editingProduct.PrecioCompra">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Precio Venta</label>
+                            <input type="number" class="form-control bg-light border-0 rounded-3" @bind="editingProduct.PrecioVenta">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase">Stock Mínimo</label>
+                            <input type="number" class="form-control bg-light border-0 rounded-3" @bind="editingProduct.StockMinimo">
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="editSwitchChecked" @bind="editingProduct.Activo">
+                                <label class="form-check-label fw-bold" for="editSwitchChecked">Producto Activo</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4">
+                    <button class="btn btn-light rounded-pill px-4" @onclick="() => showEditModal = false">Cancelar</button>
+                    <button class="btn btn-primary rounded-pill px-4 shadow-sm" @onclick="HandleUpdateProduct">
+                        <i class="fas fa-sync me-2"></i>Actualizar Cambios
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showAdjustModal && adjustingProduct != null)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 25px;">
+                <div class="modal-header bg-white border-0 p-4 pb-0">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="kpi-icon" style="width: 50px; height: 50px; background: #e3f2fd; color: #1e88e5;">
+                            <i class="fas fa-exchange-alt"></i>
+                        </div>
+                        <div>
+                            <h4 class="modal-title fw-bold mb-0">Ajuste de Inventario</h4>
+                            <p class="text-primary small fw-bold mb-0">@adjustingProduct.Nombre</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-4 p-3 rounded-4" style="background: #f8f9fa;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-uppercase small fw-bold text-muted">Stock Actual</span>
+                            <span class="fs-4 fw-bold text-primary">@adjustingProduct.StockActual</span>
+                        </div>
+                    </div>
+
+                    <label class="form-label fw-bold small text-uppercase mb-3">Tipo de Movimiento</label>
+                    <div class="row g-2 mb-4">
+                        <div class="col-6">
+                            <button class="btn w-100 py-3 rounded-4 d-flex flex-column align-items-center gap-1 @(adjustType == "INGRESO" ? "btn-success" : "btn-outline-success border-0 bg-light")" 
+                                    @onclick='() => adjustType = "INGRESO"'>
+                                <i class="fas fa-plus-circle fa-lg"></i>
+                                <span class="fw-bold small">INGRESO</span>
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button class="btn w-100 py-3 rounded-4 d-flex flex-column align-items-center gap-1 @(adjustType == "SALIDA" ? "btn-danger" : "btn-outline-danger border-0 bg-light")" 
+                                    @onclick='() => adjustType = "SALIDA"'>
+                                <i class="fas fa-minus-circle fa-lg"></i>
+                                <span class="fw-bold small">SALIDA</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase">Cantidad</label>
+                        <div class="input-group-custom p-1 bg-light rounded-4 d-flex align-items-center px-3">
+                            <i class="fas fa-sort-numeric-up-alt text-muted me-2"></i>
+                            <input type="number" class="form-control bg-transparent border-0 fs-5" @bind="adjustQuantity" min="1">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="form-label fw-bold small text-uppercase">Observación (Opcional)</label>
+                        <textarea class="form-control border-0 bg-light rounded-4 p-3" rows="3" placeholder="Motivo del ajuste..." @bind="adjustObservation"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4">
+                    <button class="btn btn-light rounded-pill px-4 py-2" @onclick="CloseAdjustModal">Cancelar</button>
+                    <button class="btn btn-primary rounded-pill px-5 py-2 fw-bold shadow-sm" @onclick="HandleAdjustStock">
+                        <i class="fas fa-check-circle me-2"></i>Aplicar Ajuste
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Producto>? productos;
+    private List<Categoria> categorias = new();
     private InventoryStatsDto stats = new();
     private string SearchTerm = "";
     private string FiltroTipo = "TODOS";
     private System.Timers.Timer? debounceTimer;
 
+    // Modal state
+    private bool showRegisterModal = false;
+    private bool showEditModal = false;
+    private bool showAdjustModal = false;
+    
+    // Form data
+    private Producto newProduct = new() { Activo = true, StockActual = 0, StockMinimo = 5, TipoProducto = "ARTICULO" };
+    private Producto? editingProduct;
+    private Producto? adjustingProduct;
+    
+    private string adjustType = "INGRESO"; // INGRESO or SALIDA
+    private int adjustQuantity = 1;
+    private string adjustObservation = "";
+
     protected override async Task OnInitializedAsync()
     {
+        // Redireccionar si no hay sesión (Simulado para este ejemplo, ideally use a base class or layout check)
+        if (!UserSession.IsAuthenticated)
+        {
+            // Navigation.NavigateTo("/login"); 
+        }
+
         debounceTimer = new System.Timers.Timer(300);
         debounceTimer.AutoReset = false;
         debounceTimer.Elapsed += async (s, e) => await InvokeAsync(async () => await HandleSearch());
         
+        categorias = await ProductService.GetCategoriasAsync();
+        await LoadData();
+    }
+
+    private void OpenRegisterModal()
+    {
+        newProduct = new Producto { Activo = true, StockActual = 0, StockMinimo = 5, TipoProducto = "ARTICULO", FechaCreacion = DateTime.Now };
+        showRegisterModal = true;
+        StateHasChanged();
+    }
+
+    private async Task HandleCreateProduct()
+    {
+        if (string.IsNullOrWhiteSpace(newProduct.Nombre)) return;
+        
+        await ProductService.CreateProductAsync(newProduct);
+        showRegisterModal = false;
+        await LoadData();
+    }
+
+    private void OpenEditModal(Producto p)
+    {
+        editingProduct = new Producto {
+            IdProducto = p.IdProducto,
+            Nombre = p.Nombre,
+            Marca = p.Marca,
+            Modelo = p.Modelo,
+            PrecioVenta = p.PrecioVenta,
+            StockActual = p.StockActual,
+            StockMinimo = p.StockMinimo,
+            Activo = p.Activo,
+            IdCategoria = p.IdCategoria,
+            TipoProducto = p.TipoProducto,
+            CodigoBarras = p.CodigoBarras,
+            Almacenamiento = p.Almacenamiento,
+            Color = p.Color,
+            PrecioCompra = p.PrecioCompra
+        };
+        showEditModal = true;
+        StateHasChanged();
+    }
+
+    private async Task HandleUpdateProduct()
+    {
+        if (editingProduct == null) return;
+        
+        await ProductService.UpdateProductAsync(editingProduct);
+        showEditModal = false;
+        await LoadData();
+    }
+
+    private void OpenAdjustModal(Producto p)
+    {
+        adjustingProduct = p;
+        adjustType = "INGRESO";
+        adjustQuantity = 1;
+        adjustObservation = "";
+        showAdjustModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseAdjustModal() => showAdjustModal = false;
+
+    private async Task HandleAdjustStock()
+    {
+        if (adjustingProduct == null || adjustQuantity <= 0) return;
+
+        int nuevaCantidad = adjustingProduct.StockActual;
+        string obsPrefix = adjustType == "INGRESO" ? "[AJUSTE ENTRADA]" : "[AJUSTE SALIDA]";
+        
+        if (adjustType == "INGRESO")
+            nuevaCantidad += adjustQuantity;
+        else
+            nuevaCantidad -= adjustQuantity;
+
+        if (nuevaCantidad < 0) {
+            // Error handling could be alert here
+            return;
+        }
+
+        string fullObs = $"{obsPrefix} {adjustObservation}".Trim();
+        await ProductService.AdjustStockAsync(adjustingProduct.IdProducto, nuevaCantidad, fullObs);
+        
+        showAdjustModal = false;
         await LoadData();
     }
 

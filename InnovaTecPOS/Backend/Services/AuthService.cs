@@ -12,7 +12,7 @@ public interface IAuthService
 
 public class LoginResponse
 {
-    public bool Success { get; set; }
+    public int Success { get; set; } // 1 = Éxito, 0 = Fallo (Coincide con el INT del SP)
     public string Message { get; set; } = string.Empty;
     public int? UserId { get; set; }
 }
@@ -20,33 +20,46 @@ public class LoginResponse
 public class AuthService : IAuthService
 {
     private readonly InnovaTecDbContext _context;
+    private readonly UserSession _userSession;
 
-    public AuthService(InnovaTecDbContext context)
+    public AuthService(InnovaTecDbContext context, UserSession userSession)
     {
         _context = context;
+        _userSession = userSession;
     }
 
     public async Task<LoginResponse> IniciarSesionAsync(string username, string password)
     {
-        var successParam = new SqlParameter("@Success", SqlDbType.Bit) { Direction = ParameterDirection.Output };
-        var messageParam = new SqlParameter("@Message", SqlDbType.NVarChar, 255) { Direction = ParameterDirection.Output };
-        var userIdParam = new SqlParameter("@UserId", SqlDbType.Int) { Direction = ParameterDirection.Output };
-
-        // Aunque el SP devuelve un SELECT en mi implementación previa, 
-        // para mayor robustez en .NET suelo usar parámetros de salida o mapear el resultado del SELECT.
-        // Dado que el SP anterior hace un SELECT, usaremos SqlQuery o FromSqlRaw.
-        
         try 
         {
             var result = await _context.Database
                 .SqlQueryRaw<LoginResponse>("EXEC ADM.sp_IniciarSesion @Username={0}, @Password={1}", username, password)
                 .ToListAsync();
 
-            return result.FirstOrDefault() ?? new LoginResponse { Success = false, Message = "Error inesperado en el servidor" };
+            var response = result.FirstOrDefault() ?? new LoginResponse { Success = 0, Message = "Error inesperado en el servidor" };
+
+            if (response.Success == 1 && response.UserId.HasValue)
+            {
+                var user = await _context.Usuarios
+                    .Include(u => u.IdEmpleadoNavigation)
+                        .ThenInclude(e => e.IdPersonaNavigation)
+                    .Include(u => u.IdRolNavigation)
+                    .FirstOrDefaultAsync(u => u.IdUsuario == response.UserId.Value);
+
+                if (user != null)
+                {
+                    _userSession.UserId = user.IdUsuario;
+                    _userSession.Username = user.Username;
+                    _userSession.NombreCompleto = user.IdEmpleadoNavigation.IdPersonaNavigation.NombreCompleto;
+                    _userSession.Rol = user.IdRolNavigation.Nombre;
+                }
+            }
+
+            return response;
         }
         catch (Exception ex)
         {
-            return new LoginResponse { Success = false, Message = $"Error de conexión: {ex.Message}" };
+            return new LoginResponse { Success = 0, Message = $"Error de conexión: {ex.Message}" };
         }
     }
 }
