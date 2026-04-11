@@ -51,6 +51,14 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "dependencies": {
+            "BouncyCastle.NetCore": {
+              "target": "Package",
+              "version": "[2.2.1, )"
+            },
+            "ClosedXML": {
+              "target": "Package",
+              "version": "[0.105.0, )"
+            },
             "Microsoft.AspNetCore.App.Internal.Assets": {
               "suppressParent": "All",
               "target": "Package",
@@ -72,6 +80,14 @@
               "suppressParent": "All",
               "target": "Package",
               "version": "[10.0.5, )"
+            },
+            "itext.bouncy-castle-adapter": {
+              "target": "Package",
+              "version": "[9.6.0, )"
+            },
+            "itext7": {
+              "target": "Package",
+              "version": "[9.6.0, )"
             }
           },
           "imports": [

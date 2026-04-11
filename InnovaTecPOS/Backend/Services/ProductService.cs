@@ -18,6 +18,7 @@ public interface IProductService
     Task CreateProductAsync(Producto producto);
     Task UpdateProductAsync(Producto producto);
     Task AdjustStockAsync(int idProducto, int nuevaCantidad, string observacion);
+    Task<List<Movimiento>> GetProductMovementsAsync(int idProducto);
 }
 
 public class ProductService : IProductService
@@ -167,5 +168,16 @@ public class ProductService : IProductService
         producto.StockActual = nuevaCantidad;
         
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<Movimiento>> GetProductMovementsAsync(int idProducto)
+    {
+        return await _context.Movimientos
+            .Include(m => m.IdTipoMovNavigation)
+            .Include(m => m.RegistradoPorNavigation)
+            .Where(m => m.IdProducto == idProducto)
+            .OrderByDescending(m => m.FechaMov)
+            .AsNoTracking()
+            .ToListAsync();
     }
 }

@@ -3,9 +3,11 @@
 @using InnovaTecPOS.Backend.DTOs
 @using InnovaTecPOS.Backend.Models
 @inject IProductService ProductService
+@inject IExportService ExportService
 @inject UserSession UserSession
 @inject NavigationManager Navigation
 @inject ToastService ToastService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Inventario - InnovaTec</PageTitle>
 
@@ -17,11 +19,14 @@
             <p>Control de existencias y productos registrados</p>
         </div>
         <div class="inv-actions">
-            <button class="btn btn-outline-secondary me-2">
-                <i class="fas fa-file-excel me-1"></i> Exportar Excel
+            <button class="btn btn-outline-secondary me-2 d-inline-flex align-items-center gap-2" @onclick="DownloadExcel">
+                <i class="fas fa-file-excel"></i> Excel
+            </button>
+            <button class="btn btn-outline-danger me-2 d-inline-flex align-items-center gap-2" @onclick="DownloadPdf">
+                <i class="fas fa-file-pdf"></i> PDF
             </button>
             <button class="btn btn-primary d-inline-flex align-items-center gap-2" @onclick="OpenRegisterModal">
-                <i class="fas fa-plus"></i> Nuevo Producto
+                <i class="fas fa-plus"></i> Nuevo
             </button>
         </div>
     </div>
@@ -168,7 +173,7 @@
                                     <button class="btn-action" title="Editar" @onclick="() => OpenEditModal(prod)">
                                         <i class="fas fa-pen"></i>
                                     </button>
-                                    <button class="btn-action" title="Detalles">
+                                    <button class="btn-action" title="Detalles" @onclick="() => OpenDetailModal(prod)">
                                         <i class="fas fa-info-circle"></i>
                                     </button>
                                 </div>
@@ -493,6 +498,192 @@
     </div>
 }
 
+@if (showDetailModal && selectedProduct != null)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden; height: 85vh;">
+                <div class="modal-header border-0 bg-white p-4 pb-2">
+                    <div class="d-flex align-items-center justify-content-between w-100">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="kpi-icon kpi-cyan shadow-sm" style="width: 50px; height: 50px;">
+                                <i class="fas fa-file-invoice"></i>
+                            </div>
+                            <div>
+                                <h4 class="modal-title fw-bold mb-0">Detalle del Producto</h4>
+                                <p class="text-muted small mb-0">Auditoría completa y Kardex de movimientos</p>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="d-block fw-bold text-primary fs-3">@selectedProduct.StockActual</span>
+                            <span class="text-muted small text-uppercase fw-bold">Unidades en Stock</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body p-0 overflow-hidden text-dark">
+                    <div class="row g-0 h-100">
+                        <!-- Sidebar: Datos Maestros -->
+                        <div class="col-lg-3 border-end bg-light p-4 overflow-auto">
+                            <div class="product-detail-card bg-white p-3 rounded-4 shadow-sm mb-4">
+                                <h6 class="fw-bold text-uppercase small text-muted mb-3 border-bottom pb-2">Datos Maestros</h6>
+                                <div class="mb-2">
+                                    <label class="d-block small text-muted">Nombre</label>
+                                    <span class="fw-bold text-dark">@selectedProduct.Nombre</span>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="d-block small text-muted">SKU / Código</label>
+                                    <span class="item-code">@(selectedProduct.CodigoBarras ?? "S/N")</span>
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <label class="d-block small text-muted">Marca</label>
+                                        <span class="fw-semibold">@selectedProduct.Marca</span>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="d-block small text-muted">Modelo</label>
+                                        <span class="fw-semibold">@selectedProduct.Modelo</span>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="d-block small text-muted">Categoría</label>
+                                    <span class="badge-tipo badge-tipo-articulo w-100 text-center">
+                                        @(selectedProduct.IdCategoriaNavigation?.Nombre ?? "S/C")
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="pricing-card bg-primary bg-opacity-10 p-3 rounded-4 border border-primary border-opacity-10">
+                                <h6 class="fw-bold text-primary text-uppercase small mb-3">Finanzas</h6>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="small text-muted">Precio Venta</span>
+                                    <span class="fw-bold text-primary">C$ @selectedProduct.PrecioVenta.ToString("N2")</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="small text-muted">Precio Compra</span>
+                                    <span class="fw-semibold">C$ @(selectedProduct.PrecioCompra?.ToString("N2") ?? "0.00")</span>
+                                </div>
+                                <div class="border-top pt-2 mt-2 d-flex justify-content-between">
+                                    <span class="small fw-bold">Valor Total</span>
+                                    <span class="fw-bold">C$ @((selectedProduct.PrecioVenta * selectedProduct.StockActual).ToString("N2"))</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Main Content: Kardex History -->
+                        <div class="col-lg-9 d-flex flex-column bg-white">
+                            <div class="flex-grow-1 overflow-auto p-4 pt-2">
+                                <div class="d-flex align-items-center justify-content-between mb-3 mt-2">
+                                    <h5 class="fw-bold mb-0"><i class="fas fa-history me-2 text-muted"></i>Movimientos de Inventario</h5>
+                                    <span class="badge rounded-pill bg-light text-dark border">@productMovements.Count registros</span>
+                                </div>
+
+                                @if (productMovements == null || !productMovements.Any())
+                                {
+                                    <div class="text-center py-5 bg-light rounded-4 border border-dashed rounded">
+                                        <i class="fas fa-layer-group fa-3x text-muted mb-3 opacity-50"></i>
+                                        <p class="text-muted">Sin registros de movimientos.</p>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle">
+                                            <thead class="bg-light sticky-top">
+                                                <tr>
+                                                    <th class="border-0 small text-uppercase text-muted ps-3">Fecha</th>
+                                                    <th class="border-0 small text-uppercase text-muted">Operación</th>
+                                                    <th class="border-0 small text-uppercase text-muted text-center">Cant.</th>
+                                                    <th class="border-0 small text-uppercase text-muted text-center">Stock Final</th>
+                                                    <th class="border-0 small text-uppercase text-muted">Referencia</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @{
+                                                    var pagedMovements = productMovements
+                                                        .Skip((historyCurrentPage - 1) * historyPageSize)
+                                                        .Take(historyPageSize)
+                                                        .ToList();
+                                                }
+                                                @foreach (var mov in pagedMovements)
+                                                {
+                                                    <tr>
+                                                        <td class="ps-3">
+                                                            <div class="d-flex flex-column">
+                                                                <span class="fw-semibold">@mov.FechaMov.ToString("dd/MM/yyyy")</span>
+                                                                <small class="text-muted">@mov.FechaMov.ToString("hh:mm tt")</small>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            @{
+                                                                var isPositive = mov.IdTipoMovNavigation.Signo == "+";
+                                                                var badgeClass = isPositive ? "text-success bg-success bg-opacity-10" : "text-danger bg-danger bg-opacity-10";
+                                                            }
+                                                            <span class="badge @badgeClass rounded-pill px-3 py-2 fw-bold">
+                                                                @mov.IdTipoMovNavigation.Nombre
+                                                            </span>
+                                                        </td>
+                                                        <td class="text-center fw-bold @(isPositive ? "text-success" : "text-danger")">
+                                                            @(isPositive ? "+" : "-") @mov.Cantidad
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <span class="fw-bold">@mov.StockDespues</span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex flex-column text-dark">
+                                                                <span class="fw-medium small">@(mov.RegistradoPorNavigation?.Username ?? "Sistema")</span>
+                                                                <small class="text-muted text-truncate" style="max-width: 250px;">
+                                                                    @(mov.Observacion ?? "...")
+                                                                </small>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    @if (productMovements.Count > historyPageSize)
+                                    {
+                                        var totalHistoryPages = (int)Math.Ceiling((double)productMovements.Count / historyPageSize);
+                                        <div class="d-flex justify-content-center mt-3">
+                                            <nav>
+                                                <ul class="pagination pagination-sm pagination-premium mb-0">
+                                                    <li class="page-item @(historyCurrentPage == 1 ? "disabled" : "")">
+                                                        <button class="page-link" @onclick="() => SetHistoryPage(historyCurrentPage - 1)">
+                                                            <i class="fas fa-chevron-left"></i>
+                                                        </button>
+                                                    </li>
+                                                    
+                                                    @for (int i = 1; i <= totalHistoryPages; i++)
+                                                    {
+                                                        var pageNum = i;
+                                                        <li class="page-item @(historyCurrentPage == pageNum ? "active" : "")">
+                                                            <button class="page-link" @onclick="() => SetHistoryPage(pageNum)">@pageNum</button>
+                                                        </li>
+                                                    }
+                                                    
+                                                    <li class="page-item @(historyCurrentPage == totalHistoryPages ? "disabled" : "")">
+                                                        <button class="page-link" @onclick="() => SetHistoryPage(historyCurrentPage + 1)">
+                                                            <i class="fas fa-chevron-right"></i>
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                            </nav>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-2 bg-light">
+                    <button class="btn btn-secondary rounded-pill px-5 fw-bold" @onclick="() => showDetailModal = false">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Producto>? productos;
     private List<Categoria> categorias = new();
@@ -507,11 +698,18 @@
     private bool showRegisterModal = false;
     private bool showEditModal = false;
     private bool showAdjustModal = false;
+    private bool showDetailModal = false;
     
     // Form data
     private Producto newProduct = new() { Activo = true, StockActual = 0, StockMinimo = 5 };
     private Producto? editingProduct;
     private Producto? adjustingProduct;
+    private Producto? selectedProduct;
+    private List<Movimiento> productMovements = new();
+    
+    // History Pagination
+    private int historyCurrentPage = 1;
+    private int historyPageSize = 5;
     
     private string adjustType = "INGRESO"; // INGRESO or SALIDA
     private int adjustQuantity = 1;
@@ -630,6 +828,53 @@
     }
 
     private void CloseAdjustModal() => showAdjustModal = false;
+
+    private async Task OpenDetailModal(Producto p)
+    {
+        selectedProduct = p;
+        historyCurrentPage = 1; // Reset to page 1
+        productMovements = await ProductService.GetProductMovementsAsync(p.IdProducto);
+        showDetailModal = true;
+        StateHasChanged();
+    }
+
+    private void SetHistoryPage(int page)
+    {
+        historyCurrentPage = page;
+        StateHasChanged();
+    }
+
+    private async Task DownloadExcel()
+    {
+        try
+        {
+            var bytes = ExportService.GenerateInventoryExcel(productos);
+            var stream = new MemoryStream(bytes);
+            using var streamRef = new DotNetStreamReference(stream);
+            await JSRuntime.InvokeVoidAsync("downloadFileFromStream", $"Inventario_{DateTime.Now:ddMMyy}.xlsx", streamRef);
+            ToastService.ShowSuccess("Archivo Excel generado con éxito");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Error al generar Excel: " + ex.Message);
+        }
+    }
+
+    private async Task DownloadPdf()
+    {
+        try
+        {
+            var bytes = ExportService.GenerateInventoryPdf(productos);
+            var stream = new MemoryStream(bytes);
+            using var streamRef = new DotNetStreamReference(stream);
+            await JSRuntime.InvokeVoidAsync("downloadFileFromStream", $"Inventario_{DateTime.Now:ddMMyy}.pdf", streamRef);
+            ToastService.ShowSuccess("Reporte PDF generado con éxito");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Error al generar PDF: " + ex.Message);
+        }
+    }
 
     private async Task HandleAdjustStock()
     {
