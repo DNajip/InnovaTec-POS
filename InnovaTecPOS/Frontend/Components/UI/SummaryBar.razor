@@ -1,0 +1,51 @@
+@using InnovaTecPOS.Backend.Services
+@implements IDisposable
+@inject SaleService SaleService
+
+<section class="summary-bar">
+    <div class="summary-stats-group">
+        <div class="stat-item">
+            <span class="stat-label">Unidades</span>
+            <span class="stat-value">@SaleService.TotalUnits</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Sub Total</span>
+            <span class="stat-value text-muted">C$ @SaleService.SubTotal.ToString("N2")</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Aplicar descuento</span>
+            <div class="input-group input-group-sm discount-input-group">
+                <span class="input-group-text">-C$</span>
+                <input type="number" class="form-control" @bind="SaleService.Discount" @bind:event="oninput" step="0.01">
+            </div>
+        </div>
+    </div>
+
+    <div class="checkout-area">
+        <div class="total-box">
+            <p class="total-label">Total</p>
+            <span class="total-amount">C$ @SaleService.Total.ToString("N2")</span>
+        </div>
+        <button class="btn btn-checkout">
+            <i class="fas fa-file-invoice me-2"></i>
+            FACTURAR
+        </button>
+    </div>
+</section>
+
+@code {
+    protected override void OnInitialized()
+    {
+        SaleService.PropertyChanged += OnServicePropertyChanged;
+    }
+
+    private void OnServicePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        SaleService.PropertyChanged -= OnServicePropertyChanged;
+    }
+}

@@ -1,0 +1,42 @@
+@implements IDisposable
+@inject IJSRuntime JSRuntime
+
+<header class="pos-header">
+    <div class="container-fluid">
+        <div class="d-flex align-items-center justify-content-between">
+            <div class="brand-container d-flex align-items-center gap-2">
+                <img src="images/logo.png" alt="InnovaTec" class="brand-logo" />
+                <span class="brand-name">INNOVATEC-POS</span>
+            </div>
+            
+            <div class="user-info-block d-flex gap-4 ms-4 d-none d-md-flex">
+                <div class="text-end">
+                    <div class="status-label">Fecha y hora</div>
+                    <div class="fw-semibold text-dark">
+                        <i class="far fa-calendar me-1"></i>
+                        <span id="digital-clock">Cargando...</span>
+                    </div>
+                </div>
+                <div class="text-end border-start ps-4">
+                    <div class="status-label">Usuario activo</div>
+                    <div class="fw-bold text-primary"><i class="fas fa-user-circle me-1"></i>Jackson</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("startClock");
+        }
+    }
+
+    public void Dispose()
+    {
+        // No hay timers de busqueda que limpiar aqui ahora
+    }
+}

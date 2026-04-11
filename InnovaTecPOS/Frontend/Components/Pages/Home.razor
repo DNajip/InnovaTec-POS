@@ -1,0 +1,149 @@
+@page "/"
+@using InnovaTecPOS.Backend.Services
+@implements IDisposable
+@inject SaleService SaleService
+@inject IProductService ProductService
+
+<PageTitle>Ventas - InnovaTec</PageTitle>
+
+<div class="p-3 bg-white border-bottom d-flex justify-content-start align-items-center">
+    <div class="search-container position-relative ms-2" style="max-width: 800px; flex: 1;">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" class="form-control pos-input" 
+               placeholder="Escanear o ingresar nombre del producto"
+               @bind="SearchTerm" 
+               @bind:event="oninput" 
+               @onkeyup="HandleSearch" />
+        
+        @if (SearchResults != null && SearchResults.Any())
+        {
+            <div class="search-results-dropdown position-absolute w-100 bg-white border rounded mt-1 shadow-lg" style="z-index: 1050; max-height: 400px; overflow-y: auto;">
+                <ul class="list-group list-group-flush">
+                    @foreach (var prod in SearchResults)
+                    {
+                        <li class="list-group-item list-group-item-action" style="cursor: pointer;" @onclick="() => SelectProduct(prod)">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="d-block fw-bold">@prod.Nombre</span>
+                                    <small class="text-muted">Cód: @prod.CodigoBarras | Disp: @prod.StockActual</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="d-block text-primary fw-bold">C$ @prod.PrecioVenta.ToString("N2")</span>
+                                </div>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="table-container flex-grow-1 overflow-auto">
+    <table class="pos-table">
+        <thead>
+            <tr>
+                <th style="width: 40px;"></th>
+                <th style="width: 50px;">Sel</th>
+                <th>Acción</th>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th class="text-end">Precio Unit.</th>
+                <th class="text-center">Cant.</th>
+                <th class="text-end">Subtotal</th>
+                <th>Vendedor</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in SaleService.Items)
+            {
+                <tr>
+                    <td><i class="fas fa-chevron-right text-muted" style="font-size: 0.8rem;"></i></td>
+                    <td><input type="checkbox" class="form-check-input"></td>
+                    <td><button class="btn btn-sm btn-light border">Acción</button></td>
+                    <td><span class="item-code">@item.Code</span></td>
+                    <td><strong>@item.Description</strong></td>
+                    <td class="text-end font-monospace">C$ @item.UnitPrice.ToString("N2")</td>
+                    <td class="text-center">
+                        <input type="number" class="form-control form-control-sm qty-input" @bind="item.Quantity" @bind:event="oninput" min="1" @onkeyup="() => SaleService.NotifyAll()" />
+                    </td>
+                    <td class="text-end fw-bold">C$ @item.SubTotal.ToString("N2")</td>
+                    <td><span class="badge bg-secondary">Jackson</span></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private string SearchTerm { get; set; } = "";
+    private List<InnovaTecPOS.Backend.Models.Producto>? SearchResults;
+    private System.Timers.Timer debounceTimer = new System.Timers.Timer(300);
+
+    protected override void OnInitialized()
+    {
+        debounceTimer.AutoReset = false;
+        debounceTimer.Elapsed += async (s, e) => await OnSearchTimerElapsed();
+        
+        SaleService.PropertyChanged += OnServicePropertyChanged;
+    }
+
+    private void HandleSearch(KeyboardEventArgs e)
+    {
+        debounceTimer.Stop();
+        debounceTimer.Start();
+    }
+
+    private async Task OnSearchTimerElapsed()
+    {
+        await InvokeAsync(async () => 
+        {
+            try 
+            {
+                if (SearchTerm.Length >= 2)
+                {
+                    SearchResults = await ProductService.SearchProductsAsync(SearchTerm);
+                }
+                else
+                {
+                    SearchResults = null;
+                }
+            } 
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Search error: {ex.Message}");
+                SearchResults = null;
+            }
+            StateHasChanged();
+        });
+    }
+
+    private void SelectProduct(InnovaTecPOS.Backend.Models.Producto prod)
+    {
+        SaleService.AddItem(new CartItem
+        {
+            IdProducto = prod.IdProducto,
+            Code = prod.CodigoBarras ?? "",
+            Description = prod.Nombre,
+            UnitPrice = prod.PrecioVenta,
+            Quantity = 1,
+            RequiresImei = prod.TipoProducto == "TELEFONO"
+        });
+
+        SearchTerm = "";
+        SearchResults = null;
+        StateHasChanged();
+    }
+
+    private void OnServicePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        SaleService.PropertyChanged -= OnServicePropertyChanged;
+        debounceTimer?.Stop();
+        debounceTimer?.Dispose();
+    }
+}

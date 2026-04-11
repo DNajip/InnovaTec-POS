@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="app.css" />
+    <ImportMap />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
+</head>
+
+<body>
+    <Routes @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
+    <script>
+        window.startClock = () => {
+            const el = document.getElementById('digital-clock');
+            if (!el) return;
+            const update = () => {
+                const now = new Date();
+                const day = String(now.getDate()).padStart(2, '0');
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const year = now.getFullYear();
+                
+                let hours = now.getHours();
+                const ampm = hours >= 12 ? 'p. m.' : 'a. m.';
+                hours = hours % 12;
+                hours = hours ? hours : 12; 
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                
+                el.innerText = `${day}-${month}-${year} | ${hours}:${minutes} ${ampm}`;
+            };
+            update();
+            setInterval(update, 1000);
+        };
+    </script>
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>

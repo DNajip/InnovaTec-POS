@@ -1,0 +1,32 @@
+@inherits LayoutComponentBase
+
+<div class="d-flex flex-column vh-100 overflow-hidden">
+    <InnovaHeader />
+
+    <div class="main-container flex-grow-1 overflow-hidden">
+        <InnovaSidebar />
+        
+        <div class="d-flex flex-column flex-grow-1 overflow-hidden">
+            <section class="content-area flex-grow-1 overflow-auto shadow-inset">
+                @Body
+            </section>
+
+            @if (ShouldShowSummary())
+            {
+                <SummaryBar />
+            }
+
+            <ControlHub />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private bool ShouldShowSummary()
+    {
+        var path = Navigation.ToBaseRelativePath(Navigation.Uri);
+        return string.IsNullOrEmpty(path);
+    }
+}

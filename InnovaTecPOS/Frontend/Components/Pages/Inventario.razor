@@ -1,0 +1,244 @@
+@page "/inventario"
+@using InnovaTecPOS.Backend.Services
+@using InnovaTecPOS.Backend.DTOs
+@using InnovaTecPOS.Backend.Models
+@inject IProductService ProductService
+
+<PageTitle>Inventario - InnovaTec</PageTitle>
+
+<div class="inv-container">
+    <!-- Header del Módulo -->
+    <div class="inv-header">
+        <div class="inv-title-group">
+            <h2>Inventario</h2>
+            <p>Control de existencias y productos registrados</p>
+        </div>
+        <div class="inv-actions">
+            <button class="btn btn-outline-secondary me-2">
+                <i class="fas fa-file-excel me-1"></i> Exportar Excel
+            </button>
+            <button class="btn btn-primary d-inline-flex align-items-center gap-2">
+                <i class="fas fa-plus"></i> Nuevo Producto
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="inv-kpi-grid">
+        <div class="inv-kpi-card kpi-blue">
+            <div class="kpi-icon">
+                <i class="fas fa-boxes"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-label">Total Productos</span>
+                <span class="kpi-value">@stats.TotalProductos</span>
+            </div>
+        </div>
+        <div class="inv-kpi-card kpi-yellow">
+            <div class="kpi-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-label">Stock Bajo</span>
+                <span class="kpi-value">@stats.StockBajo</span>
+            </div>
+        </div>
+        <div class="inv-kpi-card kpi-red">
+            <div class="kpi-icon">
+                <i class="fas fa-times-circle"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-label">Sin Stock</span>
+                <span class="kpi-value">@stats.SinStock</span>
+            </div>
+        </div>
+        <div class="inv-kpi-card kpi-cyan">
+            <div class="kpi-icon">
+                <i class="fas fa-coins"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-label">Valorización</span>
+                <span class="kpi-value">C$ @stats.Valorizacion.ToString("N2")</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de Filtros -->
+    <div class="p-3 bg-white border rounded shadow-sm d-flex gap-3 align-items-center">
+        <div class="position-relative flex-grow-1">
+            <i class="fas fa-search position-absolute top-50 translate-middle-y text-muted ms-3"></i>
+            <input type="text" class="form-control ps-5" placeholder="Buscar por nombre o código... (Presione Enter)" 
+                   @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleKeyUp" />
+        </div>
+        
+        <div class="btn-group">
+            <button type="button" class="btn @(FiltroTipo == "TODOS" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetFiltro("TODOS")'>Todos</button>
+            <button type="button" class="btn @(FiltroTipo == "TELEFONO" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetFiltro("TELEFONO")'>Teléfonos</button>
+            <button type="button" class="btn @(FiltroTipo == "ARTICULO" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetFiltro("ARTICULO")'>Artículos</button>
+        </div>
+    </div>
+
+    <!-- Tabla de Productos -->
+    <div class="inv-table">
+        <table class="pos-table mb-0">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Tipo</th>
+                    <th class="text-end">Precio Unit.</th>
+                    <th class="text-center">Stock Actual</th>
+                    <th class="text-end">Valor Total</th>
+                    <th>Estado</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (productos == null)
+                {
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="mt-2 text-muted">Cargando inventario...</p>
+                        </td>
+                    </tr>
+                }
+                else if (!productos.Any())
+                {
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No se encontraron productos.</p>
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var prod in productos)
+                    {
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="kpi-icon" style="width: 40px; height: 40px; font-size: 1rem; flex-shrink: 0;">
+                                        <i class='fas @(prod.TipoProducto.Trim() == "TELEFONO" ? "fa-mobile-alt" : "fa-tag")'></i>
+                                    </div>
+                                    <div style="min-width: 200px;">
+                                        <span class="d-block fw-bold">@prod.Nombre</span>
+                                        <small class="text-muted">@prod.Marca @prod.Modelo</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge-tipo badge-tipo-@(prod.TipoProducto.Trim().ToLower())">@prod.TipoProducto.Trim()</span>
+                            </td>
+                            <td class="text-end fw-semibold">C$ @prod.PrecioVenta.ToString("N2")</td>
+                            <td class="text-center">
+                                <div class="d-inline-block text-start">
+                                    <span class="fw-bold fs-5">@prod.StockActual</span>
+                                    <small class="text-muted">/ @prod.StockMinimo mín.</small>
+                                    <div class="stock-bar-container">
+                                        <div class="stock-bar @GetStockBarClass(prod)" style="width: @GetStockPercent(prod)%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-end fw-bold">C$ @((prod.PrecioVenta * prod.StockActual).ToString("N2"))</td>
+                            <td>
+                                <span class="badge-estado @GetEstadoClass(prod)">
+                                    @(prod.EstadoStock == "DISPONIBLE" ? "Disponible" : prod.EstadoStock == "CRITICO" ? "Crítico" : "Agotado")
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center">
+                                    <button class="btn-action" title="Ajustar Stock">
+                                        <i class="fas fa-exchange-alt"></i>
+                                    </button>
+                                    <button class="btn-action" title="Editar">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                    <button class="btn-action" title="Detalles">
+                                        <i class="fas fa-info-circle"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<Producto>? productos;
+    private InventoryStatsDto stats = new();
+    private string SearchTerm = "";
+    private string FiltroTipo = "TODOS";
+    private System.Timers.Timer? debounceTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        debounceTimer = new System.Timers.Timer(300);
+        debounceTimer.AutoReset = false;
+        debounceTimer.Elapsed += async (s, e) => await InvokeAsync(async () => await HandleSearch());
+        
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        stats = await ProductService.GetInventoryStatsAsync();
+        productos = await ProductService.GetAllProductsAsync(SearchTerm, FiltroTipo);
+        StateHasChanged();
+    }
+
+    private void HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            debounceTimer?.Stop();
+            _ = HandleSearch();
+        }
+        else
+        {
+            debounceTimer?.Stop();
+            debounceTimer?.Start();
+        }
+    }
+
+    private async Task HandleSearch()
+    {
+        productos = await ProductService.GetAllProductsAsync(SearchTerm, FiltroTipo);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SetFiltro(string tipo)
+    {
+        FiltroTipo = tipo;
+        await LoadData();
+    }
+
+    private string GetEstadoClass(Producto p) => p.EstadoStock switch {
+        "DISPONIBLE" => "badge-estado-disp",
+        "CRITICO" => "badge-estado-crit",
+        "AGOTADO" => "badge-estado-agot",
+        _ => ""
+    };
+
+    private string GetStockBarClass(Producto p) => p.EstadoStock switch {
+        "DISPONIBLE" => "stock-bar-green",
+        "CRITICO" => "stock-bar-yellow",
+        "AGOTADO" => "stock-bar-red",
+        _ => ""
+    };
+
+    private double GetStockPercent(Producto p) {
+        if (p.StockActual <= 0) return 0;
+        if (p.StockActual >= p.StockMinimo * 2) return 100;
+        return (double)p.StockActual / (p.StockMinimo * 2) * 100;
+    }
+
+    public void Dispose()
+    {
+        debounceTimer?.Stop();
+        debounceTimer?.Dispose();
+    }
+}

@@ -1,0 +1,30 @@
+@inject NavigationManager Navigation
+
+<footer class="pos-footer">
+    <a href="#" class="action-btn action-btn-success">
+        <i class="fas fa-cash-register"></i>
+        <span>Caja abierta</span>
+        <span class="sub-text">Cerrar caja</span>
+    </a>
+    <a href="/inventario" class="action-btn @(IsActive("/inventario") ? "active" : "")">
+        <i class="fas fa-boxes"></i>
+        <span>Precio / Inventario</span>
+    </a>
+    <a href="/clientes" class="action-btn @(IsActive("/clientes") ? "active" : "")">
+        <i class="fas fa-users"></i>
+        <span>Clientes</span>
+    </a>
+    <a href="/facturas" class="action-btn @(IsActive("/facturas") ? "active" : "")">
+        <i class="fas fa-file-invoice"></i>
+        <span>Facturas</span>
+    </a>
+</footer>
+
+@code {
+    private bool IsActive(string href)
+    {
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (href == "/") return string.IsNullOrEmpty(relativePath);
+        return $"/{relativePath}" == href;
+    }
+}

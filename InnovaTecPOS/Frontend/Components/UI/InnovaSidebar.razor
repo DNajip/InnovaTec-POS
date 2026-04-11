@@ -1,0 +1,16 @@
+@inject NavigationManager Navigation
+
+<nav class="sidebar-tabs">
+    <a href="/" class="tab-vertical @(IsActive("/") ? "active" : "")">TRANSACCIÓN</a>
+    <a href="/reportes" class="tab-vertical @(IsActive("/reportes") ? "active" : "")">REPORTE</a>
+    <a href="/config" class="tab-vertical @(IsActive("/config") ? "active" : "")">CONFIGURACIÓN</a>
+</nav>
+
+@code {
+    private bool IsActive(string href)
+    {
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (href == "/") return string.IsNullOrEmpty(relativePath);
+        return $"/{relativePath}" == href;
+    }
+}
