@@ -587,9 +587,11 @@
 
     private async Task LoadData()
     {
+        Console.WriteLine("Inventory: Starting LoadData...");
         stats = await ProductService.GetInventoryStatsAsync();
         productos = await ProductService.GetAllProductsAsync(SearchTerm, selectedCategoryId);
-        StateHasChanged();
+        Console.WriteLine($"Inventory: Loaded {productos.Count} products.");
+        await InvokeAsync(StateHasChanged);
     }
 
     private void HandleKeyUp(KeyboardEventArgs e)

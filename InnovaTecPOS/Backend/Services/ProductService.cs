@@ -90,6 +90,7 @@ public class ProductService : IProductService
 
     public async Task<InventoryStatsDto> GetInventoryStatsAsync()
     {
+        Console.WriteLine("Service: GetInventoryStatsAsync called");
         var productos = await _context.Productos.AsNoTracking().Where(p => p.Activo == true).ToListAsync();
 
         return new InventoryStatsDto
@@ -122,6 +123,7 @@ public class ProductService : IProductService
 
     public async Task UpdateProductAsync(Producto producto)
     {
+        Console.WriteLine($"Service: UpdateProductAsync for ID {producto.IdProducto}");
         // Load the existing entity from DB (tracked)
         var existing = await _context.Productos.FirstOrDefaultAsync(p => p.IdProducto == producto.IdProducto);
         
@@ -144,6 +146,7 @@ public class ProductService : IProductService
         existing.Activo = producto.Activo;
 
         await _context.SaveChangesAsync();
+        Console.WriteLine("Service: SaveChangesAsync completed.");
     }
 
     public async Task AdjustStockAsync(int idProducto, int nuevaCantidad, string observacion)
