@@ -158,7 +158,7 @@
     private void SelectProduct(InnovaTecPOS.Backend.Models.Producto prod)
     {
         // Check if product already exists in cart (unless it requires IMEI)
-        var existingItem = SaleService.Items.FirstOrDefault(i => i.IdProducto == prod.IdProducto && !i.RequiresImei);
+        var existingItem = SaleService.Items.FirstOrDefault(i => i.IdProducto == prod.IdProducto);
         
         if (existingItem != null)
         {
