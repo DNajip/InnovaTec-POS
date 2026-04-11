@@ -478,7 +478,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Redireccionar si no hay sesión (Simulado para este ejemplo, ideally use a base class or layout check)
+        // Redireccionar si no hay sesión (Simulado para este ejemplo)
         if (!UserSession.IsAuthenticated)
         {
             // Navigation.NavigateTo("/login"); 
@@ -490,6 +490,19 @@
         
         categorias = await ProductService.GetCategoriasAsync();
         await LoadData();
+
+        // Alerta proactiva de productos agotados
+        if (productos != null)
+        {
+            var agotados = productos.Where(p => p.StockActual <= 0).Select(p => p.Nombre).ToList();
+            if (agotados.Any())
+            {
+                string nombres = agotados.Count > 3 
+                    ? string.Join(", ", agotados.Take(3)) + $" y {agotados.Count - 3} más" 
+                    : string.Join(", ", agotados);
+                ToastService.ShowWarning($"{nombres} se encuentran sin stock actualmente.");
+            }
+        }
     }
 
     private void OpenRegisterModal()
@@ -501,12 +514,29 @@
 
     private async Task HandleCreateProduct()
     {
-        if (string.IsNullOrWhiteSpace(newProduct.Nombre)) return;
-        
-        await ProductService.CreateProductAsync(newProduct);
-        ToastService.ShowSuccess($"Producto '{newProduct.Nombre}' registrado");
-        showRegisterModal = false;
-        await LoadData();
+        if (string.IsNullOrWhiteSpace(newProduct.Nombre))
+        {
+            ToastService.ShowWarning("El nombre del producto es obligatorio.");
+            return;
+        }
+
+        if (newProduct.PrecioVenta <= 0)
+        {
+            ToastService.ShowWarning("El precio de venta debe ser mayor a 0.");
+            return;
+        }
+
+        try 
+        {
+            await ProductService.CreateProductAsync(newProduct);
+            ToastService.ShowSuccess($"Producto '{newProduct.Nombre}' registrado correctamente.");
+            showRegisterModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Error al registrar producto: {ex.Message}");
+        }
     }
 
     private void OpenEditModal(Producto p)
@@ -564,25 +594,31 @@
     {
         if (adjustingProduct == null || adjustQuantity <= 0) return;
 
-        int nuevaCantidad = adjustingProduct.StockActual;
-        string obsPrefix = adjustType == "INGRESO" ? "[AJUSTE ENTRADA]" : "[AJUSTE SALIDA]";
-        
-        if (adjustType == "INGRESO")
-            nuevaCantidad += adjustQuantity;
-        else
-            nuevaCantidad -= adjustQuantity;
-
-        if (nuevaCantidad < 0) {
-            // Error handling could be alert here
+        if (adjustType == "SALIDA" && adjustQuantity > adjustingProduct.StockActual)
+        {
+            ToastService.ShowError("La cantidad de salida es mayor al stock actual");
             return;
         }
 
-        string fullObs = $"{obsPrefix} {adjustObservation}".Trim();
-        await ProductService.AdjustStockAsync(adjustingProduct.IdProducto, nuevaCantidad, fullObs);
-        ToastService.ShowInfo($"Inventario actualizado para {adjustingProduct.Nombre}");
-        
-        showAdjustModal = false;
-        await LoadData();
+        try 
+        {
+            int nuevaCantidad = adjustType == "INGRESO" 
+                ? adjustingProduct.StockActual + adjustQuantity 
+                : adjustingProduct.StockActual - adjustQuantity;
+
+            string obsPrefix = adjustType == "INGRESO" ? "[AJUSTE ENTRADA]" : "[AJUSTE SALIDA]";
+            string fullObs = $"{obsPrefix} {adjustObservation}".Trim();
+
+            await ProductService.AdjustStockAsync(adjustingProduct.IdProducto, nuevaCantidad, fullObs);
+            ToastService.ShowInfo($"Inventario actualizado correctamente para {adjustingProduct.Nombre}");
+            
+            showAdjustModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Error al ajustar stock: {ex.Message}");
+        }
     }
 
     private async Task LoadData()
