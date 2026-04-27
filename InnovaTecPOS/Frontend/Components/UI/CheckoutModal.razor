@@ -23,12 +23,11 @@
 
             <div class="modal-body p-4">
                 <div class="row g-4">
-                    <!-- Left Column: Client & Payment -->
-                    <div class="col-lg-4">
-                        <div class="card border-0 bg-light p-3" style="border-radius: 16px;">
+                    <!-- Left Column: Client & Payment Methods -->
+                    <div class="col-lg-5">
+                        <div class="card border-0 bg-light p-3 mb-4" style="border-radius: 16px;">
                             <h6 class="fw-bold mb-3"><i class="fas fa-user-tag me-2"></i>Información del Cliente</h6>
                             <div class="mb-3 position-relative">
-                                <label class="form-label small">Buscar Cliente</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text bg-white border-end-0"><i class="fas fa-search"></i></span>
                                     <input type="text" class="form-control border-start-0" placeholder="Nombre o Cédula..." 
@@ -37,7 +36,7 @@
                                 
                                 @if (foundClients != null && foundClients.Any())
                                 {
-                                    <div class="position-absolute w-100 bg-white border rounded shadow-sm mt-1" style="z-index: 10; max-height: 200px; overflow-y: auto;">
+                                    <div class="position-absolute w-100 bg-white border rounded shadow-sm mt-1" style="z-index: 100; max-height: 200px; overflow-y: auto;">
                                         @foreach (var c in foundClients)
                                         {
                                             <div class="p-2 border-bottom small cursor-pointer hover-bg-light" style="cursor: pointer;" @onclick="() => SelectClient(c)">
@@ -50,7 +49,7 @@
 
                             @if (selectedClient != null)
                             {
-                                <div class="alert alert-info py-2 px-3 border-0 d-flex align-items-center justify-content-between" style="border-radius: 10px;">
+                                <div class="alert alert-info py-2 px-3 border-0 d-flex align-items-center justify-content-between mb-0" style="border-radius: 10px;">
                                     <div class="small">
                                         <strong>@selectedClient.NombreCompleto</strong> <br/>
                                         <span class="x-small">@selectedClient.NumIdentificacion</span>
@@ -58,73 +57,134 @@
                                     <button class="btn btn-sm text-danger" @onclick="() => selectedClient = null"><i class="fas fa-times"></i></button>
                                 </div>
                             }
+                        </div>
 
-                            <hr/>
+                        <!-- MULTI-PAYMENT SECTION -->
+                        <div class="card border-0 shadow-sm p-3" style="border-radius: 16px; background: #f8fafc;">
+                            <h6 class="fw-bold mb-3"><i class="fas fa-wallet me-2"></i>Registrar Pago</h6>
+                            
+                            <div class="row g-2 mb-3">
+                                <div class="col-7">
+                                    <label class="small text-muted mb-1">Método de Pago</label>
+                                    <select class="form-select form-select-sm" @bind="currentPayment.IdMetodoPago">
+                                        @foreach (var m in metodosPago)
+                                        {
+                                            <option value="@m.IdMetodo">@m.Nombre (@m.IdMonedaNavigation?.Simbolo)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-5">
+                                    <label class="small text-muted mb-1">Monto</label>
+                                    <input type="number" class="form-control form-control-sm fw-bold" @bind="currentPayment.Monto" />
+                                </div>
+                                <div class="col-12">
+                                    <label class="small text-muted mb-1">Referencia / Autorización (Opcional)</label>
+                                    <input type="text" class="form-control form-control-sm" @bind="currentPayment.Referencia" placeholder="Ej: Transf #12345" />
+                                </div>
+                                <div class="col-12 mt-1">
+                                    <button class="btn btn-dark btn-sm w-100 rounded-pill" @onclick="AddPayment">
+                                        <i class="fas fa-plus me-1"></i> Agregar Pago
+                                    </button>
+                                </div>
+                            </div>
 
-                            <h6 class="fw-bold mb-3"><i class="fas fa-money-bill-wave me-2"></i>Resumen de Pago</h6>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">Subtotal:</span>
-                                <span>C$ @SubTotal.ToString("N2")</span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2 text-danger">
-                                <span class="text-muted">Descuento:</span>
-                                <span>- C$ @Discount.ToString("N2")</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
-                                <span class="fw-bold h5 mb-0">TOTAL:</span>
-                                <span class="fw-bold h4 mb-0 text-primary">C$ @Total.ToString("N2")</span>
+                            <div class="payment-list" style="max-height: 150px; overflow-y: auto;">
+                                @foreach (var p in selectedPayments)
+                                {
+                                    <div class="d-flex justify-content-between align-items-center p-2 mb-2 bg-white rounded border-start border-primary border-4 shadow-xs">
+                                        <div class="small">
+                                            <span class="fw-bold">@p.MetodoNombre</span><br/>
+                                            <span class="text-muted">@p.Monto.ToString("N2")</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <span class="small fw-bold">C$ @p.MontoEnNio.ToString("N2")</span>
+                                            <button class="btn btn-sm text-danger p-0" @onclick="() => selectedPayments.Remove(p)"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                }
                             </div>
                         </div>
                     </div>
 
-                    <!-- Right Column: Line Items (Detailed) -->
-                    <div class="col-lg-8">
-                        <div style="max-height: 500px; overflow-y: auto;">
-                            <table class="table table-hover align-middle">
-                                <thead class="table-light sticky-top">
-                                    <tr>
-                                        <th>Producto</th>
-                                        <th style="width: 200px;">IMEI (Si aplica)</th>
-                                        <th style="width: 180px;">Garantía</th>
-                                        <th class="text-end">Precio</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in Items)
-                                    {
-                                        @for (int i = 0; i < item.Quantity; i++)
+                    <!-- Right Column: Line Items & Summary -->
+                    <div class="col-lg-7">
+                        <div class="card border-0 bg-white mb-4 shadow-sm" style="border-radius: 16px;">
+                            <div class="p-3 border-bottom bg-light" style="border-top-left-radius: 16px; border-top-right-radius: 16px;">
+                                <h6 class="fw-bold m-0"><i class="fas fa-list me-2"></i>Detalle de Productos</h6>
+                            </div>
+                            <div style="max-height: 250px; overflow-y: auto;">
+                                <table class="table table-hover align-middle mb-0 small">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th style="width: 180px;">IMEI / Garantía</th>
+                                            <th class="text-end">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in Items)
                                         {
-                                            var detail = item.Details[i];
-                                            <tr>
-                                                <td>
-                                                    <div class="fw-bold">@item.Description</div>
-                                                    <div class="text-muted small">Cód: @item.Code</div>
-                                                </td>
-                                                <td>
-                                                    @if (item.RequiresImei)
-                                                    {
-                                                        <input type="text" class="form-control form-control-sm border-primary" 
-                                                               placeholder="Escanear IMEI..." @bind="detail.Imei" />
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="text-muted small italic">N/A</span>
-                                                    }
-                                                </td>
-                                                <td>
-                                                    <select class="form-select form-select-sm" @bind="detail.IdPeriodoGarantia">
-                                                        @foreach (var p in periodos)
+                                            @for (int i = 0; i < item.Quantity; i++)
+                                            {
+                                                var detail = item.Details[i];
+                                                <tr>
+                                                    <td>
+                                                        <div class="fw-bold">@item.Description</div>
+                                                        <div class="text-muted x-small">Cód: @item.Code</div>
+                                                    </td>
+                                                    <td>
+                                                        @if (item.RequiresImei)
                                                         {
-                                                            <option value="@p.IdPeriodo">@p.Descripcion</option>
+                                                            <input type="text" class="form-control form-control-xs mb-1" 
+                                                                   placeholder="IMEI..." @bind="detail.Imei" />
                                                         }
-                                                    </select>
-                                                </td>
-                                                <td class="text-end fw-bold">C$ @item.UnitPrice.ToString("N2")</td>
-                                            </tr>
+                                                        <select class="form-select form-select-xs" @bind="detail.IdPeriodoGarantia">
+                                                            @foreach (var p in periodos)
+                                                            {
+                                                                <option value="@p.IdPeriodo">@p.Descripcion</option>
+                                                            }
+                                                        </select>
+                                                    </td>
+                                                    <td class="text-end fw-bold">C$ @item.UnitPrice.ToString("N2")</td>
+                                                </tr>
+                                            }
                                         }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TOTAL SUMMARY & BALANCE -->
+                        <div class="card border-0 p-4" style="border-radius: 20px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white;">
+                            <div class="row align-items-center">
+                                <div class="col-md-6 border-end border-secondary">
+                                    <div class="mb-3">
+                                        <div class="small text-secondary mb-1">TOTAL VENTA</div>
+                                        <div class="h3 fw-bold mb-0 text-info">C$ @Total.ToString("N2")</div>
+                                    </div>
+                                    <div>
+                                        <div class="small text-secondary mb-1">TOTAL PAGADO</div>
+                                        <div class="h3 fw-bold mb-0">C$ @TotalPagado.ToString("N2")</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 ps-md-4">
+                                    @if (SaldoRestante > 0)
+                                    {
+                                        <div class="text-warning mb-2">
+                                            <div class="small mb-1">PENDIENTE POR COBRAR</div>
+                                            <div class="h2 fw-bold mb-0">C$ @SaldoRestante.ToString("N2")</div>
+                                        </div>
                                     }
-                                </tbody>
-                            </table>
+                                    else
+                                    {
+                                        <div class="text-success mb-2">
+                                            <div class="small mb-1">VUELTO (C$)</div>
+                                            <div class="h2 fw-bold mb-0">C$ @Math.Abs(SaldoRestante).ToString("N2")</div>
+                                        </div>
+                                        <div class="badge bg-success rounded-pill px-3 py-2"><i class="fas fa-check-circle me-1"></i> SALDO CUBIERTO</div>
+                                    }
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -132,17 +192,17 @@
 
             <div class="modal-footer border-0 p-4 pt-0">
                 <button type="button" class="btn btn-light rounded-pill px-4" @onclick="OnClose">Cancelar</button>
-                <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2 rounded-pill px-5 py-2 fw-bold" 
-                        disabled="@isProcessing" @onclick="ProcessSale">
+                <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2 rounded-pill px-5 py-2 fw-bold shadow" 
+                        disabled="@(isProcessing || SaldoRestante > 0)" @onclick="ProcessSale">
                     @if (isProcessing)
                     {
                         <span class="spinner-border spinner-border-sm"></span>
                     }
                     else
                     {
-                        <i class="fas fa-check-circle"></i>
+                        <i class="fas fa-cash-register"></i>
                     }
-                    CONFIRMAR VENTA
+                    FINALIZAR VENTA
                 </button>
             </div>
         </div>
@@ -158,14 +218,45 @@
     [Parameter] public EventCallback OnSuccess { get; set; }
 
     private List<PeriodosGarantium> periodos = new();
+    private List<MetodosPago> metodosPago = new();
+    private List<PaymentInput> selectedPayments = new();
+    private PaymentInput currentPayment = new PaymentInput { TasaCambio = 36.60m };
     private List<Persona>? foundClients;
     private Persona? selectedClient;
     private string clientSearchTerm = "";
     private bool isProcessing = false;
 
+    private decimal TotalPagado => selectedPayments.Sum(p => p.MontoEnNio);
+    private decimal SaldoRestante => Total - TotalPagado;
+
     protected override async Task OnInitializedAsync()
     {
         periodos = await CheckoutService.GetPeriodosGarantiaAsync();
+        metodosPago = await CheckoutService.GetMetodosPagoAsync();
+        
+        if (metodosPago.Any())
+        {
+            currentPayment.IdMetodoPago = metodosPago.First().IdMetodo;
+        }
+    }
+
+    private void AddPayment()
+    {
+        if (currentPayment.Monto <= 0) return;
+        
+        var metodo = metodosPago.FirstOrDefault(m => m.IdMetodo == currentPayment.IdMetodoPago);
+        if (metodo == null) return;
+
+        selectedPayments.Add(new PaymentInput
+        {
+            IdMetodoPago = currentPayment.IdMetodoPago,
+            MetodoNombre = metodo.Nombre,
+            Monto = currentPayment.Monto,
+            TasaCambio = metodo.IdMonedaNavigation?.Codigo == "USD" ? 36.60m : 1m, // Logic for exchange rate
+            Referencia = currentPayment.Referencia
+        });
+
+        currentPayment.Monto = 0; // Reset for next payment
     }
 
     private async Task SearchClients()
@@ -213,13 +304,22 @@
                 }
             }
 
+            // 3. Validate Payments
+            if (SaldoRestante > 0)
+            {
+                ToastService.ShowWarning("El monto pagado es insuficiente.");
+                isProcessing = false;
+                return;
+            }
+
             if (!UserSession.UserId.HasValue) throw new Exception("Sesión de usuario no válida.");
 
             await CheckoutService.ProcessCheckoutAsync(
                 UserSession.UserId.Value, 
                 selectedClient?.IdPersona, 
                 Discount, 
-                Items
+                Items,
+                selectedPayments
             );
 
             ToastService.ShowSuccess("Venta procesada con éxito.");

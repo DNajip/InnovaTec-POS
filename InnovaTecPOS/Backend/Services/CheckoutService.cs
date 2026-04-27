@@ -5,8 +5,9 @@ namespace InnovaTecPOS.Backend.Services;
 
 public interface ICheckoutService
 {
-    Task<Venta> ProcessCheckoutAsync(int userId, int? idPersona, decimal discount, List<CartItem> items);
+    Task<Venta> ProcessCheckoutAsync(int userId, int? idPersona, decimal discount, List<CartItem> items, List<PaymentInput> payments);
     Task<List<PeriodosGarantium>> GetPeriodosGarantiaAsync();
+    Task<List<MetodosPago>> GetMetodosPagoAsync();
     Task<EquiposImei?> ValidateImeiAsync(int idProducto, string imei);
 }
 
@@ -29,13 +30,21 @@ public class CheckoutService : ICheckoutService
             .ToListAsync();
     }
 
+    public async Task<List<MetodosPago>> GetMetodosPagoAsync()
+    {
+        return await _context.MetodosPagos
+            .Include(m => m.IdMonedaNavigation)
+            .OrderBy(m => m.Nombre)
+            .ToListAsync();
+    }
+
     public async Task<EquiposImei?> ValidateImeiAsync(int idProducto, string imei)
     {
         return await _context.EquiposImeis
             .FirstOrDefaultAsync(i => i.IdProducto == idProducto && i.Imei == imei && i.EstadoImei == "DISPONIBLE");
     }
 
-    public async Task<Venta> ProcessCheckoutAsync(int userId, int? idPersona, decimal discount, List<CartItem> items)
+    public async Task<Venta> ProcessCheckoutAsync(int userId, int? idPersona, decimal discount, List<CartItem> items, List<PaymentInput> payments)
     {
         // 1. Validate Shift
         var turno = await _shiftService.GetActiveShiftAsync(userId);
@@ -47,6 +56,9 @@ public class CheckoutService : ICheckoutService
         {
             // 2. Create Sale
             var sTotal = items.Sum(i => i.SubTotal);
+            var totalVentaNio = sTotal - discount;
+            var tasaCambio = 36.60m; // Hardcoded for now, could come from DB
+
             var venta = new Venta
             {
                 IdTurno = turno.IdTurno,
@@ -54,17 +66,66 @@ public class CheckoutService : ICheckoutService
                 IdPersona = idPersona,
                 FechaVenta = DateTime.Now,
                 NumeroFactura = $"FAC-{DateTime.Now:yyyyMMdd}-{new Random().Next(1000, 9999)}",
-                TasaCambioUsd = 36.60m, // Hardcoded for now
+                TasaCambioUsd = tasaCambio,
                 SubtotalNio = sTotal,
                 DescuentoNio = discount,
-                TotalNio = sTotal - discount,
+                TotalNio = totalVentaNio,
                 Anulada = false
             };
 
             _context.Ventas.Add(venta);
             await _context.SaveChangesAsync();
 
-            // 3. Process Details
+            // 3. Process Payments
+            var totalPagadoNio = payments.Sum(p => p.MontoEnNio);
+            if (totalPagadoNio < totalVentaNio)
+                throw new Exception($"El monto pagado (C$ {totalPagadoNio:N2}) es insuficiente para cubrir el total (C$ {totalVentaNio:N2}).");
+
+            var vueltoPendienteNio = totalPagadoNio - totalVentaNio;
+
+            foreach (var pInput in payments)
+            {
+                var pago = new Pago
+                {
+                    IdVenta = venta.IdVenta,
+                    IdMetodoPago = pInput.IdMetodoPago,
+                    MontoPagado = pInput.Monto,
+                    TasaAplicada = pInput.TasaCambio,
+                    MontoEnNio = pInput.MontoEnNio,
+                    CodReferencia = pInput.Referencia,
+                    FechaPago = DateTime.Now
+                };
+
+                // Assign change to the first cash payment found
+                if (vueltoPendienteNio > 0 && (pInput.MetodoNombre.Contains("EFECTIVO", StringComparison.OrdinalIgnoreCase)))
+                {
+                    pago.VueltoNio = vueltoPendienteNio;
+                    vueltoPendienteNio = 0; // Vuelto assigned
+                }
+
+                _context.Pagos.Add(pago);
+
+                // Update Turno Balances
+                var metodo = await _context.MetodosPagos.Include(m => m.IdMonedaNavigation)
+                                     .FirstOrDefaultAsync(m => m.IdMetodo == pInput.IdMetodoPago);
+                
+                if (metodo != null)
+                {
+                    if (metodo.Nombre.Contains("EFECTIVO", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (metodo.IdMonedaNavigation?.Codigo == "NIO")
+                            turno.TotalEfectivoNio += (pInput.MontoEnNio - (pago.VueltoNio ?? 0));
+                        else if (metodo.IdMonedaNavigation?.Codigo == "USD")
+                            turno.TotalEfectivoUsd += pInput.Monto;
+                    }
+                    else if (metodo.Nombre.Contains("TARJETA", StringComparison.OrdinalIgnoreCase))
+                        turno.TotalTarjeta += pInput.MontoEnNio;
+                    else if (metodo.Nombre.Contains("TRANSFERENCIA", StringComparison.OrdinalIgnoreCase))
+                        turno.TotalTransferencia += pInput.MontoEnNio;
+                }
+            }
+
+            // 4. Process Details
             foreach (var item in items)
             {
                 var product = await _context.Productos.FindAsync(item.IdProducto);
@@ -72,20 +133,17 @@ public class CheckoutService : ICheckoutService
 
                 foreach (var detail in item.Details)
                 {
-                    // Calculate warranty expiry
                     var periodo = await _context.PeriodosGarantia.FindAsync(detail.IdPeriodoGarantia);
                     DateTime? fechaVence = null;
                     if (periodo != null && periodo.Meses > 0)
-                    {
                         fechaVence = DateTime.Now.AddMonths(periodo.Meses);
-                    }
 
                     var vDetail = new VentaDetalle
                     {
                         IdVenta = venta.IdVenta,
                         IdProducto = item.IdProducto,
                         DescripcionSnap = item.Description,
-                        Cantidad = 1, // Desglosado por unidad
+                        Cantidad = 1,
                         PrecioUnitarioNio = item.UnitPrice,
                         SubtotalNio = item.UnitPrice,
                         IdPeriodoGarantia = detail.IdPeriodoGarantia,
@@ -96,8 +154,6 @@ public class CheckoutService : ICheckoutService
                     await _context.SaveChangesAsync();
 
                     int? imeiId = null;
-
-                    // 1. Handle IMEI if required (Capture on the fly)
                     if (item.RequiresImei)
                     {
                         if (string.IsNullOrWhiteSpace(detail.Imei))
@@ -139,7 +195,6 @@ public class CheckoutService : ICheckoutService
                         _context.VentaDetalleImeis.Add(vImei);
                     }
 
-                    // 2. CREATE WARRANTY RECORD IF APPLICABLE
                     if (fechaVence != null && idPersona.HasValue)
                     {
                         var warranty = new Garantia
@@ -147,7 +202,7 @@ public class CheckoutService : ICheckoutService
                             IdDetalleVenta = vDetail.IdDetalle,
                             IdPersona = idPersona.Value,
                             IdProducto = item.IdProducto,
-                            IdEquipoImei = imeiId, // Linked here if it was a phone
+                            IdEquipoImei = imeiId,
                             MesesGarantia = periodo?.Meses ?? 0,
                             FechaInicio = DateOnly.FromDateTime(DateTime.Now),
                             FechaVencimiento = DateOnly.FromDateTime(fechaVence.Value),
@@ -159,28 +214,23 @@ public class CheckoutService : ICheckoutService
                     await _context.SaveChangesAsync();
                 }
 
-                // Update Stock and Individual Movement
-                int stockAntes = product.StockActual;
                 product.StockActual -= item.Quantity;
                 _context.Productos.Update(product);
 
-                var mov = new Movimiento
+                _context.Movimientos.Add(new Movimiento
                 {
                     IdProducto = item.IdProducto,
-                    IdTipoMov = 2, // VENTA
+                    IdTipoMov = 2,
                     Cantidad = -item.Quantity,
-                    StockAntes = stockAntes,
-                    StockDespues = product.StockActual,
                     IdReferencia = venta.IdVenta,
                     TablaReferencia = "VEN.VENTAS",
                     Observacion = $"Venta {venta.NumeroFactura}",
                     FechaMov = DateTime.Now,
                     RegistradoPor = userId
-                };
-                _context.Movimientos.Add(mov);
+                });
             }
 
-            // Update Turno Totals
+            // 5. Update Global Turno Sales
             turno.TotalVentasNio += venta.TotalNio;
             turno.TotalVentasUsd += (venta.TotalNio / venta.TasaCambioUsd);
             _context.Turnos.Update(turno);
