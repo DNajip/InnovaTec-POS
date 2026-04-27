@@ -17,6 +17,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IExportService, ExportService>();
 builder.Services.AddScoped<IClienteService, ClienteService>();
+builder.Services.AddScoped<IShiftService, ShiftService>();
+builder.Services.AddScoped<ICheckoutService, CheckoutService>();
 builder.Services.AddScoped<SaleService>();
 builder.Services.AddScoped<UserSession>();
 builder.Services.AddScoped<ToastService>();

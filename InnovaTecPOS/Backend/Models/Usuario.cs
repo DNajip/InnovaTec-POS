@@ -39,7 +39,7 @@ public partial class Usuario
 
     public virtual ICollection<ReclamosGarantium> ReclamosGarantia { get; set; } = new List<ReclamosGarantium>();
 
-    public virtual Turno? Turno { get; set; }
+    public virtual ICollection<Turno> Turnos { get; set; } = new List<Turno>();
 
     public virtual ICollection<Venta> VentaIdUsuarioAnulaNavigations { get; set; } = new List<Venta>();
 

@@ -848,7 +848,7 @@
     {
         try
         {
-            var bytes = ExportService.GenerateInventoryExcel(productos);
+            var bytes = ExportService.GenerateInventoryExcel(productos ?? new List<Producto>());
             var stream = new MemoryStream(bytes);
             using var streamRef = new DotNetStreamReference(stream);
             await JSRuntime.InvokeVoidAsync("downloadFileFromStream", $"Inventario_{DateTime.Now:ddMMyy}.xlsx", streamRef);
@@ -864,7 +864,7 @@
     {
         try
         {
-            var bytes = ExportService.GenerateInventoryPdf(productos);
+            var bytes = ExportService.GenerateInventoryPdf(productos ?? new List<Producto>());
             var stream = new MemoryStream(bytes);
             using var streamRef = new DotNetStreamReference(stream);
             await JSRuntime.InvokeVoidAsync("downloadFileFromStream", $"Inventario_{DateTime.Now:ddMMyy}.pdf", streamRef);

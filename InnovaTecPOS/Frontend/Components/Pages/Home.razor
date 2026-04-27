@@ -1,9 +1,14 @@
 @page "/"
 @using InnovaTecPOS.Backend.Services
+@using InnovaTecPOS.Backend.Models
+@using InnovaTecPOS.Frontend.Components.UI
 @using System.ComponentModel
 @implements IDisposable
 @inject SaleService SaleService
 @inject IProductService ProductService
+@inject IShiftService ShiftService
+@inject UserSession UserSession
+@inject ToastService ToastService
 
 <PageTitle>Ventas - InnovaTec</PageTitle>
 
@@ -45,41 +50,58 @@
         <thead>
             <tr>
                 <th style="width: 40px;"></th>
-                <th style="width: 50px;">Sel</th>
-                <th>Acción</th>
                 <th>Código</th>
                 <th>Descripción</th>
                 <th class="text-end">Precio Unit.</th>
                 <th class="text-center">Cant.</th>
                 <th class="text-end">Subtotal</th>
-                <th>Vendedor</th>
+                <th class="text-center">Acción</th>
             </tr>
         </thead>
         <tbody>
+            @if (!SaleService.Items.Any())
+            {
+                <tr><td colspan="7" class="text-center py-5 text-muted"> <i class="fas fa-shopping-cart fa-3x mb-3 d-block"></i> El carrito está vacío</td></tr>
+            }
             @foreach (var item in SaleService.Items)
             {
                 <tr>
                     <td><i class="fas fa-chevron-right text-muted" style="font-size: 0.8rem;"></i></td>
-                    <td><input type="checkbox" class="form-check-input"></td>
-                    <td><button class="btn btn-sm btn-light border">Acción</button></td>
                     <td><span class="item-code">@item.Code</span></td>
                     <td><strong>@item.Description</strong></td>
                     <td class="text-end font-monospace">C$ @item.UnitPrice.ToString("N2")</td>
                     <td class="text-center">
-                        <input type="number" class="form-control form-control-sm qty-input" @bind="item.Quantity" @bind:event="oninput" min="1" @onkeyup="() => SaleService.NotifyAll()" />
+                        <div class="d-flex align-items-center justify-content-center gap-2">
+                             <button class="btn btn-sm btn-outline-secondary px-2 py-0" @onclick="() => { if(item.Quantity > 1) item.Quantity--; SaleService.NotifyAll(); }">-</button>
+                             <input type="number" class="form-control form-control-sm qty-input m-0" @bind="item.Quantity" @bind:event="oninput" min="1" @onkeyup="() => SaleService.NotifyAll()" />
+                             <button class="btn btn-sm btn-outline-secondary px-2 py-0" @onclick="() => { item.Quantity++; SaleService.NotifyAll(); }">+</button>
+                        </div>
                     </td>
                     <td class="text-end fw-bold">C$ @item.SubTotal.ToString("N2")</td>
-                    <td><span class="badge bg-secondary">Jackson</span></td>
+                    <td class="text-center">
+                        <button class="btn btn-sm text-danger" @onclick="() => SaleService.RemoveItem(item)"><i class="fas fa-trash"></i></button>
+                    </td>
                 </tr>
             }
         </tbody>
     </table>
 </div>
 
+@if (showCheckoutModal)
+{
+    <CheckoutModal Items="SaleService.Items" 
+                   SubTotal="SaleService.SubTotal" 
+                   Discount="SaleService.Discount" 
+                   Total="SaleService.Total" 
+                   OnClose="() => showCheckoutModal = false"
+                   OnSuccess="HandleSaleSuccess" />
+}
+
 @code {
     private string SearchTerm { get; set; } = "";
     private List<InnovaTecPOS.Backend.Models.Producto>? SearchResults;
     private System.Timers.Timer debounceTimer = new System.Timers.Timer(300);
+    private bool showCheckoutModal = false;
 
     protected override void OnInitialized()
     {
@@ -87,6 +109,29 @@
         debounceTimer.Elapsed += async (s, e) => await OnSearchTimerElapsed();
         
         SaleService.PropertyChanged += OnServicePropertyChanged;
+        SaleService.OnCheckoutRequested += HandleCheckoutRequest;
+    }
+
+    private async void HandleCheckoutRequest()
+    {
+        if (!UserSession.UserId.HasValue) return;
+
+        var activeShift = await ShiftService.GetActiveShiftAsync(UserSession.UserId.Value);
+        if (activeShift == null)
+        {
+            ToastService.ShowWarning("Debe abrir caja antes de facturar. Use el botón verde en la parte inferior.");
+            return;
+        }
+
+        showCheckoutModal = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleSaleSuccess()
+    {
+        showCheckoutModal = false;
+        SaleService.Clear();
+        StateHasChanged();
     }
 
     private async Task HandleSearch(KeyboardEventArgs e)
@@ -108,7 +153,6 @@
         if (string.IsNullOrWhiteSpace(SearchTerm)) return;
         var term = SearchTerm.Trim();
 
-        // 1. Try exact barcode match (Priority for scanner)
         var exactProduct = await ProductService.GetProductByBarcodeAsync(term);
         if (exactProduct != null)
         {
@@ -116,16 +160,13 @@
             return;
         }
 
-        // 2. Fallback to general search
         var results = await ProductService.SearchProductsAsync(term);
         if (results != null && results.Count == 1)
         {
-            // Only one match? Add it immediately
             SelectProduct(results[0]);
         }
         else if (results != null && results.Count > 1)
         {
-            // Multiple matches? Show dropdown
             SearchResults = results;
             StateHasChanged();
         }
@@ -157,10 +198,11 @@
 
     private void SelectProduct(InnovaTecPOS.Backend.Models.Producto prod)
     {
-        // Check if product already exists in cart (unless it requires IMEI)
         var existingItem = SaleService.Items.FirstOrDefault(i => i.IdProducto == prod.IdProducto);
         
-        if (existingItem != null)
+        bool requiresImei = prod.IdCategoriaNavigation?.ManejaImei == true;
+
+        if (existingItem != null && !requiresImei)
         {
             existingItem.Quantity++;
             SaleService.NotifyAll();
@@ -174,7 +216,8 @@
                 Description = prod.Nombre,
                 UnitPrice = prod.PrecioVenta,
                 Quantity = 1,
-                RequiresImei = prod.IdCategoriaNavigation?.ManejaImei == true
+                IdCategoria = prod.IdCategoria,
+                RequiresImei = requiresImei
             });
         }
 
@@ -191,6 +234,7 @@
     public void Dispose()
     {
         SaleService.PropertyChanged -= OnServicePropertyChanged;
+        SaleService.OnCheckoutRequested -= HandleCheckoutRequest;
         debounceTimer?.Stop();
         debounceTimer?.Dispose();
     }

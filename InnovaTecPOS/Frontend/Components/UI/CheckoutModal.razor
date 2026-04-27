@@ -1,0 +1,237 @@
+@using InnovaTecPOS.Backend.Services
+@using InnovaTecPOS.Backend.Models
+@inject ICheckoutService CheckoutService
+@inject IClienteService ClienteService
+@inject ToastService ToastService
+@inject UserSession UserSession
+
+<div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); z-index: 1060;">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 24px;">
+            <div class="modal-header border-0 p-4 pb-0">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="kpi-icon kpi-blue" style="width: 48px; height: 48px;">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold m-0">Finalizar Venta</h4>
+                        <p class="text-muted small m-0">Asigne IMEIs y periodos de garantía para completar la factura.</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" @onclick="OnClose"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <div class="row g-4">
+                    <!-- Left Column: Client & Payment -->
+                    <div class="col-lg-4">
+                        <div class="card border-0 bg-light p-3" style="border-radius: 16px;">
+                            <h6 class="fw-bold mb-3"><i class="fas fa-user-tag me-2"></i>Información del Cliente</h6>
+                            <div class="mb-3 position-relative">
+                                <label class="form-label small">Buscar Cliente</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search"></i></span>
+                                    <input type="text" class="form-control border-start-0" placeholder="Nombre o Cédula..." 
+                                           @bind="clientSearchTerm" @bind:event="oninput" @onkeyup="SearchClients" />
+                                </div>
+                                
+                                @if (foundClients != null && foundClients.Any())
+                                {
+                                    <div class="position-absolute w-100 bg-white border rounded shadow-sm mt-1" style="z-index: 10; max-height: 200px; overflow-y: auto;">
+                                        @foreach (var c in foundClients)
+                                        {
+                                            <div class="p-2 border-bottom small cursor-pointer hover-bg-light" style="cursor: pointer;" @onclick="() => SelectClient(c)">
+                                                <strong>@c.NombreCompleto</strong> <br/> <span class="text-muted">@c.NumIdentificacion</span>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            @if (selectedClient != null)
+                            {
+                                <div class="alert alert-info py-2 px-3 border-0 d-flex align-items-center justify-content-between" style="border-radius: 10px;">
+                                    <div class="small">
+                                        <strong>@selectedClient.NombreCompleto</strong> <br/>
+                                        <span class="x-small">@selectedClient.NumIdentificacion</span>
+                                    </div>
+                                    <button class="btn btn-sm text-danger" @onclick="() => selectedClient = null"><i class="fas fa-times"></i></button>
+                                </div>
+                            }
+
+                            <hr/>
+
+                            <h6 class="fw-bold mb-3"><i class="fas fa-money-bill-wave me-2"></i>Resumen de Pago</h6>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Subtotal:</span>
+                                <span>C$ @SubTotal.ToString("N2")</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2 text-danger">
+                                <span class="text-muted">Descuento:</span>
+                                <span>- C$ @Discount.ToString("N2")</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                                <span class="fw-bold h5 mb-0">TOTAL:</span>
+                                <span class="fw-bold h4 mb-0 text-primary">C$ @Total.ToString("N2")</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Line Items (Detailed) -->
+                    <div class="col-lg-8">
+                        <div style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th style="width: 200px;">IMEI (Si aplica)</th>
+                                        <th style="width: 180px;">Garantía</th>
+                                        <th class="text-end">Precio</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Items)
+                                    {
+                                        @for (int i = 0; i < item.Quantity; i++)
+                                        {
+                                            var detail = item.Details[i];
+                                            <tr>
+                                                <td>
+                                                    <div class="fw-bold">@item.Description</div>
+                                                    <div class="text-muted small">Cód: @item.Code</div>
+                                                </td>
+                                                <td>
+                                                    @if (item.RequiresImei)
+                                                    {
+                                                        <input type="text" class="form-control form-control-sm border-primary" 
+                                                               placeholder="Escanear IMEI..." @bind="detail.Imei" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted small italic">N/A</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <select class="form-select form-select-sm" @bind="detail.IdPeriodoGarantia">
+                                                        @foreach (var p in periodos)
+                                                        {
+                                                            <option value="@p.IdPeriodo">@p.Descripcion</option>
+                                                        }
+                                                    </select>
+                                                </td>
+                                                <td class="text-end fw-bold">C$ @item.UnitPrice.ToString("N2")</td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-light rounded-pill px-4" @onclick="OnClose">Cancelar</button>
+                <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2 rounded-pill px-5 py-2 fw-bold" 
+                        disabled="@isProcessing" @onclick="ProcessSale">
+                    @if (isProcessing)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                    }
+                    else
+                    {
+                        <i class="fas fa-check-circle"></i>
+                    }
+                    CONFIRMAR VENTA
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<CartItem> Items { get; set; } = new();
+    [Parameter] public decimal SubTotal { get; set; }
+    [Parameter] public decimal Discount { get; set; }
+    [Parameter] public decimal Total { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSuccess { get; set; }
+
+    private List<PeriodosGarantium> periodos = new();
+    private List<Persona>? foundClients;
+    private Persona? selectedClient;
+    private string clientSearchTerm = "";
+    private bool isProcessing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        periodos = await CheckoutService.GetPeriodosGarantiaAsync();
+    }
+
+    private async Task SearchClients()
+    {
+        if (clientSearchTerm.Length >= 2)
+            foundClients = await ClienteService.GetAllClientesAsync(clientSearchTerm);
+        else
+            foundClients = null;
+    }
+
+    private void SelectClient(Persona c)
+    {
+        selectedClient = c;
+        clientSearchTerm = "";
+        foundClients = null;
+    }
+
+    private async Task ProcessSale()
+    {
+        if (isProcessing) return;
+        
+        try
+        {
+            isProcessing = true;
+
+            // 1. Validate Client (Mandatory as per requirements)
+            if (selectedClient == null)
+            {
+                ToastService.ShowWarning("Debe seleccionar un cliente para facturar.");
+                isProcessing = false;
+                return;
+            }
+            
+            // 2. Validate IMEIs (Mandatory only if applies)
+            foreach (var item in Items.Where(i => i.RequiresImei))
+            {
+                foreach (var detail in item.Details)
+                {
+                    if (string.IsNullOrWhiteSpace(detail.Imei))
+                    {
+                        ToastService.ShowWarning($"Debe ingresar el IMEI para {item.Description}");
+                        isProcessing = false;
+                        return;
+                    }
+                }
+            }
+
+            if (!UserSession.UserId.HasValue) throw new Exception("Sesión de usuario no válida.");
+
+            await CheckoutService.ProcessCheckoutAsync(
+                UserSession.UserId.Value, 
+                selectedClient?.IdPersona, 
+                Discount, 
+                Items
+            );
+
+            ToastService.ShowSuccess("Venta procesada con éxito.");
+            await OnSuccess.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Error al procesar venta: " + ex.Message);
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+}

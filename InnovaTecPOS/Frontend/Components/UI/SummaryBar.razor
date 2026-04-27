@@ -1,6 +1,7 @@
 @using InnovaTecPOS.Backend.Services
 @implements IDisposable
 @inject SaleService SaleService
+@inject UserSession UserSession
 
 <section class="summary-bar">
     <div class="summary-stats-group">
@@ -26,7 +27,7 @@
             <p class="total-label">Total</p>
             <span class="total-amount">C$ @SaleService.Total.ToString("N2")</span>
         </div>
-        <button class="btn btn-checkout">
+        <button class="btn btn-checkout" @onclick="SaleService.RequestCheckout" disabled="@(UserSession.ActiveShift == null)">
             <i class="fas fa-file-invoice me-2"></i>
             FACTURAR
         </button>
@@ -37,6 +38,7 @@
     protected override void OnInitialized()
     {
         SaleService.PropertyChanged += OnServicePropertyChanged;
+        UserSession.OnChange += StateHasChanged;
     }
 
     private void OnServicePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -47,5 +49,6 @@
     public void Dispose()
     {
         SaleService.PropertyChanged -= OnServicePropertyChanged;
+        UserSession.OnChange -= StateHasChanged;
     }
 }

@@ -70,6 +70,18 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xSb3V0ZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/CashCloseModal.razor]
+build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxDYXNoQ2xvc2VNb2RhbC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/CashCountModal.razor]
+build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxDYXNoQ291bnRNb2RhbC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/CheckoutModal.razor]
+build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxDaGVja291dE1vZGFsLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/ControlHub.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxDb250cm9sSHViLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 

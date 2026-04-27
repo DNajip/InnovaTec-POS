@@ -93,8 +93,10 @@ public partial class InnovaTecDbContext : DbContext
     public virtual DbSet<VentaDetalleImei> VentaDetalleImeis { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=InnovaTecBD;Integrated Security=True;Encrypt=True;TrustServerCertificate=True");
+        optionsBuilder.UseSqlServer("Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=InnovaTecBD;Integrated Security=True;Encrypt=True;TrustServerCertificate=True");
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -878,8 +880,8 @@ public partial class InnovaTecDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__TURNOS__ID_ESTAD__40F9A68C");
 
-            entity.HasOne(d => d.IdUsuarioNavigation).WithOne(p => p.Turno)
-                .HasForeignKey<Turno>(d => d.IdUsuario)
+            entity.HasOne(d => d.IdUsuarioNavigation).WithMany(p => p.Turnos)
+                .HasForeignKey(d => d.IdUsuario)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__TURNOS__ID_USUAR__40058253");
         });

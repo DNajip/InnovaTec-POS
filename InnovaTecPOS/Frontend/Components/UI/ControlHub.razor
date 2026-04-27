@@ -1,11 +1,18 @@
+@using InnovaTecPOS.Backend.Services
+@using InnovaTecPOS.Backend.Models
+@using Microsoft.JSInterop
+@implements IDisposable
 @inject NavigationManager Navigation
+@inject IShiftService ShiftService
+@inject UserSession UserSession
+@inject ToastService ToastService
 
 <footer class="pos-footer">
-    <a href="#" class="action-btn action-btn-success">
+    <button type="button" class="action-btn @(UserSession.ActiveShift != null ? "action-btn-success" : "btn-warning text-dark")" @onclick="ToggleShift">
         <i class="fas fa-cash-register"></i>
-        <span>Caja abierta</span>
-        <span class="sub-text">Cerrar caja</span>
-    </a>
+        <span>@(UserSession.ActiveShift != null ? "Caja abierta" : "Caja cerrada")</span>
+        <span class="sub-text">@(UserSession.ActiveShift != null ? "Cerrar turno" : "Abrir turno")</span>
+    </button>
     <a href="/inventario" class="action-btn @(IsActive("/inventario") ? "active" : "")">
         <i class="fas fa-boxes"></i>
         <span>Precio / Inventario</span>
@@ -20,11 +27,66 @@
     </a>
 </footer>
 
+<!-- Modales de Caja -->
+@if (showOpenModal)
+{
+    <CashCountModal OnClose="() => showOpenModal = false" OnSuccess="HandleOpenSuccess" />
+}
+
+@if (showCloseModal)
+{
+    <CashCloseModal OnClose="() => showCloseModal = false" OnSuccess="HandleCloseSuccess" />
+}
+
 @code {
+    private bool showOpenModal = false;
+    private bool showCloseModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserSession.OnChange += StateHasChanged;
+        if (UserSession.UserId.HasValue && UserSession.ActiveShift == null)
+        {
+            UserSession.ActiveShift = await ShiftService.GetActiveShiftAsync(UserSession.UserId.Value);
+        }
+    }
+
+    private void ToggleShift()
+    {
+        if (UserSession.ActiveShift != null)
+        {
+            showCloseModal = true;
+        }
+        else
+        {
+            showOpenModal = true;
+        }
+    }
+
+    private void HandleCloseSuccess()
+    {
+        showCloseModal = false;
+        StateHasChanged();
+    }
+
+    private void HandleOpenSuccess(Turno turno)
+    {
+        UserSession.ActiveShift = turno;
+        showOpenModal = false;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        UserSession.OnChange -= StateHasChanged;
+    }
+
     private bool IsActive(string href)
     {
         var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
         if (href == "/") return string.IsNullOrEmpty(relativePath);
         return $"/{relativePath}" == href;
     }
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 }

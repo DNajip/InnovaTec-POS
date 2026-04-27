@@ -24,6 +24,8 @@ namespace InnovaTecPOS.Backend.Services
 
         public List<CartItem> Items { get; } = new();
 
+        public event Action? OnCheckoutRequested;
+
         public int TotalUnits => Items.Sum(i => i.Quantity);
         public decimal SubTotal => Items.Sum(i => i.SubTotal);
         public decimal Total => Math.Max(0, SubTotal - Discount);
@@ -32,6 +34,19 @@ namespace InnovaTecPOS.Backend.Services
         {
             Items.Add(item);
             NotifyAll();
+        }
+
+        public void Clear()
+        {
+            Items.Clear();
+            Discount = 0;
+            NotifyAll();
+        }
+
+        public void RequestCheckout()
+        {
+            if (Items.Any())
+                OnCheckoutRequested?.Invoke();
         }
 
         public void RemoveItem(CartItem item)
@@ -62,10 +77,13 @@ namespace InnovaTecPOS.Backend.Services
         public string Code { get; set; } = "";
         public string Description { get; set; } = "";
         public decimal UnitPrice { get; set; }
+        public int? IdCategoria { get; set; }
         
         // Properties for IMEI handling
         public bool RequiresImei { get; set; }
-        public string? SelectedImei { get; set; }
+        
+        // Data for each unit during checkout
+        public List<CheckoutDetailItem> Details { get; set; } = new();
 
         private int _quantity;
         public int Quantity
@@ -76,6 +94,7 @@ namespace InnovaTecPOS.Backend.Services
                 if (_quantity != value)
                 {
                     _quantity = value;
+                    UpdateDetails();
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(SubTotal));
                 }
@@ -84,9 +103,28 @@ namespace InnovaTecPOS.Backend.Services
 
         public decimal SubTotal => UnitPrice * Quantity;
 
+        private void UpdateDetails()
+        {
+            // Sync details list with quantity
+            while (Details.Count < Quantity)
+            {
+                Details.Add(new CheckoutDetailItem());
+            }
+            while (Details.Count > Quantity)
+            {
+                Details.RemoveAt(Details.Count - 1);
+            }
+        }
+
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
+    }
+
+    public class CheckoutDetailItem
+    {
+        public string? Imei { get; set; }
+        public int IdPeriodoGarantia { get; set; } = 1; // Default to "SIN GARANTIA" or first period
     }
 }

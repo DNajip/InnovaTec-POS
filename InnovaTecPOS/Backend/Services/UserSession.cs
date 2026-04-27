@@ -1,16 +1,48 @@
+using InnovaTecPOS.Backend.Models;
+
 namespace InnovaTecPOS.Backend.Services;
 
 public class UserSession
 {
-    public int? UserId { get; set; }
-    public string? Username { get; set; }
-    public string? NombreCompleto { get; set; }
-    public string? Rol { get; set; }
+    public event Action? OnChange;
+
+    private int? _userId;
+    public int? UserId 
+    { 
+        get => _userId ?? 1; // Default to Admin for development
+        set 
+        {
+            if (_userId != value)
+            {
+                _userId = value;
+                NotifyStateChanged();
+            }
+        }
+    }
     
-    // Metadata for current operation
+    public string? Username { get; set; } = "ADMIN";
+    public string? NombreCompleto { get; set; } = "Administrador del Sistema";
+    public string? Rol { get; set; } = "ADMINISTRADOR";
+    
+    private Turno? _activeShift;
+    public Turno? ActiveShift
+    {
+        get => _activeShift;
+        set
+        {
+            if (_activeShift != value)
+            {
+                _activeShift = value;
+                NotifyStateChanged();
+            }
+        }
+    }
+
+    public bool IsCashOpen => ActiveShift != null;
+
     public string? CurrentObservation { get; set; }
 
-    public bool IsAuthenticated => UserId.HasValue;
+    public bool IsAuthenticated => true;
 
     public void Clear()
     {
@@ -19,5 +51,8 @@ public class UserSession
         NombreCompleto = null;
         Rol = null;
         CurrentObservation = null;
+        ActiveShift = null;
     }
+
+    private void NotifyStateChanged() => OnChange?.Invoke();
 }
