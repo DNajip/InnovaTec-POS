@@ -178,7 +178,7 @@ window.qzPrintInvoice = async (invoice) => {
         }
 
         data = data.concat([
-            boldOn + doubleSize + "INNOVATEC POS\n" + normalSize + boldOff,
+            boldOn + doubleSize + "INNOVATEC\n" + normalSize + boldOff,
             "Soluciones Tecnologicas\n",
             "------------------------------------------------\n",
             left,
