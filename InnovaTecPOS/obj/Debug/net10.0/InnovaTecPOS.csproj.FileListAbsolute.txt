@@ -229,3 +229,4 @@ E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\BouncyC
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\BouncyCastle.Crypto.dll
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\itext.bouncy-castle-adapter.dll
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\o93v90apvs-{0}-um08zvlz1b-um08zvlz1b.gz
+E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\4qde398ppw-{0}-ymvwivtxe9-ymvwivtxe9.gz

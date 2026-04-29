@@ -1,0 +1,279 @@
+@page "/facturas"
+@using Microsoft.EntityFrameworkCore
+@inject InnovaTecDbContext DbContext
+@inject ToastService ToastService
+@inject IJSRuntime JSRuntime
+@inject UserSession UserSession
+
+<PageTitle>Facturas - InnovaTec</PageTitle>
+
+<div class="cli-container">
+    <!-- Header -->
+    <div class="cli-header">
+        <div class="inv-title-group">
+            <h2>Historial de Facturas</h2>
+            <p>Consulta de ventas realizadas y reimpresión</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="cli-search-bar flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-2">
+            <label class="fw-bold small text-muted mb-0">Desde:</label>
+            <input type="date" class="form-control form-control-sm rounded-pill" @bind="startDate" />
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <label class="fw-bold small text-muted mb-0">Hasta:</label>
+            <input type="date" class="form-control form-control-sm rounded-pill" @bind="endDate" />
+        </div>
+        <button class="btn btn-primary btn-sm rounded-pill px-3" @onclick="LoadData">
+            <i class="fas fa-filter me-1"></i> Filtrar
+        </button>
+    </div>
+
+    <!-- Table -->
+    <div class="cli-table-card">
+        <table class="pos-table">
+            <thead>
+                <tr>
+                    <th>N° Factura</th>
+                    <th>Fecha / Hora</th>
+                    <th>Cliente</th>
+                    <th>Vendedor</th>
+                    <th>Total</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (ventas == null)
+                {
+                    <tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>
+                }
+                else if (!ventas.Any())
+                {
+                    <tr><td colspan="6" class="text-center py-5 text-muted">No se encontraron ventas en este rango de fechas.</td></tr>
+                }
+                else
+                {
+                    @foreach (var v in ventas)
+                    {
+                        <tr>
+                            <td><span class="fw-bold text-primary">@v.NumeroFactura</span></td>
+                            <td>@v.FechaVenta.ToString("dd/MM/yyyy hh:mm tt")</td>
+                            <td>@(v.IdPersonaNavigation != null ? v.IdPersonaNavigation.NombreCompleto : "Cliente General")</td>
+                            <td>@(v.IdUsuarioNavigation != null ? v.IdUsuarioNavigation.Username : "N/A")</td>
+                            <td class="fw-bold">C$ @v.TotalNio.ToString("N2")</td>
+                            <td class="text-end">
+                                <button class="btn btn-outline-primary btn-sm rounded-pill px-3" @onclick="() => ShowInvoiceDetails(v)">
+                                    <i class="fas fa-print me-1"></i> Reimprimir Factura
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Vista Previa de Factura -->
+@if (showPreviewModal && selectedVenta != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 1050;">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+            <div class="modal-content shadow-lg border-0" style="border-radius: 12px;">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="fw-bold m-0"><i class="fas fa-file-invoice me-2"></i>Vista Previa</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <!-- Ticket Layout for Print -->
+                    <div class="print-section p-3 bg-white text-dark" style="font-family: 'Courier New', Courier, monospace; font-size: 13px;">
+                        <div class="text-center mb-3">
+                            <img src="images/logo.png" alt="Logo" style="max-width: 80px; height: auto; margin-bottom: 10px; border-radius: 8px;" />
+                            <h5 class="fw-bold m-0" style="font-family: 'Outfit', sans-serif;">INNOVATEC POS</h5>
+                            <p class="small m-0">Soluciones Tecnológicas</p>
+                            <hr style="border-top: 1px dashed #000; margin: 10px 0;" />
+                        </div>
+
+                        <div class="mb-2">
+                            <div><strong>Factura:</strong> @selectedVenta.NumeroFactura</div>
+                            <div><strong>Fecha:</strong> @selectedVenta.FechaVenta.ToString("dd/MM/yyyy HH:mm")</div>
+                            <div><strong>Cliente:</strong> @(selectedVenta.IdPersonaNavigation != null ? selectedVenta.IdPersonaNavigation.NombreCompleto : "Cliente General")</div>
+                            <div><strong>Vendedor:</strong> @(selectedVenta.IdUsuarioNavigation != null ? selectedVenta.IdUsuarioNavigation.Username : "N/A")</div>
+                        </div>
+
+                        <hr style="border-top: 1px dashed #000; margin: 10px 0;" />
+
+                        <table class="w-100 mb-2" style="font-size: 12px;">
+                            <thead>
+                                <tr class="border-bottom">
+                                    <th class="text-start">Cant</th>
+                                    <th class="text-start">Desc</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var d in selectedVenta.VentaDetalles)
+                                {
+                                    <tr>
+                                        <td class="align-top">@d.Cantidad</td>
+                                        <td>
+                                            @d.DescripcionSnap
+                                            @if (d.VentaDetalleImeis.Any())
+                                            {
+                                                <div class="x-small text-muted" style="font-size: 10px;">IMEI: @string.Join(", ", d.VentaDetalleImeis.Select(i => i.ImeiSnap))</div>
+                                            }
+                                        </td>
+                                        <td class="text-end align-top">C$ @d.SubtotalNio.ToString("N2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+
+                        <hr style="border-top: 1px dashed #000; margin: 10px 0;" />
+
+                        <div class="d-flex justify-content-between fw-bold mb-1">
+                            <span>Subtotal:</span>
+                            <span>C$ @selectedVenta.SubtotalNio.ToString("N2")</span>
+                        </div>
+                        @if (selectedVenta.DescuentoNio > 0)
+                        {
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Descuento:</span>
+                                <span>-C$ @selectedVenta.DescuentoNio.ToString("N2")</span>
+                            </div>
+                        }
+                        <div class="d-flex justify-content-between fw-bold fs-6">
+                            <span>TOTAL:</span>
+                            <span>C$ @selectedVenta.TotalNio.ToString("N2")</span>
+                        </div>
+
+                        <hr style="border-top: 1px dashed #000; margin: 15px 0 5px 0;" />
+                        <div class="text-center small mt-2">
+                            <p class="m-0">¡Gracias por su compra!</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0 justify-content-center">
+                    <button type="button" class="btn btn-light rounded-pill px-4" @onclick="CloseModal">Cerrar</button>
+                    <button type="button" class="btn btn-primary rounded-pill px-4" @onclick="PrintInvoice">
+                        <i class="fas fa-print me-2"></i> Imprimir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* Estilos para impresión */
+    @@media print {
+        body * {
+            visibility: hidden;
+        }
+        .print-section, .print-section * {
+            visibility: visible;
+        }
+        .print-section {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        .modal-backdrop, .modal {
+            background: none !important;
+            position: static !important;
+        }
+    }
+</style>
+
+@code {
+    private DateTime startDate = DateTime.Today;
+    private DateTime endDate = DateTime.Today;
+    private List<Venta>? ventas;
+    private Venta? selectedVenta;
+    private bool showPreviewModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            ventas = null;
+            StateHasChanged();
+
+            // Ajustar fechas para cubrir todo el día
+            var start = startDate.Date;
+            var end = endDate.Date.AddDays(1).AddTicks(-1);
+
+            ventas = await DbContext.Ventas
+                .Include(v => v.IdPersonaNavigation)
+                .Include(v => v.IdUsuarioNavigation)
+                .Include(v => v.VentaDetalles)
+                    .ThenInclude(d => d.VentaDetalleImeis)
+                .Where(v => v.FechaVenta >= start && v.FechaVenta <= end)
+                .OrderByDescending(v => v.FechaVenta)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Error al cargar facturas: " + ex.Message);
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private void ShowInvoiceDetails(Venta venta)
+    {
+        selectedVenta = venta;
+        showPreviewModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showPreviewModal = false;
+        selectedVenta = null;
+    }
+
+    private async Task PrintInvoice()
+    {
+        if (selectedVenta == null) return;
+
+        var invoiceData = new
+        {
+            numeroFactura = selectedVenta.NumeroFactura,
+            fecha = selectedVenta.FechaVenta.ToString("dd/MM/yyyy HH:mm"),
+            cliente = selectedVenta.IdPersonaNavigation?.NombreCompleto ?? "Cliente General",
+            vendedor = selectedVenta.IdUsuarioNavigation?.Username ?? "N/A",
+            subtotal = selectedVenta.SubtotalNio,
+            descuento = selectedVenta.DescuentoNio,
+            total = selectedVenta.TotalNio,
+            detalles = selectedVenta.VentaDetalles.Select(d => new
+            {
+                cantidad = d.Cantidad,
+                descripcion = d.DescripcionSnap,
+                total = d.SubtotalNio,
+                imeis = d.VentaDetalleImeis.Select(i => i.ImeiSnap).ToList()
+            }).ToList()
+        };
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("qzPrintInvoice", invoiceData);
+            ToastService.ShowSuccess("Comprobante enviado a la impresora.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Error al imprimir: " + ex.Message);
+        }
+    }
+}
