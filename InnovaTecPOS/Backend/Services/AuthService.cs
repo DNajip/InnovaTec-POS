@@ -44,6 +44,7 @@ public class AuthService : IAuthService
                     .Include(u => u.IdEmpleadoNavigation)
                         .ThenInclude(e => e.IdPersonaNavigation)
                     .Include(u => u.IdRolNavigation)
+                    .Include(u => u.IdModulos)
                     .FirstOrDefaultAsync(u => u.IdUsuario == response.UserId.Value);
 
                 if (user != null)
@@ -52,6 +53,7 @@ public class AuthService : IAuthService
                     _userSession.Username = user.Username;
                     _userSession.NombreCompleto = user.IdEmpleadoNavigation.IdPersonaNavigation.NombreCompleto;
                     _userSession.Rol = user.IdRolNavigation.Nombre;
+                    _userSession.PermittedModules = user.IdModulos.Select(m => m.Nombre).ToList();
                 }
             }
 

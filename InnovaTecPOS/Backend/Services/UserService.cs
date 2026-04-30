@@ -1,0 +1,271 @@
+using InnovaTecPOS.Backend.Models;
+using InnovaTecPOS.Backend.DTOs;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace InnovaTecPOS.Backend.Services;
+
+public class UserService
+{
+    private readonly InnovaTecDbContext _context;
+
+    public UserService(InnovaTecDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<List<UserDto>> GetUsersAsync()
+    {
+        return await _context.Usuarios
+            .Include(u => u.IdEmpleadoNavigation)
+                .ThenInclude(e => e.IdPersonaNavigation)
+            .Include(u => u.IdRolNavigation)
+            .Include(u => u.IdModulos)
+            .Select(u => new UserDto
+            {
+                IdUsuario = u.IdUsuario,
+                IdEmpleado = u.IdEmpleado,
+                IdPersona = u.IdEmpleadoNavigation.IdPersona,
+                Username = u.Username,
+                IdRol = u.IdRol,
+                NombreRol = u.IdRolNavigation.Nombre,
+                IdEstado = u.IdEstado,
+                PrimerNombre = u.IdEmpleadoNavigation.IdPersonaNavigation.PrimerNombre,
+                SegundoNombre = u.IdEmpleadoNavigation.IdPersonaNavigation.SegundoNombre,
+                PrimerApellido = u.IdEmpleadoNavigation.IdPersonaNavigation.PrimerApellido,
+                SegundoApellido = u.IdEmpleadoNavigation.IdPersonaNavigation.SegundoApellido,
+                IdTipoId = u.IdEmpleadoNavigation.IdPersonaNavigation.IdTipoId,
+                NumIdentificacion = u.IdEmpleadoNavigation.IdPersonaNavigation.NumIdentificacion,
+                IdGenero = u.IdEmpleadoNavigation.IdPersonaNavigation.IdGenero,
+                Telefono = u.IdEmpleadoNavigation.IdPersonaNavigation.Telefono,
+                Email = u.IdEmpleadoNavigation.IdPersonaNavigation.Email,
+                Direccion = u.IdEmpleadoNavigation.IdPersonaNavigation.Direccion,
+                SelectedModuloIds = u.IdModulos.Select(m => m.IdModulo).ToList()
+            })
+            .AsNoTracking()
+            .OrderBy(u => u.PrimerNombre)
+            .ToListAsync();
+    }
+
+    public async Task<List<Role>> GetRolesAsync() => await _context.Roles.Where(r => r.IdEstado == 1).ToListAsync();
+    public async Task<List<TipoIdentificacion>> GetTiposIdentificacionAsync() => await _context.TipoIdentificacions.Where(t => t.IdEstado == 1).ToListAsync();
+    public async Task<List<Genero>> GetGenerosAsync() => await _context.Generos.Where(g => g.IdEstado == 1).ToListAsync();
+    public async Task<List<Modulo>> GetModulosAsync() => await _context.Modulos.Where(m => m.IdEstado == 1).OrderBy(m => m.Orden).ToListAsync();
+
+    public async Task CreateUserAsync(UserDto dto)
+    {
+        // 1. Validar Username
+        if (await _context.Usuarios.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower()))
+        {
+            throw new Exception("El nombre de usuario ya está en uso.");
+        }
+
+        // 2. Buscar o Crear Persona
+        var persona = await _context.Personas
+            .FirstOrDefaultAsync(p => p.IdTipoId == dto.IdTipoId && p.NumIdentificacion == dto.NumIdentificacion);
+
+        if (persona == null)
+        {
+            persona = new Persona
+            {
+                PrimerNombre = dto.PrimerNombre,
+                SegundoNombre = dto.SegundoNombre,
+                PrimerApellido = dto.PrimerApellido,
+                SegundoApellido = dto.SegundoApellido,
+                IdTipoId = dto.IdTipoId,
+                NumIdentificacion = dto.NumIdentificacion,
+                IdGenero = dto.IdGenero,
+                Telefono = dto.Telefono,
+                Email = dto.Email,
+                Direccion = dto.Direccion,
+                EsCliente = false,
+                EsEmpleado = true,
+                IdEstado = 1,
+                NombreCompleto = $"{dto.PrimerNombre} {dto.PrimerApellido}".Trim(),
+                FechaCreacion = DateTime.Now
+            };
+            _context.Personas.Add(persona);
+            await _context.SaveChangesAsync();
+        }
+        else
+        {
+            // Si ya existe la persona, nos aseguramos que esté marcada como empleado
+            if (persona.EsEmpleado != true)
+            {
+                persona.EsEmpleado = true;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        // 3. Buscar o Crear Empleado
+        var empleado = await _context.Empleados
+            .FirstOrDefaultAsync(e => e.IdPersona == persona.IdPersona);
+
+        if (empleado == null)
+        {
+            empleado = new Empleado
+            {
+                IdPersona = persona.IdPersona,
+                IdRol = dto.IdRol,
+                IdEstado = 1,
+                FechaContratacion = DateOnly.FromDateTime(DateTime.Now)
+            };
+            _context.Empleados.Add(empleado);
+            await _context.SaveChangesAsync();
+        }
+        else
+        {
+            // Validar que el empleado no tenga ya un usuario asignado
+            if (await _context.Usuarios.AnyAsync(u => u.IdEmpleado == empleado.IdEmpleado))
+            {
+                throw new Exception($"La persona con identificación {dto.NumIdentificacion} ya tiene un usuario de sistema asignado.");
+            }
+        }
+
+        // 4. Crear Usuario
+        var (passwordHash, passwordSalt) = await CreatePasswordHashAsync(dto.Password ?? "123456");
+
+        var usuario = new Usuario
+        {
+            IdEmpleado = empleado.IdEmpleado,
+            Username = dto.Username,
+            PasswordHash = passwordHash,
+            PasswordSalt = passwordSalt,
+            IdRol = dto.IdRol,
+            IdEstado = 1,
+            FechaCreacion = DateTime.Now
+        };
+        
+        if (dto.SelectedModuloIds != null && dto.SelectedModuloIds.Any())
+        {
+            var modulos = await _context.Modulos.Where(m => dto.SelectedModuloIds.Contains(m.IdModulo)).ToListAsync();
+            foreach (var mod in modulos)
+            {
+                usuario.IdModulos.Add(mod);
+            }
+        }
+
+        _context.Usuarios.Add(usuario);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdateUserAsync(UserDto dto)
+    {
+        if (dto.IdUsuario == null) throw new Exception("ID de usuario no válido.");
+
+        var usuario = await _context.Usuarios
+            .Include(u => u.IdEmpleadoNavigation)
+                .ThenInclude(e => e.IdPersonaNavigation)
+            .Include(u => u.IdModulos)
+            .FirstOrDefaultAsync(u => u.IdUsuario == dto.IdUsuario);
+
+        if (usuario == null) throw new Exception("Usuario no encontrado.");
+
+        // Validar Username único si lo cambió
+        if (usuario.Username.ToLower() != dto.Username.ToLower() && 
+            await _context.Usuarios.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower()))
+        {
+            throw new Exception("El nombre de usuario ya está en uso por otra cuenta.");
+        }
+
+        // Actualizar Persona
+        var persona = usuario.IdEmpleadoNavigation.IdPersonaNavigation;
+        persona.PrimerNombre = dto.PrimerNombre;
+        persona.SegundoNombre = dto.SegundoNombre;
+        persona.PrimerApellido = dto.PrimerApellido;
+        persona.SegundoApellido = dto.SegundoApellido;
+        persona.NombreCompleto = $"{dto.PrimerNombre} {dto.PrimerApellido}".Trim();
+        persona.IdTipoId = dto.IdTipoId;
+        persona.NumIdentificacion = dto.NumIdentificacion;
+        persona.IdGenero = dto.IdGenero;
+        persona.Telefono = dto.Telefono;
+        persona.Email = dto.Email;
+        persona.Direccion = dto.Direccion;
+
+        // Actualizar Empleado
+        var empleado = usuario.IdEmpleadoNavigation;
+        empleado.IdRol = dto.IdRol;
+
+        // Actualizar Usuario
+        usuario.Username = dto.Username;
+        usuario.IdRol = dto.IdRol;
+
+        // Actualizar contraseña si se proporcionó una nueva
+        if (!string.IsNullOrWhiteSpace(dto.Password))
+        {
+            var (passwordHash, passwordSalt) = await CreatePasswordHashAsync(dto.Password);
+            usuario.PasswordHash = passwordHash;
+            usuario.PasswordSalt = passwordSalt;
+        }
+
+        // Actualizar Módulos
+        usuario.IdModulos.Clear();
+        if (dto.SelectedModuloIds != null && dto.SelectedModuloIds.Any())
+        {
+            var modulos = await _context.Modulos.Where(m => dto.SelectedModuloIds.Contains(m.IdModulo)).ToListAsync();
+            foreach (var mod in modulos)
+            {
+                usuario.IdModulos.Add(mod);
+            }
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task ToggleUserStatusAsync(int idUsuario)
+    {
+        var usuario = await _context.Usuarios.FindAsync(idUsuario);
+        if (usuario != null)
+        {
+            usuario.IdEstado = usuario.IdEstado == 1 ? 2 : 1; // 1 = Activo, 2 = Inactivo
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    private async Task<(byte[] Hash, byte[] Salt)> CreatePasswordHashAsync(string password)
+    {
+        byte[] salt = new byte[32];
+        using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(salt);
+        }
+
+        var connection = _context.Database.GetDbConnection();
+        bool connectionOpened = false;
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await connection.OpenAsync();
+            connectionOpened = true;
+        }
+
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT HASHBYTES('SHA2_512', @Password + CAST(@Salt AS NVARCHAR(MAX)))";
+
+            var paramPassword = command.CreateParameter();
+            paramPassword.ParameterName = "@Password";
+            paramPassword.Value = password;
+            command.Parameters.Add(paramPassword);
+
+            var paramSalt = command.CreateParameter();
+            paramSalt.ParameterName = "@Salt";
+            paramSalt.Value = salt;
+            paramSalt.DbType = System.Data.DbType.Binary;
+            command.Parameters.Add(paramSalt);
+
+            var hashResult = await command.ExecuteScalarAsync();
+            byte[] hash = (byte[])hashResult!;
+            
+            return (hash, salt);
+        }
+        finally
+        {
+            if (connectionOpened)
+            {
+                await connection.CloseAsync();
+            }
+        }
+    }
+}

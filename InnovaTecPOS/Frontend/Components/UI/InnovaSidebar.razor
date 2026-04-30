@@ -1,12 +1,36 @@
 @inject NavigationManager Navigation
+@using InnovaTecPOS.Backend.Services
+@implements IDisposable
+@inject UserSession Session
 
 <nav class="sidebar-tabs">
-    <a href="/" class="tab-vertical @(IsActive("/") ? "active" : "")">TRANSACCIÓN</a>
-    <a href="/reportes" class="tab-vertical @(IsActive("/reportes") ? "active" : "")">REPORTE</a>
-    <a href="/config" class="tab-vertical @(IsActive("/config") ? "active" : "")">CONFIGURACIÓN</a>
+    @if (Session.HasModuleAccess("Ventas") || Session.HasModuleAccess("Caja"))
+    {
+        <a href="/" class="tab-vertical @(IsActive("/") ? "active" : "")">TRANSACCIÓN</a>
+    }
+    
+    @if (Session.HasModuleAccess("Reportes"))
+    {
+        <a href="/reportes" class="tab-vertical @(IsActive("/reportes") ? "active" : "")">REPORTE</a>
+    }
+    
+    @if (Session.HasModuleAccess("Configuracion"))
+    {
+        <a href="/configuracion" class="tab-vertical @(IsActive("/configuracion") ? "active" : "")">CONFIGURACIÓN</a>
+    }
 </nav>
 
 @code {
+    protected override void OnInitialized()
+    {
+        Session.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Session.OnChange -= StateHasChanged;
+    }
+
     private bool IsActive(string href)
     {
         var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);

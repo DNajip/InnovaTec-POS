@@ -23,6 +23,8 @@ builder.Services.AddScoped<ICheckoutService, CheckoutService>();
 builder.Services.AddScoped<SaleService>();
 builder.Services.AddScoped<UserSession>();
 builder.Services.AddScoped<ToastService>();
+builder.Services.AddScoped<ConfiguracionService>();
+builder.Services.AddScoped<UserService>();
 
 var app = builder.Build();
 
