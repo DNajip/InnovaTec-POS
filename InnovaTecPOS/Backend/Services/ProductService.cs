@@ -124,6 +124,7 @@ public class ProductService : IProductService
 
     public async Task CreateProductAsync(Producto producto)
     {
+        producto.CreadoPor = _userSession.UserId;
         _userSession.CurrentObservation = $"Creación inicial de producto: {producto.Nombre}";
         _context.Productos.Add(producto);
         await _context.SaveChangesAsync();
@@ -152,6 +153,7 @@ public class ProductService : IProductService
         existing.PrecioVenta = producto.PrecioVenta;
         existing.StockMinimo = producto.StockMinimo;
         existing.Activo = producto.Activo;
+        existing.TipoProducto = producto.TipoProducto;
 
         await _context.SaveChangesAsync();
         Console.WriteLine("Service: SaveChangesAsync completed.");

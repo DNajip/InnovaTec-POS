@@ -759,14 +759,30 @@
             return;
         }
 
+        if (newProduct.IdCategoria == null || newProduct.IdCategoria == 0)
+        {
+            ToastService.ShowWarning("Debe seleccionar una categoría para el producto.");
+            return;
+        }
+
         if (newProduct.PrecioVenta <= 0)
         {
             ToastService.ShowWarning("El precio de venta debe ser mayor a 0.");
             return;
         }
 
+        if (newProduct.StockActual < 0)
+        {
+            ToastService.ShowWarning("El stock inicial no puede ser negativo.");
+            return;
+        }
+
         try 
         {
+            // Determinar tipo de producto basado en si la categoría maneja IMEI
+            var selectedCat = categorias.FirstOrDefault(c => c.IdCategoria == newProduct.IdCategoria);
+            newProduct.TipoProducto = (selectedCat?.ManejaImei == true) ? "TELEFONO" : "ARTICULO";
+
             await ProductService.CreateProductAsync(newProduct);
             ToastService.ShowSuccess($"Producto '{newProduct.Nombre}' registrado correctamente.");
             showRegisterModal = false;
@@ -774,7 +790,8 @@
         }
         catch (Exception ex)
         {
-            ToastService.ShowError($"Error al registrar producto: {ex.Message}");
+            var detail = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+            ToastService.ShowError($"Error al registrar producto: {detail}");
         }
     }
 
@@ -803,8 +820,30 @@
     {
         if (editingProduct == null) return;
         
+        if (string.IsNullOrWhiteSpace(editingProduct.Nombre))
+        {
+            ToastService.ShowWarning("El nombre del producto es obligatorio.");
+            return;
+        }
+
+        if (editingProduct.IdCategoria == null || editingProduct.IdCategoria == 0)
+        {
+            ToastService.ShowWarning("Debe seleccionar una categoría para el producto.");
+            return;
+        }
+
+        if (editingProduct.PrecioVenta <= 0)
+        {
+            ToastService.ShowWarning("El precio de venta debe ser mayor a 0.");
+            return;
+        }
+        
         try 
         {
+            // Actualizar tipo de producto basado en si la categoría maneja IMEI
+            var selectedCat = categorias.FirstOrDefault(c => c.IdCategoria == editingProduct.IdCategoria);
+            editingProduct.TipoProducto = (selectedCat?.ManejaImei == true) ? "TELEFONO" : "ARTICULO";
+
             await ProductService.UpdateProductAsync(editingProduct);
             ToastService.ShowSuccess("Los cambios se guardaron correctamente");
             showEditModal = false;

@@ -20,6 +20,8 @@ public partial class Producto
     public string? Color { get; set; }
 
     public int? IdCategoria { get; set; }
+    
+    public string TipoProducto { get; set; } = "ARTICULO";
 
 
 

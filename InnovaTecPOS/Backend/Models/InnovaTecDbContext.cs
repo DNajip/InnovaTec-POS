@@ -685,6 +685,11 @@ public partial class InnovaTecDbContext : DbContext
                 .HasColumnName("PRECIO_VENTA");
             entity.Property(e => e.StockActual).HasColumnName("STOCK_ACTUAL");
             entity.Property(e => e.StockMinimo).HasColumnName("STOCK_MINIMO");
+            entity.Property(e => e.TipoProducto)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("ARTICULO")
+                .HasColumnName("TIPO_PRODUCTO");
 
             entity.HasOne(d => d.CreadoPorNavigation).WithMany(p => p.Productos)
                 .HasForeignKey(d => d.CreadoPor)
