@@ -91,7 +91,7 @@
                             </td>
                             <td>
                                 <div class="d-flex flex-column">
-                                    <span class="fw-bold">@c.NumIdentificacion</span>
+                                    <span class="fw-bold">@FormatIdentification(c.NumIdentificacion)</span>
                                     <span class="small text-muted">@c.IdTipo?.DescTipo</span>
                                 </div>
                             </td>
@@ -233,7 +233,7 @@
                         </div>
                         <div>
                             <h5 class="modal-title fw-bold m-0">@currentClient.NombreCompleto</h5>
-                            <p class="text-muted small m-0">@currentClient.NumIdentificacion | @(currentClient.Telefono ?? "Sin Teléfono")</p>
+                            <p class="text-muted small m-0">@FormatIdentification(currentClient.NumIdentificacion) | @(currentClient.Telefono ?? "Sin Teléfono")</p>
                         </div>
                     </div>
                     <button type="button" class="btn-close" @onclick="CloseModals"></button>
@@ -483,6 +483,20 @@
         if (remaining <= 0) return "status-expired";
         if (remaining <= 30) return "status-warning";
         return "status-active";
+    }
+
+    private string FormatIdentification(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return "";
+        id = id.Replace("-", "").Replace(" ", "").ToUpper();
+        
+        // Formato para Cédula Nicaragüense (14 caracteres)
+        if (id.Length == 14)
+        {
+            return $"{id.Substring(0, 3)}-{id.Substring(3, 6)}-{id.Substring(9)}";
+        }
+        
+        return id;
     }
 
     public void Dispose()

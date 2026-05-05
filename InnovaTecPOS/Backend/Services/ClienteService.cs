@@ -35,10 +35,11 @@ public class ClienteService : IClienteService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
+            var cleanSearch = search.Replace("-", "").Replace(" ", "").ToLower();
             search = search.ToLower();
             query = query.Where(p =>
                 (p.NombreCompleto != null && p.NombreCompleto.ToLower().Contains(search)) ||
-                p.NumIdentificacion.Contains(search) ||
+                p.NumIdentificacion.Contains(cleanSearch) ||
                 (p.Telefono != null && p.Telefono.Contains(search)));
         }
 
@@ -61,6 +62,13 @@ public class ClienteService : IClienteService
     public async Task CreateClienteAsync(Persona persona)
     {
         using var context = await _factory.CreateDbContextAsync();
+        
+        // Normalización de identificación
+        if (!string.IsNullOrWhiteSpace(persona.NumIdentificacion))
+        {
+            persona.NumIdentificacion = persona.NumIdentificacion.Replace("-", "").Replace(" ", "").ToUpper();
+        }
+
         persona.EsCliente = true;
         persona.EsEmpleado = false;
         persona.FechaCreacion = DateTime.Now;
@@ -82,7 +90,16 @@ public class ClienteService : IClienteService
         existing.PrimerApellido = persona.PrimerApellido;
         existing.SegundoApellido = persona.SegundoApellido;
         existing.IdTipoId = persona.IdTipoId;
-        existing.NumIdentificacion = persona.NumIdentificacion;
+        
+        // Normalización de identificación
+        if (!string.IsNullOrWhiteSpace(persona.NumIdentificacion))
+        {
+            existing.NumIdentificacion = persona.NumIdentificacion.Replace("-", "").Replace(" ", "").ToUpper();
+        }
+        else
+        {
+            existing.NumIdentificacion = persona.NumIdentificacion;
+        }
         existing.IdGenero = persona.IdGenero;
         existing.Telefono = persona.Telefono;
         existing.Email = persona.Email;
