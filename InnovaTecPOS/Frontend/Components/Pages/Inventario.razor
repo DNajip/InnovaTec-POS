@@ -502,69 +502,80 @@
 {
     <div class="modal show d-block" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden; height: 85vh;">
-                <div class="modal-header border-0 bg-white p-4 pb-2">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden; height: 82vh;">
+                <div class="modal-header border-0 bg-white p-3 pb-1">
                     <div class="d-flex align-items-center justify-content-between w-100">
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="kpi-icon kpi-cyan shadow-sm" style="width: 50px; height: 50px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="kpi-icon kpi-cyan shadow-sm" style="width: 40px; height: 40px; font-size: 1.1rem;">
                                 <i class="fas fa-file-invoice"></i>
                             </div>
                             <div>
-                                <h4 class="modal-title fw-bold mb-0">Detalle del Producto</h4>
-                                <p class="text-muted small mb-0">Auditoría completa y Kardex de movimientos</p>
+                                <h5 class="modal-title fw-bold mb-0">Detalle del Producto</h5>
+                                <p class="text-muted extra-small mb-0">Auditoría completa y Kardex de movimientos</p>
                             </div>
                         </div>
                         <div class="text-end">
-                            <span class="d-block fw-bold text-primary fs-3">@selectedProduct.StockActual</span>
-                            <span class="text-muted small text-uppercase fw-bold">Unidades en Stock</span>
+                            <button class="btn btn-light rounded-circle shadow-sm border-0" @onclick="() => showDetailModal = false" style="width: 40px; height: 40px; transition: 0.3s;">
+                                <i class="fas fa-times text-muted"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
-                <div class="modal-body p-0 overflow-hidden text-dark">
+                <div class="modal-body p-0 overflow-hidden text-dark d-flex flex-column" style="height: calc(100% - 65px);">
                     <div class="row g-0 h-100">
                         <!-- Sidebar: Datos Maestros -->
-                        <div class="col-lg-3 border-end bg-light p-4 overflow-auto">
-                            <div class="product-detail-card bg-white p-3 rounded-4 shadow-sm mb-4">
-                                <h6 class="fw-bold text-uppercase small text-muted mb-3 border-bottom pb-2">Datos Maestros</h6>
-                                <div class="mb-2">
-                                    <label class="d-block small text-muted">Nombre</label>
-                                    <span class="fw-bold text-dark">@selectedProduct.Nombre</span>
-                                </div>
-                                <div class="mb-2">
-                                    <label class="d-block small text-muted">SKU / Código</label>
-                                    <span class="item-code">@(selectedProduct.CodigoBarras ?? "S/N")</span>
-                                </div>
-                                <div class="row g-2 mb-2">
-                                    <div class="col-6">
-                                        <label class="d-block small text-muted">Marca</label>
-                                        <span class="fw-semibold">@selectedProduct.Marca</span>
+                        <div class="col-lg-3 border-end bg-light p-3 d-flex flex-column">
+                            <div class="flex-grow-1 overflow-auto">
+                                <div class="product-detail-card bg-white p-3 rounded-4 shadow-sm mb-3">
+                                    <h6 class="fw-bold text-uppercase small text-muted mb-2 border-bottom pb-1">Datos Maestros</h6>
+                                    <div class="mb-2">
+                                        <label class="d-block extra-small text-muted mb-0">Nombre</label>
+                                        <span class="fw-bold text-dark small d-block">@selectedProduct.Nombre</span>
                                     </div>
-                                    <div class="col-6">
-                                        <label class="d-block small text-muted">Modelo</label>
-                                        <span class="fw-semibold">@selectedProduct.Modelo</span>
+                                    <div class="mb-2">
+                                        <label class="d-block extra-small text-muted mb-0">SKU / Código</label>
+                                        <span class="item-code py-0 px-2" style="font-size: 0.75rem;">@(selectedProduct.CodigoBarras ?? "S/N")</span>
+                                    </div>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-6">
+                                            <label class="d-block extra-small text-muted mb-0">Marca</label>
+                                            <span class="fw-semibold small">@selectedProduct.Marca</span>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="d-block extra-small text-muted mb-0">Modelo</label>
+                                            <span class="fw-semibold small">@selectedProduct.Modelo</span>
+                                        </div>
+                                    </div>
+                                    <div class="mb-1">
+                                        <label class="d-block extra-small text-muted mb-0">Categoría</label>
+                                        <span class="badge-tipo badge-tipo-articulo w-100 text-center py-1">
+                                            @(selectedProduct.IdCategoriaNavigation?.Nombre ?? "S/C")
+                                        </span>
                                     </div>
                                 </div>
-                                <div class="mb-2">
-                                    <label class="d-block small text-muted">Categoría</label>
-                                    <span class="badge-tipo badge-tipo-articulo w-100 text-center">
-                                        @(selectedProduct.IdCategoriaNavigation?.Nombre ?? "S/C")
-                                    </span>
+
+                                <div class="pricing-card bg-primary bg-opacity-10 p-3 rounded-4 border border-primary border-opacity-10">
+                                    <h6 class="fw-bold text-primary text-uppercase extra-small mb-2">Finanzas</h6>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span class="extra-small text-muted">Precio Venta</span>
+                                        <span class="fw-bold text-primary small">C$ @selectedProduct.PrecioVenta.ToString("N2")</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span class="extra-small text-muted">Precio Compra</span>
+                                        <span class="fw-semibold small">C$ @(selectedProduct.PrecioCompra?.ToString("N2") ?? "0.00")</span>
+                                    </div>
+                                    <div class="border-top pt-1 mt-1 d-flex justify-content-between">
+                                        <span class="extra-small fw-bold">Valor Total</span>
+                                        <span class="fw-bold small">C$ @((selectedProduct.PrecioVenta * selectedProduct.StockActual).ToString("N2"))</span>
+                                    </div>
                                 </div>
                             </div>
-
-                            <div class="pricing-card bg-primary bg-opacity-10 p-3 rounded-4 border border-primary border-opacity-10">
-                                <h6 class="fw-bold text-primary text-uppercase small mb-3">Finanzas</h6>
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="small text-muted">Precio Venta</span>
-                                    <span class="fw-bold text-primary">C$ @selectedProduct.PrecioVenta.ToString("N2")</span>
-                                </div>
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="small text-muted">Precio Compra</span>
-                                    <span class="fw-semibold">C$ @(selectedProduct.PrecioCompra?.ToString("N2") ?? "0.00")</span>
-                                </div>
-                                <div class="border-top pt-2 mt-2 d-flex justify-content-between">
-                                    <span class="small fw-bold">Valor Total</span>
-                                    <span class="fw-bold">C$ @((selectedProduct.PrecioVenta * selectedProduct.StockActual).ToString("N2"))</span>
+                            
+                            <!-- Conteo de Stock integrado en el fondo de la barra lateral -->
+                            <div class="mt-auto pt-2 border-top">
+                                <div class="bg-primary bg-opacity-10 rounded-4 p-2 text-center border border-primary border-opacity-10 shadow-sm">
+                                    <span class="d-block fw-bold text-primary fs-4">@selectedProduct.StockActual</span>
+                                    <span class="text-primary extra-small text-uppercase fw-bold letter-spacing-1">Existencias Totales</span>
                                 </div>
                             </div>
                         </div>
@@ -676,9 +687,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer border-0 p-4 pt-2 bg-light">
-                    <button class="btn btn-secondary rounded-pill px-5 fw-bold" @onclick="() => showDetailModal = false">Cerrar</button>
-                </div>
+
             </div>
         </div>
     </div>
@@ -1009,3 +1018,15 @@
         debounceTimer?.Dispose();
     }
 }
+
+<style>
+    .extra-small {
+        font-size: 0.65rem;
+    }
+    .product-detail-card label {
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        margin-bottom: 0px;
+    }
+</style>
+
