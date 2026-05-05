@@ -45,10 +45,17 @@
     protected override async Task OnInitializedAsync()
     {
         UserSession.OnChange += StateHasChanged;
+        Navigation.LocationChanged += HandleLocationChanged;
+
         if (UserSession.UserId.HasValue && UserSession.ActiveShift == null)
         {
             UserSession.ActiveShift = await ShiftService.GetActiveShiftAsync(UserSession.UserId.Value);
         }
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        StateHasChanged();
     }
 
     private void ToggleShift()
@@ -79,11 +86,17 @@
     public void Dispose()
     {
         UserSession.OnChange -= StateHasChanged;
+        Navigation.LocationChanged -= HandleLocationChanged;
     }
 
     private bool IsActive(string href)
     {
         var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        
+        // Limpiar parámetros de consulta o fragmentos para la comparación
+        int queryIndex = relativePath.IndexOfAny(new[] { '?', '#' });
+        if (queryIndex >= 0) relativePath = relativePath.Substring(0, queryIndex);
+
         if (href == "/") return string.IsNullOrEmpty(relativePath);
         return $"/{relativePath}" == href;
     }
