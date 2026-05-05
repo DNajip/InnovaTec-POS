@@ -9,11 +9,11 @@ namespace InnovaTecPOS.Backend.Services;
 
 public class ConfiguracionService
 {
-    private readonly InnovaTecDbContext _context;
+    private readonly IDbContextFactory<InnovaTecDbContext> _factory;
 
-    public ConfiguracionService(InnovaTecDbContext context)
+    public ConfiguracionService(IDbContextFactory<InnovaTecDbContext> factory)
     {
-        _context = context;
+        _factory = factory;
     }
 
     /// <summary>
@@ -21,7 +21,8 @@ public class ConfiguracionService
     /// </summary>
     public async Task<Dictionary<string, string>> GetAllSettingsAsync()
     {
-        return await _context.Configuracions
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Configuracions
             .AsNoTracking()
             .ToDictionaryAsync(c => c.Clave, c => c.Valor);
     }
@@ -31,7 +32,8 @@ public class ConfiguracionService
     /// </summary>
     public async Task<string?> GetSettingAsync(string clave)
     {
-        var setting = await _context.Configuracions
+        using var context = await _factory.CreateDbContextAsync();
+        var setting = await context.Configuracions
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Clave == clave);
         return setting?.Valor;
@@ -42,8 +44,9 @@ public class ConfiguracionService
     /// </summary>
     public async Task UpdateSettingsBatchAsync(Dictionary<string, string> settings, int? modificadoPor = null)
     {
+        using var context = await _factory.CreateDbContextAsync();
         var claves = settings.Keys.ToList();
-        var existingSettings = await _context.Configuracions
+        var existingSettings = await context.Configuracions
             .Where(c => claves.Contains(c.Clave))
             .ToListAsync();
 
@@ -60,7 +63,7 @@ public class ConfiguracionService
             else
             {
                 // Crear nueva
-                _context.Configuracions.Add(new Configuracion
+                context.Configuracions.Add(new Configuracion
                 {
                     Clave = kvp.Key,
                     Valor = kvp.Value,
@@ -71,6 +74,6 @@ public class ConfiguracionService
             }
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 }

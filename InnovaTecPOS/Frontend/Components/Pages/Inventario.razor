@@ -138,7 +138,7 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="badge-tipo @(prod.IdCategoriaNavigation?.ManejaImei == true ? "badge-tipo-telefono" : "badge-tipo-articulo")">
+                                <span class="badge-tipo @(prod.TipoProducto == "TELEFONO" ? "badge-tipo-telefono" : prod.TipoProducto == "ACCESORIO" ? "badge-tipo-accesorio" : "badge-tipo-articulo")">
                                     @(prod.IdCategoriaNavigation?.Nombre ?? "S/C")
                                 </span>
                             </td>
@@ -779,10 +779,7 @@
 
         try 
         {
-            // Determinar tipo de producto basado en si la categoría maneja IMEI
-            var selectedCat = categorias.FirstOrDefault(c => c.IdCategoria == newProduct.IdCategoria);
-            newProduct.TipoProducto = (selectedCat?.ManejaImei == true) ? "TELEFONO" : "ARTICULO";
-
+            // La normalización de barcode y asignación de TipoProducto se hace ahora en el SP INV.sp_MantenerProducto
             await ProductService.CreateProductAsync(newProduct);
             ToastService.ShowSuccess($"Producto '{newProduct.Nombre}' registrado correctamente.");
             showRegisterModal = false;
@@ -840,10 +837,7 @@
         
         try 
         {
-            // Actualizar tipo de producto basado en si la categoría maneja IMEI
-            var selectedCat = categorias.FirstOrDefault(c => c.IdCategoria == editingProduct.IdCategoria);
-            editingProduct.TipoProducto = (selectedCat?.ManejaImei == true) ? "TELEFONO" : "ARTICULO";
-
+            // La normalización de barcode y asignación de TipoProducto se hace ahora en el SP INV.sp_MantenerProducto
             await ProductService.UpdateProductAsync(editingProduct);
             ToastService.ShowSuccess("Los cambios se guardaron correctamente");
             showEditModal = false;

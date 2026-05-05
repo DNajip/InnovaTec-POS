@@ -7,25 +7,26 @@ namespace InnovaTecPOS.Backend.Models;
 
 public partial class InnovaTecDbContext : DbContext
 {
-    private readonly UserSession? _userSession;
+    public UserSession? Session { get; set; }
 
-    public InnovaTecDbContext()
-    {
-    }
-
-    public InnovaTecDbContext(DbContextOptions<InnovaTecDbContext> options, UserSession userSession)
+    public InnovaTecDbContext(DbContextOptions<InnovaTecDbContext> options)
         : base(options)
     {
-        _userSession = userSession;
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        if (_userSession != null && _userSession.IsAuthenticated)
+        if (Session != null && Session.IsAuthenticated)
         {
+            // Asegurar que usamos la misma conexión para la sesión y el guardado
+            if (Database.GetDbConnection().State != System.Data.ConnectionState.Open)
+            {
+                await Database.OpenConnectionAsync(cancellationToken);
+            }
+
             await Database.ExecuteSqlRawAsync(
                 "EXEC sp_set_session_context 'UsuarioId', @p0; EXEC sp_set_session_context 'Observacion', @p1;",
-                new object[] { _userSession.UserId!, _userSession.CurrentObservation ?? "Ajuste de sistema" },
+                new object[] { Session.UserId!, Session.CurrentObservation ?? "Ajuste de sistema" },
                 cancellationToken);
         }
 
@@ -86,6 +87,8 @@ public partial class InnovaTecDbContext : DbContext
 
     public virtual DbSet<VStockCritico> VStockCriticos { get; set; }
 
+    public virtual DbSet<VClienteDashboardStat> VClienteDashboardStats { get; set; }
+
     public virtual DbSet<Venta> Ventas { get; set; }
 
     public virtual DbSet<VentaDetalle> VentaDetalles { get; set; }
@@ -94,8 +97,11 @@ public partial class InnovaTecDbContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        optionsBuilder.UseSqlServer("Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=InnovaTecBD;Integrated Security=True;Encrypt=True;TrustServerCertificate=True");
+        if (!optionsBuilder.IsConfigured)
+        {
+            // Fallback para diseño o herramientas de CLI si no se inyecta la configuración
+            optionsBuilder.UseSqlServer("Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=InnovaTecBD;Integrated Security=True;Encrypt=False;TrustServerCertificate=True");
+        }
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -1092,6 +1098,16 @@ public partial class InnovaTecDbContext : DbContext
                 .HasColumnName("NOMBRE");
             entity.Property(e => e.StockActual).HasColumnName("STOCK_ACTUAL");
             entity.Property(e => e.StockMinimo).HasColumnName("STOCK_MINIMO");
+        });
+
+        modelBuilder.Entity<VClienteDashboardStat>(entity =>
+        {
+            entity.HasNoKey()
+                .ToView("V_CLIENTE_DASHBOARD_STATS", "ADM");
+
+            entity.Property(e => e.TotalClientes).HasColumnName("TotalClientes");
+            entity.Property(e => e.TotalGarantiasActivas).HasColumnName("TotalGarantiasActivas");
+            entity.Property(e => e.ClientesConComprasRecientes).HasColumnName("ClientesConComprasRecientes");
         });
 
         modelBuilder.Entity<Venta>(entity =>

@@ -8,16 +8,17 @@ namespace InnovaTecPOS.Backend.Services;
 
 public class UserService
 {
-    private readonly InnovaTecDbContext _context;
+    private readonly IDbContextFactory<InnovaTecDbContext> _factory;
 
-    public UserService(InnovaTecDbContext context)
+    public UserService(IDbContextFactory<InnovaTecDbContext> factory)
     {
-        _context = context;
+        _factory = factory;
     }
 
     public async Task<List<UserDto>> GetUsersAsync()
     {
-        return await _context.Usuarios
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Usuarios
             .Include(u => u.IdEmpleadoNavigation)
                 .ThenInclude(e => e.IdPersonaNavigation)
             .Include(u => u.IdRolNavigation)
@@ -48,21 +49,41 @@ public class UserService
             .ToListAsync();
     }
 
-    public async Task<List<Role>> GetRolesAsync() => await _context.Roles.Where(r => r.IdEstado == 1).ToListAsync();
-    public async Task<List<TipoIdentificacion>> GetTiposIdentificacionAsync() => await _context.TipoIdentificacions.Where(t => t.IdEstado == 1).ToListAsync();
-    public async Task<List<Genero>> GetGenerosAsync() => await _context.Generos.Where(g => g.IdEstado == 1).ToListAsync();
-    public async Task<List<Modulo>> GetModulosAsync() => await _context.Modulos.Where(m => m.IdEstado == 1).OrderBy(m => m.Orden).ToListAsync();
+    public async Task<List<Role>> GetRolesAsync() 
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Roles.Where(r => r.IdEstado == 1).ToListAsync();
+    }
+
+    public async Task<List<TipoIdentificacion>> GetTiposIdentificacionAsync() 
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.TipoIdentificacions.Where(t => t.IdEstado == 1).ToListAsync();
+    }
+
+    public async Task<List<Genero>> GetGenerosAsync() 
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Generos.Where(g => g.IdEstado == 1).ToListAsync();
+    }
+
+    public async Task<List<Modulo>> GetModulosAsync() 
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Modulos.Where(m => m.IdEstado == 1).OrderBy(m => m.Orden).ToListAsync();
+    }
 
     public async Task CreateUserAsync(UserDto dto)
     {
+        using var context = await _factory.CreateDbContextAsync();
         // 1. Validar Username
-        if (await _context.Usuarios.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower()))
+        if (await context.Usuarios.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower()))
         {
             throw new Exception("El nombre de usuario ya está en uso.");
         }
 
         // 2. Buscar o Crear Persona
-        var persona = await _context.Personas
+        var persona = await context.Personas
             .FirstOrDefaultAsync(p => p.IdTipoId == dto.IdTipoId && p.NumIdentificacion == dto.NumIdentificacion);
 
         if (persona == null)
@@ -85,8 +106,8 @@ public class UserService
                 NombreCompleto = $"{dto.PrimerNombre} {dto.PrimerApellido}".Trim(),
                 FechaCreacion = DateTime.Now
             };
-            _context.Personas.Add(persona);
-            await _context.SaveChangesAsync();
+            context.Personas.Add(persona);
+            await context.SaveChangesAsync();
         }
         else
         {
@@ -94,12 +115,12 @@ public class UserService
             if (persona.EsEmpleado != true)
             {
                 persona.EsEmpleado = true;
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
             }
         }
 
         // 3. Buscar o Crear Empleado
-        var empleado = await _context.Empleados
+        var empleado = await context.Empleados
             .FirstOrDefaultAsync(e => e.IdPersona == persona.IdPersona);
 
         if (empleado == null)
@@ -111,13 +132,13 @@ public class UserService
                 IdEstado = 1,
                 FechaContratacion = DateOnly.FromDateTime(DateTime.Now)
             };
-            _context.Empleados.Add(empleado);
-            await _context.SaveChangesAsync();
+            context.Empleados.Add(empleado);
+            await context.SaveChangesAsync();
         }
         else
         {
             // Validar que el empleado no tenga ya un usuario asignado
-            if (await _context.Usuarios.AnyAsync(u => u.IdEmpleado == empleado.IdEmpleado))
+            if (await context.Usuarios.AnyAsync(u => u.IdEmpleado == empleado.IdEmpleado))
             {
                 throw new Exception($"La persona con identificación {dto.NumIdentificacion} ya tiene un usuario de sistema asignado.");
             }
@@ -139,22 +160,23 @@ public class UserService
         
         if (dto.SelectedModuloIds != null && dto.SelectedModuloIds.Any())
         {
-            var modulos = await _context.Modulos.Where(m => dto.SelectedModuloIds.Contains(m.IdModulo)).ToListAsync();
+            var modulos = await context.Modulos.Where(m => dto.SelectedModuloIds.Contains(m.IdModulo)).ToListAsync();
             foreach (var mod in modulos)
             {
                 usuario.IdModulos.Add(mod);
             }
         }
 
-        _context.Usuarios.Add(usuario);
-        await _context.SaveChangesAsync();
+        context.Usuarios.Add(usuario);
+        await context.SaveChangesAsync();
     }
 
     public async Task UpdateUserAsync(UserDto dto)
     {
+        using var context = await _factory.CreateDbContextAsync();
         if (dto.IdUsuario == null) throw new Exception("ID de usuario no válido.");
 
-        var usuario = await _context.Usuarios
+        var usuario = await context.Usuarios
             .Include(u => u.IdEmpleadoNavigation)
                 .ThenInclude(e => e.IdPersonaNavigation)
             .Include(u => u.IdModulos)
@@ -164,7 +186,7 @@ public class UserService
 
         // Validar Username único si lo cambió
         if (usuario.Username.ToLower() != dto.Username.ToLower() && 
-            await _context.Usuarios.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower()))
+            await context.Usuarios.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower()))
         {
             throw new Exception("El nombre de usuario ya está en uso por otra cuenta.");
         }
@@ -203,35 +225,37 @@ public class UserService
         usuario.IdModulos.Clear();
         if (dto.SelectedModuloIds != null && dto.SelectedModuloIds.Any())
         {
-            var modulos = await _context.Modulos.Where(m => dto.SelectedModuloIds.Contains(m.IdModulo)).ToListAsync();
+            var modulos = await context.Modulos.Where(m => dto.SelectedModuloIds.Contains(m.IdModulo)).ToListAsync();
             foreach (var mod in modulos)
             {
                 usuario.IdModulos.Add(mod);
             }
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task ToggleUserStatusAsync(int idUsuario)
     {
-        var usuario = await _context.Usuarios.FindAsync(idUsuario);
+        using var context = await _factory.CreateDbContextAsync();
+        var usuario = await context.Usuarios.FindAsync(idUsuario);
         if (usuario != null)
         {
             usuario.IdEstado = usuario.IdEstado == 1 ? 2 : 1; // 1 = Activo, 2 = Inactivo
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     private async Task<(byte[] Hash, byte[] Salt)> CreatePasswordHashAsync(string password)
     {
+        using var context = await _factory.CreateDbContextAsync();
         byte[] salt = new byte[32];
         using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create())
         {
             rng.GetBytes(salt);
         }
 
-        var connection = _context.Database.GetDbConnection();
+        var connection = context.Database.GetDbConnection();
         bool connectionOpened = false;
         if (connection.State != System.Data.ConnectionState.Open)
         {

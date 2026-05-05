@@ -18,16 +18,17 @@ public interface IClienteService
 
 public class ClienteService : IClienteService
 {
-    private readonly InnovaTecDbContext _context;
+    private readonly IDbContextFactory<InnovaTecDbContext> _factory;
 
-    public ClienteService(InnovaTecDbContext context)
+    public ClienteService(IDbContextFactory<InnovaTecDbContext> factory)
     {
-        _context = context;
+        _factory = factory;
     }
 
     public async Task<List<Persona>> GetAllClientesAsync(string? search = null)
     {
-        var query = _context.Personas
+        using var context = await _factory.CreateDbContextAsync();
+        var query = context.Personas
             .Include(p => p.IdTipo)
             .Include(p => p.Venta)
             .Where(p => p.EsCliente == true && p.IdEstado == 1);
@@ -50,7 +51,8 @@ public class ClienteService : IClienteService
 
     public async Task<Persona?> GetClienteByIdAsync(int id)
     {
-        return await _context.Personas
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Personas
             .Include(p => p.IdTipo)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.IdPersona == id && p.EsCliente == true);
@@ -58,17 +60,19 @@ public class ClienteService : IClienteService
 
     public async Task CreateClienteAsync(Persona persona)
     {
+        using var context = await _factory.CreateDbContextAsync();
         persona.EsCliente = true;
         persona.EsEmpleado = false;
         persona.FechaCreacion = DateTime.Now;
         persona.IdEstado = 1; // Activo
-        _context.Personas.Add(persona);
-        await _context.SaveChangesAsync();
+        context.Personas.Add(persona);
+        await context.SaveChangesAsync();
     }
 
     public async Task UpdateClienteAsync(Persona persona)
     {
-        var existing = await _context.Personas
+        using var context = await _factory.CreateDbContextAsync();
+        var existing = await context.Personas
             .FirstOrDefaultAsync(p => p.IdPersona == persona.IdPersona);
         if (existing == null)
             throw new Exception($"Cliente con ID {persona.IdPersona} no encontrado.");
@@ -84,12 +88,13 @@ public class ClienteService : IClienteService
         existing.Email = persona.Email;
         existing.Direccion = persona.Direccion;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<List<Venta>> GetComprasClienteAsync(int idPersona)
     {
-        return await _context.Ventas
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Ventas
             .Include(v => v.VentaDetalles)
                 .ThenInclude(d => d.IdProductoNavigation)
             .Include(v => v.VentaDetalles)
@@ -103,7 +108,8 @@ public class ClienteService : IClienteService
 
     public async Task<List<Garantia>> GetGarantiasClienteAsync(int idPersona)
     {
-        return await _context.Garantias
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Garantias
             .Include(g => g.IdProductoNavigation)
             .Include(g => g.IdEquipoImeiNavigation)
             .Include(g => g.IdDetalleVentaNavigation)
@@ -115,38 +121,25 @@ public class ClienteService : IClienteService
 
     public async Task<ClienteStatsDto> GetClienteStatsAsync()
     {
-        var clientes = await _context.Personas
-            .Where(p => p.EsCliente == true && p.IdEstado == 1)
-            .AsNoTracking()
-            .ToListAsync();
+        using var context = await _factory.CreateDbContextAsync();
+        
+        // Usamos la vista de base de datos para obtener estadísticas precisas y centralizadas
+        var stats = await context.VClienteDashboardStats.FirstOrDefaultAsync();
 
-        var clienteIds = clientes.Select(c => c.IdPersona).ToList();
-
-        var garantiasActivas = await _context.Garantias
-            .Where(g => clienteIds.Contains(g.IdPersona) && g.EstadoGarantia == "ACTIVA")
-            .Select(g => g.IdPersona)
-            .Distinct()
-            .CountAsync();
-
-        var hace30Dias = DateTime.Now.AddDays(-30);
-        var comprasRecientes = await _context.Ventas
-            .Where(v => v.IdPersona.HasValue && clienteIds.Contains(v.IdPersona.Value)
-                        && v.FechaVenta >= hace30Dias && !v.Anulada)
-            .Select(v => v.IdPersona)
-            .Distinct()
-            .CountAsync();
+        if (stats == null) return new ClienteStatsDto();
 
         return new ClienteStatsDto
         {
-            TotalClientes = clientes.Count,
-            ConGarantiasActivas = garantiasActivas,
-            ConComprasRecientes = comprasRecientes
+            TotalClientes = stats.TotalClientes,
+            ConGarantiasActivas = stats.TotalGarantiasActivas, // Ahora toma el total de garantías, no solo clientes distintos
+            ConComprasRecientes = stats.ClientesConComprasRecientes
         };
     }
 
     public async Task<List<TipoIdentificacion>> GetTiposIdentificacionAsync()
     {
-        return await _context.TipoIdentificacions
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.TipoIdentificacions
             .Where(t => t.IdEstado == 1)
             .OrderBy(t => t.DescTipo)
             .AsNoTracking()

@@ -11,7 +11,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(options => options.DetailedErrors = true);
 
-builder.Services.AddDbContext<InnovaTecDbContext>(options =>
+// Registramos la Factoría de Contexto para evitar errores de concurrencia en Blazor Server
+builder.Services.AddDbContextFactory<InnovaTecDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<IAuthService, AuthService>();

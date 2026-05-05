@@ -13,101 +13,58 @@ public interface IShiftService
 
 public class ShiftService : IShiftService
 {
-    private readonly InnovaTecDbContext _context;
+    private readonly IDbContextFactory<InnovaTecDbContext> _factory;
 
-    public ShiftService(InnovaTecDbContext context)
+    public ShiftService(IDbContextFactory<InnovaTecDbContext> factory)
     {
-        _context = context;
+        _factory = factory;
     }
 
     public async Task<Turno?> GetActiveShiftAsync(int userId)
     {
-        // Must match the filter in UX_TURNO_ACTIVO: [ID_ESTADO]=(1)
-        // Also check for null FechaCierre to be sure it's the current one
-        return await _context.Turnos
+        using var context = await _factory.CreateDbContextAsync();
+        // Usamos la vista para obtener el turno activo con datos calculados
+        return await context.Turnos
+            .FromSqlRaw("SELECT * FROM CAJA.V_ESTADO_TURNO_ACTUAL WHERE ID_USUARIO = {0}", userId)
             .Include(t => t.IdUsuarioNavigation)
-            .FirstOrDefaultAsync(t => t.IdUsuario == userId && (t.IdEstado == 1 || t.FechaCierre == null));
+            .AsNoTracking()
+            .FirstOrDefaultAsync();
     }
 
     public async Task<Turno> OpenShiftAsync(int userId, decimal initialNio, decimal initialUsd, List<ConteoDenominacione> counts)
     {
-        var existing = await GetActiveShiftAsync(userId);
-        if (existing != null) return existing;
+        using var context = await _factory.CreateDbContextAsync();
+        var countsJson = System.Text.Json.JsonSerializer.Serialize(counts);
 
-        var activeState = await _context.Set<Estado>().FirstOrDefaultAsync(e => e.Codigo == "ACTIVO" || e.DescEstado == "ACTIVO") 
-                          ?? await _context.Set<Estado>().FirstOrDefaultAsync();
-        
-        var turno = new Turno
-        {
-            IdUsuario = userId,
-            FechaApertura = DateTime.Now,
-            MontoInicialNio = initialNio,
-            MontoInicialUsd = initialUsd,
-            TotalVentasNio = 0,
-            TotalVentasUsd = 0,
-            TotalEfectivoNio = 0,
-            TotalEfectivoUsd = 0,
-            TotalTarjeta = 0,
-            TotalTransferencia = 0,
-            IdEstado = activeState?.IdEstado ?? 1 // Fallback to 1 if not found
-        };
+        var result = await context.Turnos
+            .FromSqlRaw("EXEC CAJA.sp_GestionarTurno @Accion='ABRIR', @IdUsuario={0}, @MontoInicialNio={1}, @MontoInicialUsd={2}, @ConteosJson={3}",
+                userId, initialNio, initialUsd, countsJson)
+            .AsNoTracking()
+            .ToListAsync();
 
-        _context.Turnos.Add(turno);
-        await _context.SaveChangesAsync();
+        if (!result.Any())
+            throw new Exception("No se pudo abrir el turno en la base de datos.");
 
-        if (counts != null && counts.Any())
-        {
-            foreach (var count in counts)
-            {
-                count.IdTurno = turno.IdTurno;
-                count.TipoConteo = "APERTURA";
-                _context.ConteoDenominaciones.Add(count);
-            }
-            await _context.SaveChangesAsync();
-        }
-
-        return turno;
+        return result.First();
     }
 
     public async Task<List<Denominacione>> GetDenominationsAsync()
     {
-        return await _context.Denominaciones
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Denominaciones
             .Include(d => d.IdMonedaNavigation)
             .OrderBy(d => d.IdMoneda)
-            .ThenByDescending(d => d.Orden) // Denominations usually ordered by value descending
+            .ThenByDescending(d => d.Orden)
             .ToListAsync();
     }
 
     public async Task CloseShiftAsync(int turnoId, decimal finalNio, decimal finalUsd, List<ConteoDenominacione> counts, string? observations)
     {
-        var turno = await _context.Turnos.FindAsync(turnoId);
-        if (turno == null) return;
+        using var context = await _factory.CreateDbContextAsync();
+        var countsJson = System.Text.Json.JsonSerializer.Serialize(counts);
 
-        var closedState = await _context.Set<Estado>().FirstOrDefaultAsync(e => e.Codigo == "CERRADO" || e.DescEstado == "CERRADO") 
-                          ?? await _context.Set<Estado>().FirstOrDefaultAsync(e => e.IdEstado == 2);
-
-        turno.FechaCierre = DateTime.Now;
-        turno.MontoContadoNio = finalNio;
-        turno.MontoContadoUsd = finalUsd;
-        turno.Observaciones = observations;
-        turno.IdEstado = closedState?.IdEstado ?? 2; // Fallback to 2
-        
-        // Calculate differences compared to system totals
-        turno.DiferenciaNio = finalNio - (turno.MontoInicialNio + turno.TotalVentasNio);
-        turno.DiferenciaUsd = finalUsd - (turno.MontoInicialUsd + turno.TotalVentasUsd);
-        turno.EstadoCuadre = (turno.DiferenciaNio == 0 && turno.DiferenciaUsd == 0) ? "CUADRADO" : "DESCUADRE";
-
-        // Save closing counts
-        if (counts != null && counts.Any())
-        {
-            foreach (var count in counts)
-            {
-                count.IdTurno = turno.IdTurno;
-                count.TipoConteo = "CIERRE";
-                _context.ConteoDenominaciones.Add(count);
-            }
-        }
-
-        await _context.SaveChangesAsync();
+        await context.Database.ExecuteSqlRawAsync(
+            "EXEC CAJA.sp_GestionarTurno @Accion='CERRAR', @IdUsuario=0, @IdTurno={0}, @MontoFinalNio={1}, @MontoFinalUsd={2}, @Observaciones={3}, @ConteosJson={4}",
+            turnoId, finalNio, finalUsd, observations ?? (object)DBNull.Value, countsJson);
     }
 }

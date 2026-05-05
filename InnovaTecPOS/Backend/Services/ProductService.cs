@@ -1,186 +1,212 @@
 using InnovaTecPOS.Backend.Models;
-using InnovaTecPOS.Backend.DTOs;
 using Microsoft.EntityFrameworkCore;
+using InnovaTecPOS.Backend.Services;
+using InnovaTecPOS.Backend.DTOs;
+using Microsoft.Data.SqlClient;
+using System.Data;
+using System.Data.Common;
 
 namespace InnovaTecPOS.Backend.Services;
 
 public interface IProductService
 {
-    Task<List<Producto>> SearchProductsAsync(string term);
-    Task<List<EquiposImei>> GetAvailableImeisAsync(int idProducto);
-    Task<Producto?> GetProductByBarcodeAsync(string barcode);
-    
-    // Inventory methods
     Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null, bool includeInactive = false);
-    Task<InventoryStatsDto> GetInventoryStatsAsync();
-    Task<List<Categoria>> GetCategoriasAsync();
     Task<Producto?> GetProductByIdAsync(int id);
+    Task<Producto?> GetProductByCodeAsync(string code);
+    Task<Producto?> GetProductByBarcodeAsync(string barcode);
+    Task<List<Producto>> SearchProductsAsync(string term);
     Task CreateProductAsync(Producto producto);
     Task UpdateProductAsync(Producto producto);
+    Task<List<Categoria>> GetCategoriasAsync();
     Task AdjustStockAsync(int idProducto, int nuevaCantidad, string observacion);
+    Task<List<VStockCritico>> GetStockCriticoAsync();
+    Task<InventoryStatsDto> GetInventoryStatsAsync();
     Task<List<Movimiento>> GetProductMovementsAsync(int idProducto);
 }
 
 public class ProductService : IProductService
 {
-    private readonly InnovaTecDbContext _context;
+    private readonly IDbContextFactory<InnovaTecDbContext> _factory;
     private readonly UserSession _userSession;
 
-    public ProductService(InnovaTecDbContext context, UserSession userSession)
+    public ProductService(IDbContextFactory<InnovaTecDbContext> factory, UserSession userSession)
     {
-        _context = context;
+        _factory = factory;
         _userSession = userSession;
-    }
-
-    public async Task<List<Producto>> SearchProductsAsync(string term)
-    {
-        if (string.IsNullOrWhiteSpace(term))
-            return new List<Producto>();
-
-        term = term.ToLower();
-
-        return await _context.Productos
-            .Include(p => p.IdCategoriaNavigation)
-            .Where(p => p.Activo == true &&
-                        p.StockActual > 0 &&
-                        (p.Nombre.ToLower().Contains(term) ||
-                         (p.CodigoBarras != null && p.CodigoBarras.Contains(term))))
-            .AsNoTracking()
-            .Take(10)
-            .ToListAsync();
-    }
-
-    public async Task<List<EquiposImei>> GetAvailableImeisAsync(int idProducto)
-    {
-        return await _context.EquiposImeis
-            .Where(i => i.IdProducto == idProducto && i.EstadoImei == "DISPONIBLE")
-            .AsNoTracking()
-            .ToListAsync();
-    }
-    
-    public async Task<Producto?> GetProductByBarcodeAsync(string barcode)
-    {
-        if (string.IsNullOrWhiteSpace(barcode)) return null;
-
-        return await _context.Productos
-            .Include(p => p.IdCategoriaNavigation)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Activo == true && p.CodigoBarras == barcode);
     }
 
     public async Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null, bool includeInactive = false)
     {
-        var query = _context.Productos
+        using var context = await _factory.CreateDbContextAsync();
+        
+        var query = context.Productos
+            .FromSqlRaw("SELECT * FROM INV.V_PRODUCTOS_DETALLE")
             .Include(p => p.IdCategoriaNavigation)
-            .Include(p => p.Movimientos)
-            .AsQueryable();
+            .AsNoTracking();
 
         if (!includeInactive)
-        {
             query = query.Where(p => p.Activo == true);
-        }
+
+        if (idCategoria.HasValue && idCategoria > 0)
+            query = query.Where(p => p.IdCategoria == idCategoria);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            search = search.ToLower();
-            query = query.Where(p => p.Nombre.ToLower().Contains(search) || 
-                                    (p.CodigoBarras != null && p.CodigoBarras.Contains(search)));
+            var s = search.ToLower();
+            query = query.Where(p => p.Nombre.ToLower().Contains(s) || (p.CodigoBarras != null && p.CodigoBarras.ToLower().Contains(s)));
         }
 
-        if (idCategoria.HasValue && idCategoria.Value > 0)
-        {
-            query = query.Where(p => p.IdCategoria == idCategoria.Value);
-        }
-
-        return await query.AsNoTracking().OrderBy(p => p.Nombre).ToListAsync();
-    }
-
-    public async Task<InventoryStatsDto> GetInventoryStatsAsync()
-    {
-        Console.WriteLine("Service: GetInventoryStatsAsync called");
-        var allProducts = await _context.Productos.AsNoTracking().ToListAsync();
-        var activeProducts = allProducts.Where(p => p.Activo == true).ToList();
-
-        return new InventoryStatsDto
-        {
-            TotalProductos = activeProducts.Count,
-            StockBajo = activeProducts.Count(p => p.EstadoStock == "CRITICO"),
-            SinStock = activeProducts.Count(p => p.EstadoStock == "AGOTADO"),
-            Valorizacion = allProducts.Sum(p => p.PrecioVenta * p.StockActual)
-        };
-    }
-
-    public async Task<List<Categoria>> GetCategoriasAsync()
-    {
-        return await _context.Categorias.Where(c => c.IdEstado == 1).OrderBy(c => c.Nombre).ToListAsync();
+        return await query
+            .OrderByDescending(p => p.IdProducto)
+            .ToListAsync();
     }
 
     public async Task<Producto?> GetProductByIdAsync(int id)
     {
-        return await _context.Productos
-            .AsNoTracking()
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Productos
+            .Include(p => p.IdCategoriaNavigation)
+            .Include(p => p.EquiposImeis.Where(i => i.EstadoImei == "DISPONIBLE"))
             .FirstOrDefaultAsync(p => p.IdProducto == id);
     }
 
+    public async Task<Producto?> GetProductByCodeAsync(string code)
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Productos
+            .Include(p => p.IdCategoriaNavigation)
+            .Include(p => p.EquiposImeis.Where(i => i.EstadoImei == "DISPONIBLE"))
+            .FirstOrDefaultAsync(p => p.CodigoBarras == code && p.Activo == true);
+    }
+
+    public async Task<Producto?> GetProductByBarcodeAsync(string barcode) => await GetProductByCodeAsync(barcode);
+
+    public async Task<List<Producto>> SearchProductsAsync(string term) => await GetAllProductsAsync(search: term);
+
     public async Task CreateProductAsync(Producto producto)
     {
-        producto.CreadoPor = _userSession.UserId;
-        _userSession.CurrentObservation = $"Creación inicial de producto: {producto.Nombre}";
-        _context.Productos.Add(producto);
-        await _context.SaveChangesAsync();
+        using var context = await _factory.CreateDbContextAsync();
+        context.Session = _userSession;
+        
+        var connection = context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open) await connection.OpenAsync();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "INV.sp_MantenerProducto";
+        command.CommandType = CommandType.StoredProcedure;
+
+        AddParam(command, "@IdProducto", DBNull.Value);
+        AddParam(command, "@CodigoBarras", (object?)producto.CodigoBarras ?? DBNull.Value);
+        AddParam(command, "@Nombre", producto.Nombre);
+        AddParam(command, "@Marca", (object?)producto.Marca ?? DBNull.Value);
+        AddParam(command, "@Modelo", (object?)producto.Modelo ?? DBNull.Value);
+        AddParam(command, "@Almacenamiento", (object?)producto.Almacenamiento ?? DBNull.Value);
+        AddParam(command, "@Color", (object?)producto.Color ?? DBNull.Value);
+        AddParam(command, "@IdCategoria", (object?)producto.IdCategoria ?? DBNull.Value);
+        AddParam(command, "@PrecioCompra", producto.PrecioCompra);
+        AddParam(command, "@PrecioVenta", producto.PrecioVenta);
+        AddParam(command, "@StockActual", producto.StockActual);
+        AddParam(command, "@StockMinimo", producto.StockMinimo);
+        AddParam(command, "@Activo", producto.Activo);
+        
+        // UserId ya es int?, no requiere parseo
+        var userId = (object?)_userSession.UserId ?? DBNull.Value;
+        AddParam(command, "@UsuarioId", userId);
+
+        await command.ExecuteNonQueryAsync();
     }
 
     public async Task UpdateProductAsync(Producto producto)
     {
-        Console.WriteLine($"Service: UpdateProductAsync for ID {producto.IdProducto}");
-        // Load the existing entity from DB (tracked)
-        var existing = await _context.Productos.FirstOrDefaultAsync(p => p.IdProducto == producto.IdProducto);
+        using var context = await _factory.CreateDbContextAsync();
+        context.Session = _userSession;
+
+        var connection = context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open) await connection.OpenAsync();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "INV.sp_MantenerProducto";
+        command.CommandType = CommandType.StoredProcedure;
+
+        AddParam(command, "@IdProducto", producto.IdProducto);
+        AddParam(command, "@CodigoBarras", (object?)producto.CodigoBarras ?? DBNull.Value);
+        AddParam(command, "@Nombre", producto.Nombre);
+        AddParam(command, "@Marca", (object?)producto.Marca ?? DBNull.Value);
+        AddParam(command, "@Modelo", (object?)producto.Modelo ?? DBNull.Value);
+        AddParam(command, "@Almacenamiento", (object?)producto.Almacenamiento ?? DBNull.Value);
+        AddParam(command, "@Color", (object?)producto.Color ?? DBNull.Value);
+        AddParam(command, "@IdCategoria", (object?)producto.IdCategoria ?? DBNull.Value);
+        AddParam(command, "@PrecioCompra", producto.PrecioCompra);
+        AddParam(command, "@PrecioVenta", producto.PrecioVenta);
+        AddParam(command, "@StockActual", producto.StockActual);
+        AddParam(command, "@StockMinimo", producto.StockMinimo);
+        AddParam(command, "@Activo", producto.Activo);
         
-        if (existing == null)
-            throw new Exception($"Producto con ID {producto.IdProducto} no encontrado.");
+        var userId = (object?)_userSession.UserId ?? DBNull.Value;
+        AddParam(command, "@UsuarioId", userId);
 
-        _userSession.CurrentObservation = $"Edición de datos básicos de producto: {producto.Nombre}";
+        await command.ExecuteNonQueryAsync();
+    }
 
-        // Map ONLY editable fields (ignore computed columns like EstadoStock and Default columns like FechaCreacion)
-        existing.Nombre = producto.Nombre;
-        existing.CodigoBarras = producto.CodigoBarras;
-        existing.Marca = producto.Marca;
-        existing.Modelo = producto.Modelo;
-        existing.Almacenamiento = producto.Almacenamiento;
-        existing.Color = producto.Color;
-        existing.IdCategoria = producto.IdCategoria;
-        existing.PrecioCompra = producto.PrecioCompra;
-        existing.PrecioVenta = producto.PrecioVenta;
-        existing.StockMinimo = producto.StockMinimo;
-        existing.Activo = producto.Activo;
-        existing.TipoProducto = producto.TipoProducto;
+    private void AddParam(DbCommand command, string name, object value)
+    {
+        var param = command.CreateParameter();
+        param.ParameterName = name;
+        param.Value = value;
+        command.Parameters.Add(param);
+    }
 
-        await _context.SaveChangesAsync();
-        Console.WriteLine("Service: SaveChangesAsync completed.");
+    public async Task<List<Categoria>> GetCategoriasAsync()
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Categorias
+            .Where(c => c.IdEstado == 1)
+            .OrderBy(c => c.Nombre)
+            .ToListAsync();
     }
 
     public async Task AdjustStockAsync(int idProducto, int nuevaCantidad, string observacion)
     {
-        var producto = await _context.Productos.FindAsync(idProducto);
+        using var context = await _factory.CreateDbContextAsync();
+        context.Session = _userSession;
+        var producto = await context.Productos.FindAsync(idProducto);
         if (producto == null) return;
 
-        // Establecer la observación en la sesión antes de guardar. 
-        // El trigger de la BD la capturará desde SESSION_CONTEXT.
-        _userSession.CurrentObservation = observacion;
-        
         producto.StockActual = nuevaCantidad;
-        
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
+    }
+
+    public async Task<List<VStockCritico>> GetStockCriticoAsync()
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.VStockCriticos.ToListAsync();
+    }
+
+    public async Task<InventoryStatsDto> GetInventoryStatsAsync()
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        var productos = await context.Productos
+            .Where(p => p.Activo == true)
+            .AsNoTracking()
+            .ToListAsync();
+
+        return new InventoryStatsDto
+        {
+            TotalProductos = productos.Count,
+            StockBajo = productos.Count(p => p.StockActual > 0 && p.StockActual <= p.StockMinimo),
+            SinStock = productos.Count(p => p.StockActual == 0),
+            Valorizacion = productos.Sum(p => p.PrecioVenta * p.StockActual)
+        };
     }
 
     public async Task<List<Movimiento>> GetProductMovementsAsync(int idProducto)
     {
-        return await _context.Movimientos
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.Movimientos
             .Include(m => m.IdTipoMovNavigation)
             .Include(m => m.RegistradoPorNavigation)
             .Where(m => m.IdProducto == idProducto)
             .OrderByDescending(m => m.FechaMov)
-            .AsNoTracking()
             .ToListAsync();
     }
 }

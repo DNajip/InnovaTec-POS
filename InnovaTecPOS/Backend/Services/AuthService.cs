@@ -19,20 +19,21 @@ public class LoginResponse
 
 public class AuthService : IAuthService
 {
-    private readonly InnovaTecDbContext _context;
+    private readonly IDbContextFactory<InnovaTecDbContext> _factory;
     private readonly UserSession _userSession;
 
-    public AuthService(InnovaTecDbContext context, UserSession userSession)
+    public AuthService(IDbContextFactory<InnovaTecDbContext> factory, UserSession userSession)
     {
-        _context = context;
+        _factory = factory;
         _userSession = userSession;
     }
 
     public async Task<LoginResponse> IniciarSesionAsync(string username, string password)
     {
+        using var context = await _factory.CreateDbContextAsync();
         try 
         {
-            var result = await _context.Database
+            var result = await context.Database
                 .SqlQueryRaw<LoginResponse>("EXEC ADM.sp_IniciarSesion @Username={0}, @Password={1}", username, password)
                 .ToListAsync();
 
@@ -40,7 +41,7 @@ public class AuthService : IAuthService
 
             if (response.Success == 1 && response.UserId.HasValue)
             {
-                var user = await _context.Usuarios
+                var user = await context.Usuarios
                     .Include(u => u.IdEmpleadoNavigation)
                         .ThenInclude(e => e.IdPersonaNavigation)
                     .Include(u => u.IdRolNavigation)
