@@ -97,21 +97,21 @@ BEGIN
     UPDATE T SET 
         T.TOTAL_EFECTIVO_NIO += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) 
                                        FROM OPENJSON(@PaymentsJson) pj 
-                                       JOIN VEN.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT)
-                                       JOIN ADM.MONEDAS m ON m.ID_MONEDA = mp.ID_MONEDA
+                                       JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT)
+                                       JOIN CAT.MONEDAS m ON m.ID_MONEDA = mp.ID_MONEDA
                                        WHERE mp.NOMBRE LIKE '%EFECTIVO%' AND m.CODIGO = 'NIO'), 0),
         T.TOTAL_EFECTIVO_USD += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.Monto') AS DECIMAL(12,2))) 
                                        FROM OPENJSON(@PaymentsJson) pj 
-                                       JOIN VEN.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT)
-                                       JOIN ADM.MONEDAS m ON m.ID_MONEDA = mp.ID_MONEDA
+                                       JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT)
+                                       JOIN CAT.MONEDAS m ON m.ID_MONEDA = mp.ID_MONEDA
                                        WHERE mp.NOMBRE LIKE '%EFECTIVO%' AND m.CODIGO = 'USD'), 0),
         T.TOTAL_TARJETA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) 
                                    FROM OPENJSON(@PaymentsJson) pj 
-                                   JOIN VEN.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT)
+                                   JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT)
                                    WHERE mp.NOMBRE LIKE '%TARJETA%'), 0),
         T.TOTAL_TRANSFERENCIA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) 
                                          FROM OPENJSON(@PaymentsJson) pj 
-                                         JOIN VEN.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT)
+                                         JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT)
                                          WHERE mp.NOMBRE LIKE '%TRANSFERENCIA%'), 0),
         T.TOTAL_VENTAS_NIO += @TotalVentaNio,
         T.TOTAL_VENTAS_USD += (@TotalVentaNio / @TasaCambioUsd)
@@ -152,7 +152,7 @@ BEGIN
         WHILE @@FETCH_STATUS = 0
         BEGIN
             DECLARE @Meses INT = 0;
-            SELECT @Meses = MESES FROM INV.PERIODOS_GARANTIA WHERE ID_PERIODO = @IdPeriodo;
+            SELECT @Meses = MESES FROM CAT.PERIODOS_GARANTIA WHERE ID_PERIODO = @IdPeriodo;
             DECLARE @FechaVence DATE = CASE WHEN @Meses > 0 THEN DATEADD(MONTH, @Meses, @FechaActual) ELSE NULL END;
 
             INSERT INTO VEN.VENTA_DETALLE (ID_VENTA, ID_PRODUCTO, DESCRIPCION_SNAP, CANTIDAD, PRECIO_UNITARIO_NIO, SUBTOTAL_NIO, ID_PERIODO_GARANTIA, FECHA_VENCE_GARANTIA)
@@ -183,7 +183,7 @@ BEGIN
 
             IF @FechaVence IS NOT NULL AND @IdPersona IS NOT NULL
             BEGIN
-                INSERT INTO INV.GARANTIAS (ID_DETALLE_VENTA, ID_PERSONA, ID_PRODUCTO, ID_EQUIPO_IMEI, MESES_GARANTIA, FECHA_INICIO, FECHA_VENCIMIENTO, ESTADO_GARANTIA)
+                INSERT INTO GAR.GARANTIAS (ID_DETALLE_VENTA, ID_PERSONA, ID_PRODUCTO, ID_EQUIPO_IMEI, MESES_GARANTIA, FECHA_INICIO, FECHA_VENCIMIENTO, ESTADO_GARANTIA)
                 VALUES (@IdDetalle, @IdPersona, @IdProducto, @IdImei, @Meses, CAST(@FechaActual AS DATE), @FechaVence, 'ACTIVA');
             END
 
@@ -192,9 +192,16 @@ BEGIN
         CLOSE @DetCursor;
         DEALLOCATE @DetCursor;
 
+        DECLARE @StockPrevio INT;
+        SELECT @StockPrevio = STOCK_ACTUAL FROM INV.PRODUCTOS WHERE ID_PRODUCTO = @IdProducto;
+
+        IF @StockPrevio < @Qty 
+            THROW 50005, 'Stock insuficiente para el producto seleccionado.', 1;
+
         UPDATE INV.PRODUCTOS SET STOCK_ACTUAL -= @Qty WHERE ID_PRODUCTO = @IdProducto;
-        INSERT INTO INV.MOVIMIENTOS (ID_PRODUCTO, ID_TIPO_MOV, CANTIDAD, ID_REFERENCIA, TABLA_REFERENCIA, OBSERVACION, FECHA_MOV, REGISTRADO_POR)
-        VALUES (@IdProducto, 2, -@Qty, @IdVenta, 'VEN.VENTAS', 'Venta ' + @NumFactura, @FechaActual, @IdUsuario);
+        
+        INSERT INTO INV.MOVIMIENTOS (ID_PRODUCTO, ID_TIPO_MOV, CANTIDAD, STOCK_ANTES, STOCK_DESPUES, ID_REFERENCIA, TABLA_REFERENCIA, OBSERVACION, FECHA_MOV, REGISTRADO_POR)
+        VALUES (@IdProducto, 2, -@Qty, @StockPrevio, @StockPrevio - @Qty, @IdVenta, 'VEN.VENTAS', 'Venta ' + @NumFactura, @FechaActual, @IdUsuario);
 
         FETCH NEXT FROM @ItemCursor INTO @IdProducto, @Qty, @UnitPrice, @SubTotalItem, @DescItem, @ReqImei, @DetailsJson;
     END
@@ -203,7 +210,7 @@ BEGIN
 
     COMMIT TRANSACTION;
 
-    SELECT * FROM VEN.V_HISTORIAL_VENTAS WHERE ID_VENTA = @IdVenta;
+    SELECT * FROM VEN.VENTAS WHERE ID_VENTA = @IdVenta;
 END;
 GO
 
