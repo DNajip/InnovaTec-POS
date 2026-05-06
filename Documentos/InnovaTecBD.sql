@@ -365,7 +365,7 @@ CREATE TABLE INV.MOVIMIENTOS (
 GO
 
 -- TRIGGER PARA AUDITORIA AUTOMATICA DE STOCK
-CREATE TRIGGER INV.TR_PRODUCTO_STOCK_LOG
+CREATE TRIGGER INV.Trg_Productos_Auditoria
 ON INV.PRODUCTOS
 AFTER UPDATE
 AS
@@ -706,5 +706,270 @@ CREATE INDEX IX_PAGOS_VENTA          ON VEN.PAGOS(ID_VENTA);
 CREATE INDEX IX_TURNOS_USUARIO       ON CAJA.TURNOS(ID_USUARIO);
 GO
 
-PRINT '>>> InnovaTecBD creada exitosamente. <<<';
+-- ============================================================
+-- 10. VISTAS Y PROCEDIMIENTOS COMPLEMENTARIOS (REFACTORIZACION)
+-- ============================================================
+GO
+
+-- 10.1 SEGURIDAD
+IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[ADM].[sp_IniciarSesion]') AND type in (N'P', N'PC'))
+    DROP PROCEDURE [ADM].[sp_IniciarSesion];
+GO
+
+CREATE PROCEDURE [ADM].[sp_IniciarSesion]
+    @Username NVARCHAR(80),
+    @Password NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    -- Normalizar el Username (quitar guiones y espacios)
+    SET @Username = REPLACE(REPLACE(@Username, '-', ''), ' ', '');
+
+    DECLARE @UserId INT, @StoredHash VARBINARY(64), @StoredSalt VARBINARY(32), @Estado INT;
+
+    SELECT @UserId = ID_USUARIO, @StoredHash = PASSWORD_HASH, @StoredSalt = PASSWORD_SALT, @Estado = ID_ESTADO
+    FROM ADM.USUARIOS WHERE USERNAME = @Username;
+
+    IF @UserId IS NULL
+    BEGIN
+        SELECT 0 AS Success, 'la cedula no es correcta' AS Message, NULL AS UserId;
+        RETURN;
+    END
+
+    IF @Estado <> 1
+    BEGIN
+        SELECT 0 AS Success, 'El usuario se encuentra inactivo' AS Message, NULL AS UserId;
+        RETURN;
+    END
+
+    IF @StoredHash = HASHBYTES('SHA2_512', @Password + CAST(@StoredSalt AS NVARCHAR(MAX)))
+    BEGIN
+        UPDATE ADM.USUARIOS SET ULTIMO_ACCESO = SYSDATETIME() WHERE ID_USUARIO = @UserId;
+        SELECT 1 AS Success, 'Acceso concedido' AS Message, @UserId AS UserId;
+    END
+    ELSE
+        SELECT 0 AS Success, 'contraseña incorrecta' AS Message, NULL AS UserId;
+END
+GO
+
+-- 10.2 INVENTARIO
+IF EXISTS (SELECT 1 FROM sys.views WHERE name = 'V_PRODUCTOS_DETALLE' AND schema_id = SCHEMA_ID('INV'))
+    DROP VIEW INV.V_PRODUCTOS_DETALLE;
+GO
+
+CREATE VIEW INV.V_PRODUCTOS_DETALLE AS
+SELECT 
+    P.*,
+    C.NOMBRE AS NOMBRE_CATEGORIA,
+    (SELECT COUNT(1) FROM INV.EQUIPOS_IMEI I WHERE I.ID_PRODUCTO = P.ID_PRODUCTO AND I.ESTADO_IMEI = 'DISPONIBLE') AS CANTIDAD_IMEI_DISP
+FROM INV.PRODUCTOS P
+LEFT JOIN INV.CATEGORIAS C ON P.ID_CATEGORIA = C.ID_CATEGORIA;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_ListarProductos' AND schema_id = SCHEMA_ID('INV'))
+    DROP PROCEDURE INV.sp_ListarProductos;
+GO
+
+CREATE PROCEDURE INV.sp_ListarProductos
+    @Busqueda NVARCHAR(100) = NULL,
+    @IdCategoria INT = NULL,
+    @IncluirInactivos BIT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT * FROM INV.V_PRODUCTOS_DETALLE
+    WHERE (@IncluirInactivos = 1 OR ACTIVO = 1)
+      AND (@IdCategoria IS NULL OR ID_CATEGORIA = @IdCategoria OR @IdCategoria = 0)
+      AND (@Busqueda IS NULL OR @Busqueda = '' OR
+           NOMBRE LIKE '%' + @Busqueda + '%' OR 
+           CODIGO_BARRAS LIKE '%' + @Busqueda + '%' OR 
+           MARCA LIKE '%' + @Busqueda + '%' OR 
+           MODELO LIKE '%' + @Busqueda + '%')
+    ORDER BY ID_PRODUCTO DESC;
+END;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_MantenerProducto' AND schema_id = SCHEMA_ID('INV'))
+    DROP PROCEDURE INV.sp_MantenerProducto;
+GO
+
+CREATE PROCEDURE INV.sp_MantenerProducto
+    @IdProducto INT = NULL,
+    @CodigoBarras NVARCHAR(100) = NULL,
+    @Nombre NVARCHAR(150),
+    @Marca NVARCHAR(100) = NULL,
+    @Modelo NVARCHAR(100) = NULL,
+    @Almacenamiento NVARCHAR(50) = NULL,
+    @Color NVARCHAR(50) = NULL,
+    @IdCategoria INT = NULL,
+    @PrecioCompra DECIMAL(12,2) = NULL,
+    @PrecioVenta DECIMAL(12,2),
+    @StockActual INT = 0,
+    @StockMinimo INT = 0,
+    @Activo BIT = 1,
+    @UsuarioId INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON; SET XACT_ABORT ON;
+    BEGIN TRANSACTION;
+    SET @CodigoBarras = NULLIF(LTRIM(RTRIM(@CodigoBarras)), '');
+    SET @Nombre = LTRIM(RTRIM(@Nombre));
+
+    DECLARE @TipoProducto VARCHAR(20) = 'ARTICULO', @ManejaImei BIT = 0, @CatNombre NVARCHAR(100);
+    SELECT @ManejaImei = MANEJA_IMEI, @CatNombre = NOMBRE FROM INV.CATEGORIAS WHERE ID_CATEGORIA = @IdCategoria;
+    IF @ManejaImei = 1 SET @TipoProducto = 'TELEFONO';
+    ELSE IF @CatNombre LIKE '%Accesorio%' SET @TipoProducto = 'ACCESORIO';
+
+    IF @CodigoBarras IS NOT NULL AND EXISTS (SELECT 1 FROM INV.PRODUCTOS WHERE CODIGO_BARRAS = @CodigoBarras AND (@IdProducto IS NULL OR ID_PRODUCTO <> @IdProducto))
+        THROW 50001, 'El código de barras ya pertenece a otro producto.', 1;
+
+    IF @IdProducto IS NULL OR @IdProducto = 0
+    BEGIN
+        INSERT INTO INV.PRODUCTOS (CODIGO_BARRAS, NOMBRE, MARCA, MODELO, ALMACENAMIENTO, COLOR, ID_CATEGORIA, TIPO_PRODUCTO, PRECIO_COMPRA, PRECIO_VENTA, STOCK_ACTUAL, STOCK_MINIMO, ACTIVO, CREADO_POR)
+        VALUES (@CodigoBarras, @Nombre, @Marca, @Modelo, @Almacenamiento, @Color, @IdCategoria, @TipoProducto, @PrecioCompra, @PrecioVenta, @StockActual, @StockMinimo, @Activo, @UsuarioId);
+        SET @IdProducto = SCOPE_IDENTITY();
+    END
+    ELSE
+    BEGIN
+        UPDATE INV.PRODUCTOS SET CODIGO_BARRAS = @CodigoBarras, NOMBRE = @Nombre, MARCA = @Marca, MODELO = @Modelo, ALMACENAMIENTO = @Almacenamiento, COLOR = @Color, ID_CATEGORIA = @IdCategoria, TIPO_PRODUCTO = @TipoProducto, PRECIO_COMPRA = @PrecioCompra, PRECIO_VENTA = @PrecioVenta, STOCK_ACTUAL = @StockActual, STOCK_MINIMO = @StockMinimo, ACTIVO = @Activo
+        WHERE ID_PRODUCTO = @IdProducto;
+    END
+    COMMIT TRANSACTION;
+    SELECT * FROM INV.V_PRODUCTOS_DETALLE WHERE ID_PRODUCTO = @IdProducto;
+END;
+GO
+
+-- 10.3 VENTAS
+IF EXISTS (SELECT 1 FROM sys.views WHERE name = 'V_HISTORIAL_VENTAS' AND schema_id = SCHEMA_ID('VEN'))
+    DROP VIEW VEN.V_HISTORIAL_VENTAS;
+GO
+
+CREATE VIEW VEN.V_HISTORIAL_VENTAS AS
+SELECT 
+    V.*,
+    U.USERNAME AS CAJERO,
+    COALESCE(P.NOMBRE_COMPLETO, 'CLIENTE GENERAL') AS CLIENTE,
+    (V.TOTAL_NIO / V.TASA_CAMBIO_USD) AS TOTAL_USD
+FROM VEN.VENTAS V
+JOIN ADM.USUARIOS U ON V.ID_USUARIO = U.ID_USUARIO
+LEFT JOIN ADM.PERSONAS P ON V.ID_PERSONA = P.ID_PERSONA;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_ProcesarVenta' AND schema_id = SCHEMA_ID('VEN'))
+    DROP PROCEDURE VEN.sp_ProcesarVenta;
+GO
+
+CREATE PROCEDURE VEN.sp_ProcesarVenta
+    @IdUsuario INT,
+    @IdPersona INT = NULL,
+    @DescuentoNio DECIMAL(12,2) = 0,
+    @TasaCambioUsd DECIMAL(12,4) = 36.60,
+    @ItemsJson NVARCHAR(MAX),
+    @PaymentsJson NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON; SET XACT_ABORT ON;
+    DECLARE @IdTurno INT, @IdVenta INT, @FechaActual DATETIME = GETDATE();
+    SELECT TOP 1 @IdTurno = ID_TURNO FROM CAJA.TURNOS WHERE ID_USUARIO = @IdUsuario AND FECHA_CIERRE IS NULL ORDER BY FECHA_APERTURA DESC;
+    IF @IdTurno IS NULL THROW 50002, 'Debe abrir un turno de caja antes de facturar.', 1;
+
+    BEGIN TRANSACTION;
+    DECLARE @SubtotalNio DECIMAL(12,2);
+    SELECT @SubtotalNio = SUM(CAST(JSON_VALUE(item.[value], '$.SubTotal') AS DECIMAL(12,2))) FROM OPENJSON(@ItemsJson) AS item;
+    DECLARE @TotalVentaNio DECIMAL(12,2) = @SubtotalNio - @DescuentoNio;
+
+    INSERT INTO VEN.VENTAS (ID_TURNO, ID_USUARIO, ID_PERSONA, FECHA_VENTA, TASA_CAMBIO_USD, SUBTOTAL_NIO, DESCUENTO_NIO, TOTAL_NIO, ANULADA)
+    VALUES (@IdTurno, @IdUsuario, @IdPersona, @FechaActual, @TasaCambioUsd, @SubtotalNio, @DescuentoNio, @TotalVentaNio, 0);
+    SET @IdVenta = SCOPE_IDENTITY();
+
+    INSERT INTO VEN.PAGOS (ID_VENTA, ID_METODO_PAGO, MONTO_PAGADO, TASA_APLICADA, MONTO_EN_NIO, COD_REFERENCIA, FECHA_PAGO)
+    SELECT @IdVenta, CAST(JSON_VALUE(p.[value], '$.IdMetodoPago') AS INT), CAST(JSON_VALUE(p.[value], '$.Monto') AS DECIMAL(12,2)), CAST(JSON_VALUE(p.[value], '$.TasaCambio') AS DECIMAL(12,4)), CAST(JSON_VALUE(p.[value], '$.MontoEnNio') AS DECIMAL(12,2)), JSON_VALUE(p.[value], '$.Referencia'), @FechaActual
+    FROM OPENJSON(@PaymentsJson) AS p;
+
+    UPDATE T SET 
+        T.TOTAL_EFECTIVO_NIO += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) JOIN CAT.MONEDAS m ON m.ID_MONEDA = mp.ID_MONEDA WHERE mp.NOMBRE LIKE '%EFECTIVO%' AND m.CODIGO = 'NIO'), 0),
+        T.TOTAL_EFECTIVO_USD += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.Monto') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) JOIN CAT.MONEDAS m ON m.ID_MONEDA = mp.ID_MONEDA WHERE mp.NOMBRE LIKE '%EFECTIVO%' AND m.CODIGO = 'USD'), 0),
+        T.TOTAL_TARJETA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE LIKE '%TARJETA%'), 0),
+        T.TOTAL_TRANSFERENCIA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE LIKE '%TRANSFERENCIA%'), 0),
+        T.TOTAL_VENTAS_NIO += @TotalVentaNio,
+        T.TOTAL_VENTAS_USD += (@TotalVentaNio / @TasaCambioUsd)
+    FROM CAJA.TURNOS T WHERE T.ID_TURNO = @IdTurno;
+
+    INSERT INTO VEN.VENTA_DETALLE (ID_VENTA, ID_PRODUCTO, DESCRIPCION_SNAP, CANTIDAD, PRECIO_UNITARIO_NIO, SUBTOTAL_NIO, ID_PERIODO_GARANTIA, FECHA_VENCE_GARANTIA)
+    SELECT @IdVenta, CAST(JSON_VALUE(i.[value], '$.IdProducto') AS INT), JSON_VALUE(i.[value], '$.Description'), CAST(JSON_VALUE(i.[value], '$.Quantity') AS INT), CAST(JSON_VALUE(i.[value], '$.UnitPrice') AS DECIMAL(12,2)), CAST(JSON_VALUE(i.[value], '$.SubTotal') AS DECIMAL(12,2)), NULL, NULL
+    FROM OPENJSON(@ItemsJson) AS i;
+
+    COMMIT TRANSACTION;
+    SELECT * FROM VEN.VENTAS WHERE ID_VENTA = @IdVenta;
+END;
+GO
+
+-- 10.4 CAJA
+IF EXISTS (SELECT 1 FROM sys.views WHERE name = 'V_ESTADO_TURNO_ACTUAL' AND schema_id = SCHEMA_ID('CAJA'))
+    DROP VIEW CAJA.V_ESTADO_TURNO_ACTUAL;
+GO
+
+CREATE VIEW CAJA.V_ESTADO_TURNO_ACTUAL AS
+SELECT 
+    T.*,
+    U.USERNAME,
+    (T.MONTO_INICIAL_NIO + T.TOTAL_EFECTIVO_NIO) AS SALDO_TEORICO_NIO,
+    (T.MONTO_INICIAL_USD + T.TOTAL_EFECTIVO_USD) AS SALDO_TEORICO_USD
+FROM CAJA.TURNOS T
+JOIN ADM.USUARIOS U ON T.ID_USUARIO = U.ID_USUARIO
+WHERE T.FECHA_CIERRE IS NULL;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_GestionarTurno' AND schema_id = SCHEMA_ID('CAJA'))
+    DROP PROCEDURE CAJA.sp_GestionarTurno;
+GO
+
+CREATE PROCEDURE CAJA.sp_GestionarTurno
+    @Accion VARCHAR(10),
+    @IdUsuario INT,
+    @IdTurno INT = NULL,
+    @MontoInicialNio DECIMAL(12,2) = 0,
+    @MontoInicialUsd DECIMAL(12,2) = 0,
+    @MontoFinalNio DECIMAL(12,2) = 0,
+    @MontoFinalUsd DECIMAL(12,2) = 0,
+    @Observaciones NVARCHAR(MAX) = NULL,
+    @ConteosJson NVARCHAR(MAX) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON; SET XACT_ABORT ON;
+    DECLARE @IdTurnoResult INT;
+    BEGIN TRANSACTION;
+    IF @Accion = 'ABRIR'
+    BEGIN
+        IF EXISTS (SELECT 1 FROM CAJA.TURNOS WHERE ID_USUARIO = @IdUsuario AND FECHA_CIERRE IS NULL)
+            THROW 50005, 'El usuario ya tiene un turno de caja abierto.', 1;
+        INSERT INTO CAJA.TURNOS (ID_USUARIO, FECHA_APERTURA, MONTO_INICIAL_NIO, MONTO_INICIAL_USD, TOTAL_VENTAS_NIO, TOTAL_VENTAS_USD, TOTAL_EFECTIVO_NIO, TOTAL_EFECTIVO_USD, TOTAL_TARJETA, TOTAL_TRANSFERENCIA, ID_ESTADO)
+        VALUES (@IdUsuario, GETDATE(), @MontoInicialNio, @MontoInicialUsd, 0, 0, 0, 0, 0, 0, 1);
+        SET @IdTurnoResult = SCOPE_IDENTITY();
+    END
+    ELSE IF @Accion = 'CERRAR'
+    BEGIN
+        IF @IdTurno IS NULL SELECT TOP 1 @IdTurno = ID_TURNO FROM CAJA.TURNOS WHERE ID_USUARIO = @IdUsuario AND FECHA_CIERRE IS NULL ORDER BY FECHA_APERTURA DESC;
+        IF @IdTurno IS NULL THROW 50006, 'No se encontró un turno abierto para cerrar.', 1;
+        UPDATE CAJA.TURNOS SET FECHA_CIERRE = GETDATE(), MONTO_CONTADO_NIO = @MontoFinalNio, MONTO_CONTADO_USD = @MontoFinalUsd, OBSERVACIONES = @Observaciones, ID_ESTADO = 2 WHERE ID_TURNO = @IdTurno;
+        SET @IdTurnoResult = @IdTurno;
+    END
+    COMMIT TRANSACTION;
+    SELECT * FROM CAJA.TURNOS WHERE ID_TURNO = @IdTurnoResult;
+END;
+GO
+
+-- 10.5 DASHBOARD & ESTADISTICAS
+IF EXISTS (SELECT 1 FROM sys.views WHERE name = 'V_CLIENTE_DASHBOARD_STATS' AND schema_id = SCHEMA_ID('ADM'))
+    DROP VIEW ADM.V_CLIENTE_DASHBOARD_STATS;
+GO
+
+CREATE VIEW ADM.V_CLIENTE_DASHBOARD_STATS AS
+SELECT 
+    (SELECT COUNT(*) FROM ADM.PERSONAS WHERE ES_CLIENTE = 1 AND ID_ESTADO = 1) AS TotalClientes,
+    (SELECT COUNT(*) FROM GAR.GARANTIAS WHERE ESTADO_GARANTIA = 'ACTIVA') AS TotalGarantiasActivas,
+    (SELECT COUNT(DISTINCT ID_PERSONA) FROM VEN.VENTAS WHERE FECHA_VENTA >= DATEADD(DAY, -30, GETDATE())) AS ClientesConComprasRecientes;
+GO
+
+PRINT '>>> InnovaTecBD actualizada con vistas y procedimientos complementarios. <<<';
 GO

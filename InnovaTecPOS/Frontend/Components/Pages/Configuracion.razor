@@ -422,9 +422,12 @@
     {
         try
         {
-            await UserService.ToggleUserStatusAsync(user.IdUsuario.Value);
-            user.IdEstado = user.IdEstado == 1 ? 2 : 1;
-            ToastService.ShowInfo($"El usuario ha sido {(user.IdEstado == 1 ? "habilitado" : "suspendido")}.");
+            if (user.IdUsuario.HasValue)
+            {
+                await UserService.ToggleUserStatusAsync(user.IdUsuario.Value);
+                user.IdEstado = user.IdEstado == 1 ? 2 : 1;
+                ToastService.ShowInfo($"El usuario ha sido {(user.IdEstado == 1 ? "habilitado" : "suspendido")}.");
+            }
         }
         catch (Exception ex)
         {

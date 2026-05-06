@@ -148,7 +148,7 @@ public class ProductService : IProductService
         await command.ExecuteNonQueryAsync();
     }
 
-    private void AddParam(DbCommand command, string name, object value)
+    private void AddParam(DbCommand command, string name, object? value)
     {
         var param = command.CreateParameter();
         param.ParameterName = name;
