@@ -118,28 +118,60 @@
             </tbody>
         </table>
 
-        <!-- Pagination -->
+        <!-- Paginación Premium tipo Carrusel -->
         @if (clientes != null && clientes.Count > pageSize)
         {
-            <div class="d-flex justify-content-between align-items-center p-3 border-top">
-                <span class="small text-muted">Mostrando @(Math.Min(clientes.Count, (currentPage - 1) * pageSize + 1)) a @(Math.Min(clientes.Count, currentPage * pageSize)) de @clientes.Count clientes</span>
-                <nav>
+            var totalPages = (int)Math.Ceiling((double)clientes.Count / pageSize);
+            <div class="pagination-container d-flex align-items-center p-3 border-top">
+                <div class="flex-grow-1">
+                    <span class="small text-muted">Mostrando @(Math.Min(clientes.Count, (currentPage - 1) * pageSize + 1)) a @(Math.Min(clientes.Count, currentPage * pageSize)) de @clientes.Count clientes</span>
+                </div>
+                <div class="pagination-carousel-container">
                     <ul class="pagination pagination-premium mb-0">
                         <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                            <a class="page-link" @onclick="() => SetPage(currentPage - 1)"><i class="fas fa-chevron-left"></i></a>
+                            <button class="page-link" @onclick="() => SetPage(currentPage - 1)" title="Anterior">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
                         </li>
-                        @for (int i = 1; i <= Math.Ceiling((double)clientes.Count / pageSize); i++)
-                        {
-                            var p = i;
-                            <li class="page-item @(currentPage == p ? "active" : "")">
-                                <a class="page-link" @onclick="() => SetPage(p)">@p</a>
-                            </li>
+                        
+                        @{
+                            // Lógica de ventana deslizante (Carrusel de 6 números)
+                            int maxVisible = 6;
+                            int startPage = Math.Max(1, Math.Min(currentPage - 2, totalPages - maxVisible + 1));
+                            int endPage = Math.Min(totalPages, startPage + maxVisible - 1);
+                            
+                            // Re-ajustar si estamos cerca del final
+                            if (totalPages > maxVisible && endPage == totalPages) startPage = Math.Max(1, totalPages - maxVisible + 1);
+
+                            for (int i = startPage; i <= endPage; i++)
+                            {
+                                var pageNum = i;
+                                <li class="page-item @(currentPage == pageNum ? "active" : "") page-item-animated" @key="pageNum">
+                                    <button class="page-link" @onclick="() => SetPage(pageNum)">@pageNum</button>
+                                </li>
+                            }
+
+                            // Mostrar Elipsis y Última Página si es necesario
+                            if (endPage < totalPages)
+                            {
+                                if (endPage < totalPages - 1)
+                                {
+                                    <li class="pagination-ellipsis">...</li>
+                                }
+                                <li class="page-item @(currentPage == totalPages ? "active" : "") page-item-animated">
+                                    <button class="page-link" @onclick="() => SetPage(totalPages)">@totalPages</button>
+                                </li>
+                            }
                         }
-                        <li class="page-item @(currentPage >= Math.Ceiling((double)clientes.Count / pageSize) ? "disabled" : "")">
-                            <a class="page-link" @onclick="() => SetPage(currentPage + 1)"><i class="fas fa-chevron-right"></i></a>
+
+                        <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => SetPage(currentPage + 1)" title="Siguiente">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
                         </li>
                     </ul>
-                </nav>
+                </div>
+                <div class="flex-grow-1 text-end"></div> <!-- Espaciador para centrar el carrusel -->
             </div>
         }
     </div>

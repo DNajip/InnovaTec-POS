@@ -185,14 +185,17 @@
         </table>
     </div>
 
-    <!-- Paginación -->
+    <!-- Paginación Premium tipo Carrusel -->
     @if (productos != null && productos.Any())
     {
         var totalPages = (int)Math.Ceiling((double)productos.Count / pageSize);
         if (totalPages > 1)
         {
-            <div class="pagination-container d-flex justify-content-center">
-                <nav>
+            <div class="pagination-container d-flex align-items-center p-3 border-top">
+                <div class="flex-grow-1">
+                    <span class="small text-muted">Mostrando @(Math.Min(productos.Count, (currentPage - 1) * pageSize + 1)) a @(Math.Min(productos.Count, currentPage * pageSize)) de @productos.Count productos</span>
+                </div>
+                <div class="pagination-carousel-container">
                     <ul class="pagination pagination-premium mb-0">
                         <li class="page-item @(currentPage == 1 ? "disabled" : "")">
                             <button class="page-link" @onclick="() => SetPage(currentPage - 1)" title="Anterior">
@@ -200,12 +203,34 @@
                             </button>
                         </li>
                         
-                        @for (int i = 1; i <= totalPages; i++)
-                        {
-                            var pageNum = i;
-                            <li class="page-item @(currentPage == pageNum ? "active" : "")">
-                                <button class="page-link" @onclick="() => SetPage(pageNum)">@pageNum</button>
-                            </li>
+                        @{
+                            // Lógica de ventana deslizante (Carrusel de 6 números)
+                            int maxVisible = 6;
+                            int startPage = Math.Max(1, Math.Min(currentPage - 2, totalPages - maxVisible + 1));
+                            int endPage = Math.Min(totalPages, startPage + maxVisible - 1);
+                            
+                            // Re-ajustar si estamos cerca del final
+                            if (totalPages > maxVisible && endPage == totalPages) startPage = Math.Max(1, totalPages - maxVisible + 1);
+
+                            for (int i = startPage; i <= endPage; i++)
+                            {
+                                var pageNum = i;
+                                <li class="page-item @(currentPage == pageNum ? "active" : "") page-item-animated" @key="pageNum">
+                                    <button class="page-link" @onclick="() => SetPage(pageNum)">@pageNum</button>
+                                </li>
+                            }
+
+                            // Mostrar Elipsis y Última Página si es necesario
+                            if (endPage < totalPages)
+                            {
+                                if (endPage < totalPages - 1)
+                                {
+                                    <li class="pagination-ellipsis">...</li>
+                                }
+                                <li class="page-item @(currentPage == totalPages ? "active" : "") page-item-animated">
+                                    <button class="page-link" @onclick="() => SetPage(totalPages)">@totalPages</button>
+                                </li>
+                            }
                         }
 
                         <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
@@ -214,7 +239,8 @@
                             </button>
                         </li>
                     </ul>
-                </nav>
+                </div>
+                <div class="flex-grow-1 text-end"></div> <!-- Espaciador para centrar el carrusel -->
             </div>
         }
     }
@@ -700,7 +726,7 @@
     private string SearchTerm = "";
     private int? selectedCategoryId = null;
     private int currentPage = 1;
-    private int pageSize = 6;
+    private int pageSize = 10;
     private System.Timers.Timer? debounceTimer;
 
     // Modal state

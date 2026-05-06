@@ -170,7 +170,6 @@ E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\rjimswa
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\rjsmrazor.dswa.cache.json
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\rjsmcshtml.dswa.cache.json
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\scopedcss\bundle\InnovaTecPOS.styles.css
-E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\o93v90apvs-{0}-bgb59np047-bgb59np047.gz
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\4qde398ppw-{0}-wz867xrgfh-wz867xrgfh.gz
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\hongij42ah-{0}-bqjiyaj88i-bqjiyaj88i.gz
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\k49tm8ed1s-{0}-c2jlpeoesf-c2jlpeoesf.gz
@@ -230,3 +229,4 @@ E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\refint\
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\InnovaTecPOS.pdb
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\InnovaTecPOS.genruntimeconfig.cache
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\ref\InnovaTecPOS.dll
+E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\o93v90apvs-{0}-j4o9455aqq-j4o9455aqq.gz

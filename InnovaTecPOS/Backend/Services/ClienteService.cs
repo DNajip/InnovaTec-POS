@@ -44,8 +44,7 @@ public class ClienteService : IClienteService
         }
 
         return await query
-            .OrderBy(p => p.PrimerNombre)
-            .ThenBy(p => p.PrimerApellido)
+            .OrderByDescending(p => p.IdPersona)
             .AsNoTracking()
             .ToListAsync();
     }

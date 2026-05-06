@@ -594,46 +594,86 @@ html, body {
 .text-toast-warning { color: #fdcb6e !important; }
 .text-toast-info { color: #00d2d3 !important; }
 
-/* --- Pagination Premium --- */
+/* --- Pagination Premium & Carousel --- */
 .pagination-container {
-    padding: 20px 0;
+    padding: 30px 0;
+}
+
+.pagination-carousel-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: white;
+    padding: 6px;
+    border-radius: 50px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    border: 1px solid rgba(0, 119, 182, 0.05);
+    position: relative;
 }
 
 .pagination-premium {
-    gap: 8px;
+    gap: 6px;
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 0;
 }
 
 .pagination-premium .page-link {
     border: none;
-    background: white;
+    background: transparent;
     color: #636e72;
-    border-radius: 8px !important;
-    width: 40px;
-    height: 40px;
+    border-radius: 50% !important;
+    width: 38px;
+    height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
-    transition: all 0.2s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
 }
 
-.pagination-premium .page-link:hover {
-    background: #f8f9fa;
+.pagination-premium .page-link:hover:not(.disabled) {
+    background: #f1f3f5;
     color: var(--primary-color);
-    transform: translateY(-2px);
+    transform: scale(1.1);
 }
 
 .pagination-premium .page-item.active .page-link {
     background: var(--primary-color) !important;
     color: white !important;
-    box-shadow: 0 4px 10px rgba(0, 119, 182, 0.3);
+    box-shadow: 0 5px 15px rgba(0, 119, 182, 0.4);
+    transform: scale(1.15);
+    z-index: 2;
 }
 
 .pagination-premium .page-item.disabled .page-link {
-    opacity: 0.5;
-    background: transparent;
-    box-shadow: none;
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.pagination-ellipsis {
+    color: #cbd5e0;
+    font-weight: 800;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    user-select: none;
+}
+
+/* Animación de entrada para los números */
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.page-item-animated {
+    animation: slideIn 0.3s ease forwards;
 }
 
 /* --- Clientes Module --- */
