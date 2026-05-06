@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("InnovaTecPOS")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+038662764b3b2b9a7a4fa3924bb683d8aef700d9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a0b1a77b26c2ad20a19e85d889d909810348853d")]
 [assembly: System.Reflection.AssemblyProductAttribute("InnovaTecPOS")]
 [assembly: System.Reflection.AssemblyTitleAttribute("InnovaTecPOS")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

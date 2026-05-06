@@ -4,6 +4,7 @@
 @inject ToastService ToastService
 @inject IJSRuntime JSRuntime
 @inject UserSession UserSession
+@inject AppState AppState
 
 <PageTitle>Facturas - InnovaTec</PageTitle>
 
@@ -161,9 +162,13 @@
                     <!-- Ticket Layout for Print -->
                     <div class="print-section p-3 bg-white text-dark" style="font-family: 'Courier New', Courier, monospace; font-size: 13px;">
                         <div class="text-center mb-3">
-                            <img src="images/logo.png" alt="Logo" style="max-width: 80px; height: auto; margin-bottom: 10px; border-radius: 8px;" />
-                            <h5 class="fw-bold m-0" style="font-family: 'Outfit', sans-serif;">INNOVATEC</h5>
-                            <p class="small m-0">Soluciones Tecnológicas</p>
+                            <img src="@AppState.BusinessLogo" alt="Logo" style="max-width: 80px; height: auto; margin-bottom: 10px; border-radius: 8px;" />
+                            <h5 class="fw-bold m-0" style="font-family: 'Outfit', sans-serif;">@AppState.BusinessName</h5>
+                            <p class="small m-0">@AppState.BusinessRuc</p>
+                            @if (!string.IsNullOrEmpty(AppState.BusinessAddress))
+                            {
+                                <p class="x-small m-0" style="font-size: 10px;">@AppState.BusinessAddress</p>
+                            }
                             <hr style="border-top: 1px dashed #000; margin: 10px 0;" />
                         </div>
 
@@ -222,7 +227,7 @@
 
                         <hr style="border-top: 1px dashed #000; margin: 15px 0 5px 0;" />
                         <div class="text-center small mt-2">
-                            <p class="m-0">¡Gracias por su compra!</p>
+                            <p class="m-0">@AppState.TicketMessage</p>
                         </div>
                     </div>
                 </div>
@@ -348,6 +353,10 @@
         {
             numeroFactura = selectedVenta.NumeroFactura,
             fecha = selectedVenta.FechaVenta.ToString("dd/MM/yyyy HH:mm"),
+            nombreNegocio = AppState.BusinessName,
+            ruc = AppState.BusinessRuc,
+            direccion = AppState.BusinessAddress,
+            telefono = AppState.BusinessPhone,
             cliente = selectedVenta.IdPersonaNavigation?.NombreCompleto ?? "Cliente General",
             vendedor = selectedVenta.IdUsuarioNavigation?.Username ?? "N/A",
             subtotal = selectedVenta.SubtotalNio,

@@ -1,4 +1,7 @@
 @inherits LayoutComponentBase
+@using InnovaTecPOS.Backend.Services
+@inject ConfiguracionService ConfiguracionService
+@inject AppState AppState
 
 <div class="d-flex flex-column vh-100 overflow-hidden">
     <InnovaHeader />
@@ -24,6 +27,12 @@
 
 @code {
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var settings = await ConfiguracionService.GetAllSettingsAsync();
+        AppState.UpdateFromDictionary(settings);
+    }
 
     private bool ShouldShowSummary()
     {

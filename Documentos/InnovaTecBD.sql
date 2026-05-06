@@ -187,10 +187,14 @@ CREATE TABLE ADM.CONFIGURACION (
 );
 
 INSERT INTO ADM.CONFIGURACION (CLAVE, VALOR, DESCRIPCION, SOLO_ADMIN) VALUES
-    ('TASA_CAMBIO_USD',         '36.50',        'Tasa de cambio Dolar a Cordoba',        1),
-    ('NOMBRE_NEGOCIO',          'InnovaTec',    'Nombre del negocio para recibos',       0),
-    ('MONEDA_BASE_ID',          '1',            'ID moneda base (NIO)',                  1),
-    ('IMPRESORA_TERMICA',       '',             'Nombre impresora termica configurada',  0),
+    ('Empresa_Nombre',          'InnovaTec POS', 'Nombre del negocio para recibos',       0),
+    ('Empresa_RUC',             'J00000000000', 'RUC del negocio',                        0),
+    ('Empresa_Telefono',        '+505 0000 0000', 'Teléfono de contacto',                  0),
+    ('Empresa_Direccion',       'Managua, Nicaragua', 'Dirección física',                  0),
+    ('Empresa_Logo',            'images/logo.png', 'Ruta al logo de la empresa',           0),
+    ('Moneda_TasaCambio',       '36.50',        'Tasa de cambio Dolar a Cordoba',        1),
+    ('Moneda_Principal',        '1',            'ID moneda base (NIO)',                  1),
+    ('Hardware_Impresora',      '',             'Nombre impresora termica configurada',  0),
     ('STOCK_MINIMO_DEFAULT',    '5',            'Stock minimo por defecto al crear prod',1),
     ('PERMITE_VENTA_SIN_CAJA',  '0',            '1=Permite venta sin apertura de caja',  1);
 GO

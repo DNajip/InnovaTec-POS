@@ -1,4 +1,5 @@
 @inject InnovaTecPOS.Backend.Services.UserSession UserSession
+@inject InnovaTecPOS.Backend.Services.AppState AppState
 @inject NavigationManager Navigation
 @implements IDisposable
 @inject IJSRuntime JSRuntime
@@ -8,8 +9,8 @@
         <div class="d-flex align-items-center justify-content-between">
             <div class="d-flex align-items-center gap-4">
                 <div class="brand-container d-flex align-items-center gap-2">
-                    <img src="images/logo.png" alt="InnovaTec" class="brand-logo" />
-                    <span class="brand-name">INNOVATEC-POS</span>
+                    <img src="@AppState.BusinessLogo" alt="@AppState.BusinessName" class="brand-logo" />
+                    <span class="brand-name">@AppState.BusinessName</span>
                 </div>
                 
                 <div class="user-active-header border-start ps-4 d-none d-md-block">
@@ -46,6 +47,7 @@
     {
         if (firstRender)
         {
+            AppState.OnChange += StateHasChanged;
             await JSRuntime.InvokeVoidAsync("startClock");
         }
     }
@@ -58,6 +60,6 @@
 
     public void Dispose()
     {
-        // No hay timers de busqueda que limpiar aqui ahora
+        AppState.OnChange -= StateHasChanged;
     }
 }

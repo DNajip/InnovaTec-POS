@@ -26,6 +26,7 @@ builder.Services.AddScoped<UserSession>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<ConfiguracionService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<AppState>();
 
 var app = builder.Build();
 

@@ -3,8 +3,12 @@
 @using InnovaTecPOS.Backend.Models
 @using InnovaTecPOS.Backend.DTOs
 @using InnovaTecPOS.Frontend.Components.UI
+@using Microsoft.AspNetCore.Components.Forms
+@using System.IO
 @inject ConfiguracionService ConfiguracionService
+@inject AppState AppState
 @inject UserService UserService
+@inject IWebHostEnvironment Environment
 @inject ToastService ToastService
 @inject UserSession UserSession
 @inject NavigationManager Navigation
@@ -70,6 +74,30 @@
                             <div class="col-md-6">
                                 <label class="form-label">Dirección</label>
                                 <input type="text" class="form-control" @bind='settings["Empresa_Direccion"]' placeholder="Ej. Del parque 1c al sur..." />
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Logo del Negocio (Imagen o URL)</label>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="logo-preview-box border rounded p-1" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
+                                        <img src="@(string.IsNullOrEmpty(settings["Empresa_Logo"]) ? "images/logo.png" : settings["Empresa_Logo"])" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex gap-2 mb-2">
+                                            <label class="btn btn-outline-primary btn-sm rounded-pill px-3 mb-0 cursor-pointer">
+                                                <i class="bi bi-upload me-1"></i> Seleccionar Imagen
+                                                <InputFile OnChange="OnInputFileChange" class="d-none" accept="image/*" />
+                                            </label>
+                                            @if (!string.IsNullOrEmpty(settings["Empresa_Logo"]) && settings["Empresa_Logo"] != "images/logo.png")
+                                            {
+                                                <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" @onclick="ResetLogo">
+                                                    <i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar
+                                                </button>
+                                            }
+                                        </div>
+                                        <input type="text" class="form-control form-control-sm" @bind='settings["Empresa_Logo"]' placeholder="Ruta de la imagen (ej: images/logo.png)" />
+                                        <small class="text-muted">Se recomienda una imagen cuadrada de al menos 200x200px.</small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -275,7 +303,7 @@
     private Dictionary<string, string> settings = new();
 
     private string[] defaultKeys = {
-        "Empresa_Nombre", "Empresa_RUC", "Empresa_Telefono", "Empresa_Direccion",
+        "Empresa_Nombre", "Empresa_RUC", "Empresa_Telefono", "Empresa_Direccion", "Empresa_Logo",
         "Ventas_PrefijoTicket", "Ventas_MensajeTicket", 
         "Moneda_Principal", "Moneda_TasaCambio",
         "Hardware_Impresora", "Hardware_AbrirCajon",
@@ -325,6 +353,9 @@
             tiposIdList = await UserService.GetTiposIdentificacionAsync();
             generosList = await UserService.GetGenerosAsync();
             modulosList = await UserService.GetModulosAsync();
+
+            // Sync with AppState
+            AppState.UpdateFromDictionary(settings);
         }
         finally
         {
@@ -344,6 +375,7 @@
         try
         {
             await ConfiguracionService.UpdateSettingsBatchAsync(settings, modificadoPor: 1); 
+            AppState.UpdateFromDictionary(settings);
             ToastService.ShowSuccess("Configuraciones guardadas exitosamente.");
         }
         catch (Exception ex)
@@ -433,5 +465,55 @@
         {
             ToastService.ShowError("Error al cambiar estado: " + ex.Message);
         }
+    }
+
+    private async Task OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            try
+            {
+                // Limitar tamaño a 2MB para el procesamiento inicial
+                if (file.Size > 2 * 1024 * 1024)
+                {
+                    ToastService.ShowWarning("La imagen es muy pesada. Se intentará comprimir.");
+                }
+
+                var format = file.ContentType;
+                if (format != "image/png" && format != "image/jpeg" && format != "image/webp")
+                {
+                    format = "image/png"; // Default to png if unusual
+                }
+                
+                // Redimensionar para optimizar espacio (Max 500x500)
+                var resizedFile = await file.RequestImageFileAsync(format, 500, 500);
+                
+                var fileName = $"logo_pos_{DateTime.Now.Ticks}{Path.GetExtension(file.Name)}";
+                var imagesPath = Path.Combine(Environment.WebRootPath, "images");
+                
+                if (!Directory.Exists(imagesPath)) Directory.CreateDirectory(imagesPath);
+                
+                var fullPath = Path.Combine(imagesPath, fileName);
+                
+                using var stream = resizedFile.OpenReadStream(1024 * 1024 * 5); // Buffer hasta 5MB
+                using var fileStream = new FileStream(fullPath, FileMode.Create);
+                await stream.CopyToAsync(fileStream);
+                
+                settings["Empresa_Logo"] = $"images/{fileName}";
+                StateHasChanged();
+                ToastService.ShowInfo("Imagen cargada correctamente. No olvide Guardar Cambios.");
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError("Error al procesar la imagen: " + ex.Message);
+            }
+        }
+    }
+
+    private void ResetLogo()
+    {
+        settings["Empresa_Logo"] = "images/logo.png";
+        StateHasChanged();
     }
 }
