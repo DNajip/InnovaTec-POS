@@ -971,5 +971,27 @@ SELECT
     (SELECT COUNT(DISTINCT ID_PERSONA) FROM VEN.VENTAS WHERE FECHA_VENTA >= DATEADD(DAY, -30, GETDATE())) AS ClientesConComprasRecientes;
 GO
 
+-- 10.6 VENTAS COMPLEMENTARIO
+IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_ConsultarFacturas' AND schema_id = SCHEMA_ID('VEN'))
+    DROP PROCEDURE VEN.sp_ConsultarFacturas;
+GO
+
+CREATE PROCEDURE VEN.sp_ConsultarFacturas
+    @Busqueda NVARCHAR(100) = NULL,
+    @FechaInicio DATETIME = NULL,
+    @FechaFin DATETIME = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT * FROM VEN.V_RESUMEN_VENTAS
+    WHERE (@FechaInicio IS NULL OR FECHA_VENTA >= @FechaInicio)
+      AND (@FechaFin IS NULL OR FECHA_VENTA <= @FechaFin)
+      AND (@Busqueda IS NULL OR @Busqueda = '' OR
+           NUMERO_FACTURA LIKE '%' + @Busqueda + '%' OR
+           CLIENTE LIKE '%' + @Busqueda + '%')
+    ORDER BY FECHA_VENTA DESC;
+END;
+GO
+
 PRINT '>>> InnovaTecBD actualizada con vistas y procedimientos complementarios. <<<';
 GO
