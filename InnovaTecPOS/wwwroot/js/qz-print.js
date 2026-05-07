@@ -264,3 +264,95 @@ window.qzTestPrint = async (printerName, businessName) => {
     }
 };
 
+window.qzOpenDrawer = async (printerName) => {
+    try {
+        if (!qz.websocket.isActive()) {
+            await qz.websocket.connect();
+        }
+        
+        let printer = printerName;
+        if (!printer) {
+            try {
+                printer = await qz.printers.getDefault();
+            } catch (e) {}
+        }
+        
+        if (!printer) return;
+
+        const config = qz.configs.create(printer);
+        const openDrawer = '\x1B' + '\x70' + '\x00' + '\x19' + '\xFA'; 
+        await qz.print(config, [openDrawer]);
+    } catch (err) {
+        console.error("Error al abrir gaveta:", err);
+    }
+};
+
+window.qzPrintShiftClosing = async (shift, config_negocio) => {
+    try {
+        if (!qz.websocket.isActive()) {
+            await qz.websocket.connect();
+        }
+        
+        let printer = config_negocio.printerName;
+        if (!printer) {
+            try {
+                printer = await qz.printers.getDefault();
+            } catch (e) {}
+        }
+        
+        if (!printer) {
+            throw new Error("No hay impresora configurada.");
+        }
+
+        const config = qz.configs.create(printer, { encoding: 'ISO-8859-1' });
+        const ESC = '\x1B';
+        const GS = '\x1D';
+        const init = ESC + '@';
+        const center = ESC + 'a' + '\x01';
+        const left = ESC + 'a' + '\x00';
+        const boldOn = ESC + 'E' + '\x01';
+        const boldOff = ESC + 'E' + '\x00';
+        const cut = GS + 'V' + '\x41' + '\x00';
+
+        let data = [init, center, boldOn, (config_negocio.nombreNegocio || "INNOVATEC POS") + "\n", boldOff];
+        data.push("REPORTE DE CIERRE DE CAJA (Z)\n");
+        data.push("------------------------------------------------\n");
+        data.push(left);
+        data.push(`Turno #:  ${shift.idTurno}\n`);
+        data.push(`Usuario:  ${shift.cajero || ''}\n`);
+        data.push(`Apertura: ${new Date(shift.fechaApertura).toLocaleString()}\n`);
+        data.push(`Cierre:   ${new Date().toLocaleString()}\n`);
+        data.push("------------------------------------------------\n");
+        
+        data.push(boldOn + "RESUMEN DE VENTAS\n" + boldOff);
+        data.push(`Total Ventas:      C$ ${shift.totalVentasNio.toFixed(2)}\n`);
+        data.push(`Efectivo NIO:      C$ ${shift.totalEfectivoNio.toFixed(2)}\n`);
+        data.push(`Efectivo USD:      $  ${shift.totalEfectivoUsd.toFixed(2)}\n`);
+        data.push(`Tarjeta:           C$ ${shift.totalTarjeta.toFixed(2)}\n`);
+        data.push(`Transferencia:     C$ ${shift.totalTransferencia.toFixed(2)}\n`);
+        data.push("------------------------------------------------\n");
+
+        data.push(boldOn + "CUADRE DE CAJA\n" + boldOff);
+        data.push(`Monto Inicial:     C$ ${shift.montoInicialNio.toFixed(2)} | $ ${shift.montoInicialUsd.toFixed(2)}\n`);
+        data.push(`Total Esperado:    C$ ${(shift.montoInicialNio + shift.totalEfectivoNio).toFixed(2)} | $ ${(shift.montoInicialUsd + shift.totalEfectivoUsd).toFixed(2)}\n`);
+        data.push(`Total Contado:     C$ ${shift.montoContadoNio.toFixed(2)} | $ ${shift.montoContadoUsd.toFixed(2)}\n`);
+        
+        data.push(boldOn);
+        data.push(`DIFERENCIA NIO:    C$ ${(shift.diferenciaNio || 0).toFixed(2)}\n`);
+        data.push(`DIFERENCIA USD:    $  ${(shift.diferenciaUsd || 0).toFixed(2)}\n`);
+        data.push(boldOff);
+        
+        if (shift.observaciones) {
+            data.push("\nOBSERVACIONES:\n" + shift.observaciones + "\n");
+        }
+        
+        data.push("\n\n\n");
+        data.push(center + "_______________________\n");
+        data.push("Firma del Cajero\n\n\n\n");
+        data.push(cut);
+
+        await qz.print(config, data);
+    } catch (err) {
+        console.error("Error al imprimir arqueo:", err);
+    }
+};

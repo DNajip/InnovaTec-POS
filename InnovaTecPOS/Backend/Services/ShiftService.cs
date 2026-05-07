@@ -7,7 +7,7 @@ public interface IShiftService
 {
     Task<Turno?> GetActiveShiftAsync(int userId);
     Task<Turno> OpenShiftAsync(int userId, decimal initialNio, decimal initialUsd, List<ConteoDenominacione> counts);
-    Task CloseShiftAsync(int turnoId, decimal finalNio, decimal finalUsd, List<ConteoDenominacione> counts, string? observations);
+    Task<Turno> CloseShiftAsync(int turnoId, decimal finalNio, decimal finalUsd, List<ConteoDenominacione> counts, string? observations);
     Task<List<Denominacione>> GetDenominationsAsync();
 }
 
@@ -58,13 +58,20 @@ public class ShiftService : IShiftService
             .ToListAsync();
     }
 
-    public async Task CloseShiftAsync(int turnoId, decimal finalNio, decimal finalUsd, List<ConteoDenominacione> counts, string? observations)
+    public async Task<Turno> CloseShiftAsync(int turnoId, decimal finalNio, decimal finalUsd, List<ConteoDenominacione> counts, string? observations)
     {
         using var context = await _factory.CreateDbContextAsync();
         var countsJson = System.Text.Json.JsonSerializer.Serialize(counts);
 
-        await context.Database.ExecuteSqlRawAsync(
-            "EXEC CAJA.sp_GestionarTurno @Accion='CERRAR', @IdUsuario=0, @IdTurno={0}, @MontoFinalNio={1}, @MontoFinalUsd={2}, @Observaciones={3}, @ConteosJson={4}",
-            turnoId, finalNio, finalUsd, observations ?? (object)DBNull.Value, countsJson);
+        var result = await context.Turnos
+            .FromSqlRaw("EXEC CAJA.sp_GestionarTurno @Accion='CERRAR', @IdUsuario=0, @IdTurno={0}, @MontoFinalNio={1}, @MontoFinalUsd={2}, @Observaciones={3}, @ConteosJson={4}",
+                turnoId, finalNio, finalUsd, observations ?? (object)DBNull.Value, countsJson)
+            .AsNoTracking()
+            .ToListAsync();
+
+        if (!result.Any())
+            throw new Exception("No se pudo cerrar el turno en la base de datos.");
+
+        return result.First();
     }
 }
