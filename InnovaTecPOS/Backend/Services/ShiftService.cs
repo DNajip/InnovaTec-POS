@@ -9,6 +9,8 @@ public interface IShiftService
     Task<Turno> OpenShiftAsync(int userId, decimal initialNio, decimal initialUsd, List<ConteoDenominacione> counts);
     Task<Turno> CloseShiftAsync(int turnoId, decimal finalNio, decimal finalUsd, List<ConteoDenominacione> counts, string? observations);
     Task<List<Denominacione>> GetDenominationsAsync();
+    Task<MovimientoVario> AddCashEntryAsync(int turnoId, int userId, int monedaId, decimal monto, string concepto);
+    Task<decimal> GetTotalCashEntriesAsync(int turnoId, int monedaId);
 }
 
 public class ShiftService : IShiftService
@@ -73,5 +75,32 @@ public class ShiftService : IShiftService
             throw new Exception("No se pudo cerrar el turno en la base de datos.");
 
         return result.First();
+    }
+
+    public async Task<MovimientoVario> AddCashEntryAsync(int turnoId, int userId, int monedaId, decimal monto, string concepto)
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        var mov = new MovimientoVario
+        {
+            IdTurno = turnoId,
+            IdUsuario = userId,
+            IdMoneda = monedaId,
+            Monto = monto,
+            Concepto = concepto,
+            Tipo = "INGRESO",
+            Fecha = DateTime.Now
+        };
+
+        context.MovimientosVarios.Add(mov);
+        await context.SaveChangesAsync();
+        return mov;
+    }
+
+    public async Task<decimal> GetTotalCashEntriesAsync(int turnoId, int monedaId)
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.MovimientosVarios
+            .Where(m => m.IdTurno == turnoId && m.IdMoneda == monedaId && m.Tipo == "INGRESO")
+            .SumAsync(m => m.Monto);
     }
 }

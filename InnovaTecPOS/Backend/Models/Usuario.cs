@@ -45,5 +45,7 @@ public partial class Usuario
 
     public virtual ICollection<Venta> VentaIdUsuarioNavigations { get; set; } = new List<Venta>();
 
+    public virtual ICollection<MovimientoVario> MovimientosVarios { get; set; } = new List<MovimientoVario>();
+
     public virtual ICollection<Modulo> IdModulos { get; set; } = new List<Modulo>();
 }

@@ -486,6 +486,25 @@ CREATE TABLE CAJA.CONTEO_DENOMINACIONES (
 );
 GO
 
+GO
+
+-- Movimientos varios de caja (Ingresos de cambio/sencillo)
+CREATE TABLE CAJA.MOVIMIENTOS_VARIOS (
+    ID_MOVIMIENTO   INT IDENTITY(1,1) CONSTRAINT PK_CAJA_MOV_VARIOS PRIMARY KEY,
+    ID_TURNO        INT NOT NULL,
+    TIPO            VARCHAR(10) NOT NULL DEFAULT 'INGRESO'
+        CONSTRAINT CHK_CAJA_MOV_TIPO CHECK (TIPO IN ('INGRESO')), -- Restringido a INGRESO por requerimiento
+    ID_MONEDA       INT NOT NULL,
+    MONTO           DECIMAL(18,2) NOT NULL,
+    CONCEPTO        NVARCHAR(200) NOT NULL,
+    FECHA           DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    ID_USUARIO      INT NOT NULL,
+    FOREIGN KEY (ID_TURNO) REFERENCES CAJA.TURNOS(ID_TURNO),
+    FOREIGN KEY (ID_MONEDA) REFERENCES CAT.MONEDAS(ID_MONEDA),
+    FOREIGN KEY (ID_USUARIO) REFERENCES ADM.USUARIOS(ID_USUARIO)
+);
+GO
+
 -- ============================================================
 -- 6. VENTAS (VEN)
 -- ============================================================
@@ -773,7 +792,10 @@ GO
 IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_ListarProductos' AND schema_id = SCHEMA_ID('INV'))
     DROP PROCEDURE INV.sp_ListarProductos;
 GO
-
+SET QUOTED_IDENTIFIER ON;
+GO
+SET ANSI_NULLS ON;
+GO
 CREATE PROCEDURE INV.sp_ListarProductos
     @Busqueda NVARCHAR(100) = NULL,
     @IdCategoria INT = NULL,
@@ -796,7 +818,10 @@ GO
 IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_MantenerProducto' AND schema_id = SCHEMA_ID('INV'))
     DROP PROCEDURE INV.sp_MantenerProducto;
 GO
-
+SET QUOTED_IDENTIFIER ON;
+GO
+SET ANSI_NULLS ON;
+GO
 CREATE PROCEDURE INV.sp_MantenerProducto
     @IdProducto INT = NULL,
     @CodigoBarras NVARCHAR(100) = NULL,
@@ -862,10 +887,10 @@ GO
 IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_ProcesarVenta' AND schema_id = SCHEMA_ID('VEN'))
     DROP PROCEDURE VEN.sp_ProcesarVenta;
 GO
-
 SET QUOTED_IDENTIFIER ON;
 GO
-
+SET ANSI_NULLS ON;
+GO
 CREATE PROCEDURE VEN.sp_ProcesarVenta
     @IdUsuario INT,
     @IdPersona INT = NULL,
@@ -1048,7 +1073,10 @@ GO
 IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_GestionarTurno' AND schema_id = SCHEMA_ID('CAJA'))
     DROP PROCEDURE CAJA.sp_GestionarTurno;
 GO
-
+SET QUOTED_IDENTIFIER ON;
+GO
+SET ANSI_NULLS ON;
+GO
 CREATE PROCEDURE CAJA.sp_GestionarTurno
     @Accion VARCHAR(10),
     @IdUsuario INT,
@@ -1135,7 +1163,10 @@ GO
 IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_ConsultarFacturas' AND schema_id = SCHEMA_ID('VEN'))
     DROP PROCEDURE VEN.sp_ConsultarFacturas;
 GO
-
+SET QUOTED_IDENTIFIER ON;
+GO
+SET ANSI_NULLS ON;
+GO
 CREATE PROCEDURE VEN.sp_ConsultarFacturas
     @Busqueda NVARCHAR(100) = NULL,
     @FechaInicio DATETIME = NULL,

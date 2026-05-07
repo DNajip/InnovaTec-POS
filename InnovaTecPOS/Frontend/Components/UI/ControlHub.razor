@@ -6,13 +6,37 @@
 @inject IShiftService ShiftService
 @inject UserSession UserSession
 @inject ToastService ToastService
-
 <footer class="pos-footer">
-    <button type="button" class="action-btn @(UserSession.ActiveShift != null ? "action-btn-success" : "btn-warning text-dark")" @onclick="ToggleShift">
-        <i class="fas fa-cash-register"></i>
-        <span>@(UserSession.ActiveShift != null ? "Caja abierta" : "Caja cerrada")</span>
-        <span class="sub-text">@(UserSession.ActiveShift != null ? "Cerrar turno" : "Abrir turno")</span>
-    </button>
+    <div class="position-relative w-100">
+        @if (showSelectionModal)
+        {
+            <div class="cash-options-menu animate__animated animate__fadeInUp">
+                <button type="button" class="option-item" @onclick="OpenCashEntry">
+                    <i class="fas fa-plus-circle text-primary"></i>
+                    <div class="text-start">
+                        <div class="fw-bold">Ingresar Cambio</div>
+                        <div class="x-small text-muted">Añadir sencillo</div>
+                    </div>
+                </button>
+                <div class="dropdown-divider m-0"></div>
+                <button type="button" class="option-item text-danger" @onclick="OpenCloseShift">
+                    <i class="fas fa-lock"></i>
+                    <div class="text-start">
+                        <div class="fw-bold">Cerrar Turno</div>
+                        <div class="x-small text-muted">Finalizar jornada</div>
+                    </div>
+                </button>
+            </div>
+            <div class="menu-overlay" @onclick="() => showSelectionModal = false"></div>
+        }
+
+        <button type="button" class="action-btn w-100 h-100 @(UserSession.ActiveShift != null ? "action-btn-success" : "btn-warning text-dark")" @onclick="ToggleShift">
+            <i class="fas fa-cash-register"></i>
+            <span>@(UserSession.ActiveShift != null ? "Caja abierta" : "Caja cerrada")</span>
+            <span class="sub-text">@(UserSession.ActiveShift != null ? "Gestionar turno" : "Abrir turno")</span>
+        </button>
+    </div>
+
     <a href="/inventario" class="action-btn @(IsActive("/inventario") ? "active" : "")">
         <i class="fas fa-boxes"></i>
         <span>Precio / Inventario</span>
@@ -27,6 +51,57 @@
     </a>
 </footer>
 
+<style>
+    .cash-options-menu {
+        position: absolute;
+        bottom: 110%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        min-width: 200px;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        z-index: 2060;
+        overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .option-item {
+        width: 100%;
+        padding: 12px 16px;
+        border: none;
+        background: none;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: background 0.2s;
+    }
+
+    .option-item:hover {
+        background: #f8f9fa;
+    }
+
+    .option-item i {
+        font-size: 1.2rem;
+        width: 24px;
+        text-align: center;
+    }
+
+    .x-small {
+        font-size: 0.7rem;
+        display: block;
+    }
+
+    .menu-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 2050;
+    }
+</style>
+
 <!-- Modales de Caja -->
 @if (showOpenModal)
 {
@@ -38,9 +113,16 @@
     <CashCloseModal OnClose="() => showCloseModal = false" OnSuccess="HandleCloseSuccess" />
 }
 
+@if (showEntryModal)
+{
+    <CashEntryModal OnClose="() => showEntryModal = false" OnSuccess="() => showEntryModal = false" />
+}
+
 @code {
     private bool showOpenModal = false;
     private bool showCloseModal = false;
+    private bool showSelectionModal = false;
+    private bool showEntryModal = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -62,12 +144,24 @@
     {
         if (UserSession.ActiveShift != null)
         {
-            showCloseModal = true;
+            showSelectionModal = true;
         }
         else
         {
             showOpenModal = true;
         }
+    }
+
+    private void OpenCashEntry()
+    {
+        showSelectionModal = false;
+        showEntryModal = true;
+    }
+
+    private void OpenCloseShift()
+    {
+        showSelectionModal = false;
+        showCloseModal = true;
     }
 
     private void HandleCloseSuccess()

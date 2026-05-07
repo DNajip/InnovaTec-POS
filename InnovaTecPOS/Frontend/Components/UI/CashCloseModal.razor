@@ -239,8 +239,11 @@
             if (UserSession.ActiveShift == null) { await OnClose.InvokeAsync(); return; }
 
             var shift = UserSession.ActiveShift;
-            expectedNio = shift.MontoInicialNio + shift.TotalEfectivoNio;
-            expectedUsd = shift.MontoInicialUsd + shift.TotalEfectivoUsd;
+            var extraNio = await ShiftService.GetTotalCashEntriesAsync(shift.IdTurno, 1);
+            var extraUsd = await ShiftService.GetTotalCashEntriesAsync(shift.IdTurno, 2);
+
+            expectedNio = shift.MontoInicialNio + shift.TotalEfectivoNio + extraNio;
+            expectedUsd = shift.MontoInicialUsd + shift.TotalEfectivoUsd + extraUsd;
 
             var denoms = await ShiftService.GetDenominationsAsync();
             nioDenominations = denoms.Where(d => d.IdMonedaNavigation?.Codigo == "NIO" || d.IdMoneda == 1)

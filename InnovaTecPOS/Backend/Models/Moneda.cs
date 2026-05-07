@@ -18,4 +18,6 @@ public partial class Moneda
     public virtual ICollection<Denominacione> Denominaciones { get; set; } = new List<Denominacione>();
 
     public virtual ICollection<MetodosPago> MetodosPagos { get; set; } = new List<MetodosPago>();
+
+    public virtual ICollection<MovimientoVario> MovimientosVarios { get; set; } = new List<MovimientoVario>();
 }

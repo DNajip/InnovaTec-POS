@@ -95,6 +95,8 @@ public partial class InnovaTecDbContext : DbContext
 
     public virtual DbSet<VentaDetalleImei> VentaDetalleImeis { get; set; }
 
+    public virtual DbSet<MovimientoVario> MovimientosVarios { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         if (!optionsBuilder.IsConfigured)
@@ -1245,6 +1247,47 @@ public partial class InnovaTecDbContext : DbContext
                 .HasForeignKey<VentaDetalleImei>(d => d.IdEquipoImei)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__VENTA_DET__ID_EQ__5BAD9CC8");
+        });
+
+        modelBuilder.Entity<MovimientoVario>(entity =>
+        {
+            entity.HasKey(e => e.IdMovimiento).HasName("PK_CAJA_MOV_VARIOS");
+
+            entity.ToTable("MOVIMIENTOS_VARIOS", "CAJA");
+
+            entity.Property(e => e.IdMovimiento).HasColumnName("ID_MOVIMIENTO");
+            entity.Property(e => e.Concepto)
+                .HasMaxLength(200)
+                .HasColumnName("CONCEPTO");
+            entity.Property(e => e.Fecha)
+                .HasDefaultValueSql("(sysdatetime())")
+                .HasColumnName("FECHA");
+            entity.Property(e => e.IdMoneda).HasColumnName("ID_MONEDA");
+            entity.Property(e => e.IdTurno).HasColumnName("ID_TURNO");
+            entity.Property(e => e.IdUsuario).HasColumnName("ID_USUARIO");
+            entity.Property(e => e.Monto)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("MONTO");
+            entity.Property(e => e.Tipo)
+                .HasMaxLength(10)
+                .IsUnicode(false)
+                .HasDefaultValue("INGRESO")
+                .HasColumnName("TIPO");
+
+            entity.HasOne(d => d.IdMonedaNavigation).WithMany(p => p.MovimientosVarios)
+                .HasForeignKey(d => d.IdMoneda)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__MOVIMIENT__ID_MO__4E53A1AA");
+
+            entity.HasOne(d => d.IdTurnoNavigation).WithMany(p => p.MovimientosVarios)
+                .HasForeignKey(d => d.IdTurno)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__MOVIMIENT__ID_TU__4D5F7D71");
+
+            entity.HasOne(d => d.IdUsuarioNavigation).WithMany(p => p.MovimientosVarios)
+                .HasForeignKey(d => d.IdUsuario)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__MOVIMIENT__ID_US__4F47C5E3");
         });
 
         OnModelCreatingPartial(modelBuilder);
