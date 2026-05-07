@@ -863,6 +863,9 @@ IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_ProcesarVenta' AND sche
     DROP PROCEDURE VEN.sp_ProcesarVenta;
 GO
 
+SET QUOTED_IDENTIFIER ON;
+GO
+
 CREATE PROCEDURE VEN.sp_ProcesarVenta
     @IdUsuario INT,
     @IdPersona INT = NULL,
