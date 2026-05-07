@@ -51,7 +51,10 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small">Número Identificación *</label>
-                                <InputText @bind-Value="Model.NumIdentificacion" class="form-control" />
+                                <InputText Value="@Model.NumIdentificacion" 
+                                           ValueChanged="(string v) => OnIdentificacionChanged(v)" 
+                                           ValueExpression="() => Model.NumIdentificacion"
+                                           class="form-control" placeholder="Ej. 001-010101-1001A" />
                                 <ValidationMessage For="@(() => Model.NumIdentificacion)" />
                             </div>
                             
@@ -84,7 +87,10 @@
                             
                             <div class="col-md-6">
                                 <label class="form-label small">Nombre de Usuario (Username) *</label>
-                                <InputText @bind-Value="Model.Username" class="form-control" autocomplete="off" />
+                                <InputText Value="@Model.Username" 
+                                           ValueChanged="(string v) => OnUsernameChanged(v)"
+                                           ValueExpression="() => Model.Username"
+                                           class="form-control" autocomplete="off" />
                                 <ValidationMessage For="@(() => Model.Username)" />
                             </div>
                             <div class="col-md-6">
@@ -178,6 +184,24 @@
     {
         IsVisible = false;
         await IsVisibleChanged.InvokeAsync(IsVisible);
+    }
+
+    private void OnIdentificacionChanged(string value)
+    {
+        // Limpiar el valor (quitar guiones y espacios)
+        var cleanValue = value?.Replace("-", "").Replace(" ", "").ToUpper() ?? "";
+        Model.NumIdentificacion = cleanValue;
+        
+        // Si es un nuevo usuario o el username es igual a la identificación, mantenerlos sincronizados
+        if (!Model.IdUsuario.HasValue || string.IsNullOrEmpty(Model.Username) || Model.Username == cleanValue)
+        {
+            Model.Username = cleanValue;
+        }
+    }
+
+    private void OnUsernameChanged(string value)
+    {
+        Model.Username = value?.Replace("-", "").Replace(" ", "").ToUpper() ?? "";
     }
 
     private async Task HandleValidSubmit()

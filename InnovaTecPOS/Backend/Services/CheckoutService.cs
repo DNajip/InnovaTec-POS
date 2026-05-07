@@ -58,7 +58,7 @@ public class CheckoutService : ICheckoutService
             p.IdMetodoPago,
             p.Monto,
             p.TasaCambio,
-            MontoEnNio = p.Monto * p.TasaCambio,
+            MontoEnNio = p.Monto * p.TasaCambio, // Este es el monto bruto recibido
             p.Referencia
         });
         var paymentsJson = System.Text.Json.JsonSerializer.Serialize(paymentsMapped);

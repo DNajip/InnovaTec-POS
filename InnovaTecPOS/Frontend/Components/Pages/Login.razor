@@ -97,7 +97,10 @@
 
         try
         {
-            var result = await AuthService.IniciarSesionAsync(username, password);
+            // Normalizar entrada (quitar guiones y espacios)
+            string cleanUsername = username.Replace("-", "").Replace(" ", "").ToUpper();
+            
+            var result = await AuthService.IniciarSesionAsync(cleanUsername, password);
 
             if (result.Success == 1)
             {

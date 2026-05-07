@@ -896,19 +896,46 @@ BEGIN
 
     -- 4. Insertar Pagos y calcular Vuelto Total
     DECLARE @TotalPagadoNio DECIMAL(12,2) = 0;
+    SELECT @TotalPagadoNio = SUM(CAST(JSON_VALUE(p.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) AS p;
     
-    INSERT INTO VEN.PAGOS (ID_VENTA, ID_METODO_PAGO, MONTO_PAGADO, TASA_APLICADA, MONTO_EN_NIO, COD_REFERENCIA, FECHA_PAGO)
+    DECLARE @VueltoTotalNio DECIMAL(12,2) = CASE WHEN @TotalPagadoNio > @TotalVentaNio THEN @TotalPagadoNio - @TotalVentaNio ELSE 0 END;
+
+    -- Lógica de Auditoría: ¿El vuelto proviene de un pago electrónico?
+    IF @VueltoTotalNio > 0
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM OPENJSON(@PaymentsJson) pj 
+            JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT)
+            WHERE mp.NOMBRE NOT LIKE '%EFECTIVO%'
+        )
+        BEGIN
+            DECLARE @NotaAuto NVARCHAR(200) = 'Vuelto de C$ ' + CAST(@VueltoTotalNio AS NVARCHAR(20)) + ' entregado en efectivo por sobrepago en método no-efectivo.';
+            UPDATE VEN.VENTAS SET OBSERVACION = ISNULL(OBSERVACION + ' | ', '') + @NotaAuto WHERE ID_VENTA = @IdVenta;
+        END
+    END
+
+    -- Insertar registros de pagos con detalle de recibido/vuelto
+    -- Para simplificar, asignamos el vuelto al último pago en efectivo, o al último pago si no hay efectivo
+    DECLARE @UltimoIdPago INT;
+    
+    INSERT INTO VEN.PAGOS (ID_VENTA, ID_METODO_PAGO, MONTO_PAGADO, TASA_APLICADA, MONTO_EN_NIO, MONTO_RECIBIDO, VUELTO_NIO, COD_REFERENCIA, FECHA_PAGO)
     SELECT @IdVenta, 
            CAST(JSON_VALUE(p.[value], '$.IdMetodoPago') AS INT), 
            CAST(JSON_VALUE(p.[value], '$.Monto') AS DECIMAL(12,2)), 
            CAST(JSON_VALUE(p.[value], '$.TasaCambio') AS DECIMAL(12,4)), 
-           CAST(JSON_VALUE(p.[value], '$.MontoEnNio') AS DECIMAL(12,2)), 
+           CAST(JSON_VALUE(p.[value], '$.MontoEnNio') AS DECIMAL(12,2)),
+           CAST(JSON_VALUE(p.[value], '$.MontoEnNio') AS DECIMAL(12,2)), -- Monto recibido en NIO
+           0, -- Vuelto se asignará después al pago que corresponda
            JSON_VALUE(p.[value], '$.Referencia'), 
            @FechaActual
     FROM OPENJSON(@PaymentsJson) AS p;
 
-    SELECT @TotalPagadoNio = SUM(CAST(JSON_VALUE(p.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) AS p;
-    DECLARE @VueltoTotalNio DECIMAL(12,2) = CASE WHEN @TotalPagadoNio > @TotalVentaNio THEN @TotalPagadoNio - @TotalVentaNio ELSE 0 END;
+    -- Si hay vuelto, se lo asignamos al pago que lo generó (el último que se procesó)
+    IF @VueltoTotalNio > 0
+    BEGIN
+        SELECT TOP 1 @UltimoIdPago = ID_PAGO FROM VEN.PAGOS WHERE ID_VENTA = @IdVenta ORDER BY ID_PAGO DESC;
+        UPDATE VEN.PAGOS SET VUELTO_NIO = @VueltoTotalNio WHERE ID_PAGO = @UltimoIdPago;
+    END
 
     -- 5. Actualizar Saldos de Caja (Turno)
     UPDATE T SET 

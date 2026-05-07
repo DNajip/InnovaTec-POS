@@ -76,6 +76,10 @@ public class UserService
     public async Task CreateUserAsync(UserDto dto)
     {
         using var context = await _factory.CreateDbContextAsync();
+        // 0. Normalizar identificacion y username
+        dto.Username = dto.Username.Replace("-", "").Replace(" ", "");
+        dto.NumIdentificacion = dto.NumIdentificacion.Replace("-", "").Replace(" ", "");
+
         // 1. Validar Username
         if (await context.Usuarios.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower()))
         {
@@ -183,6 +187,10 @@ public class UserService
             .FirstOrDefaultAsync(u => u.IdUsuario == dto.IdUsuario);
 
         if (usuario == null) throw new Exception("Usuario no encontrado.");
+
+        // Normalizar entrada
+        dto.Username = dto.Username.Replace("-", "").Replace(" ", "");
+        dto.NumIdentificacion = dto.NumIdentificacion.Replace("-", "").Replace(" ", "");
 
         // Validar Username único si lo cambió
         if (usuario.Username.ToLower() != dto.Username.ToLower() && 
