@@ -2,6 +2,9 @@
 @using InnovaTecPOS.Backend.Services
 @inject ConfiguracionService ConfiguracionService
 @inject AppState AppState
+@inject IJSRuntime JS
+@implements IDisposable
+
 
 <div class="d-flex flex-column vh-100 overflow-hidden">
     <InnovaHeader />
@@ -32,6 +35,39 @@
     {
         var settings = await ConfiguracionService.GetAllSettingsAsync();
         AppState.UpdateFromDictionary(settings);
+        AppState.OnChange += StateHasChanged;
+        AppState.OnChange += UpdateFavicon;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await UpdateFaviconAsync();
+        }
+    }
+
+    private void UpdateFavicon()
+    {
+        _ = UpdateFaviconAsync();
+    }
+
+    private async Task UpdateFaviconAsync()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(AppState.BusinessLogo))
+            {
+                await JS.InvokeVoidAsync("updateFavicon", AppState.BusinessLogo);
+            }
+        }
+        catch { /* Ignorar errores de JS interop en prerender */ }
+    }
+
+    public void Dispose()
+    {
+        AppState.OnChange -= StateHasChanged;
+        AppState.OnChange -= UpdateFavicon;
     }
 
     private bool ShouldShowSummary()

@@ -4,6 +4,9 @@
 @inject IClienteService ClienteService
 @inject ToastService ToastService
 @inject UserSession UserSession
+@inject AppState AppState
+@inject IJSRuntime JSRuntime
+
 
 <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); z-index: 1060;">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -331,7 +334,7 @@
 
             if (!UserSession.UserId.HasValue) throw new Exception("Sesión de usuario no válida.");
 
-            await CheckoutService.ProcessCheckoutAsync(
+            var result = await CheckoutService.ProcessCheckoutAsync(
                 UserSession.UserId.Value, 
                 selectedClient?.IdPersona, 
                 Discount, 
@@ -340,6 +343,13 @@
             );
 
             ToastService.ShowSuccess("Venta procesada con éxito.");
+            
+            // Imprimir Ticket automáticamente si hay una impresora configurada
+            if (!string.IsNullOrEmpty(AppState.PrinterName))
+            {
+                await ImprimirTicketVenta(result);
+            }
+
             await OnSuccess.InvokeAsync();
         }
         catch (Exception ex)
@@ -349,6 +359,45 @@
         finally
         {
             isProcessing = false;
+        }
+    }
+
+    private async Task ImprimirTicketVenta(Venta venta)
+    {
+        try
+        {
+            var invoiceData = new
+            {
+                numeroFactura = venta.NumeroFactura,
+                fecha = venta.FechaVenta.ToString("dd/MM/yyyy HH:mm"),
+                nombreNegocio = AppState.BusinessName,
+                ruc = AppState.BusinessRuc,
+                direccion = AppState.BusinessAddress,
+                telefono = AppState.BusinessPhone,
+                logoPath = AppState.BusinessLogo,
+                mensajeTicket = AppState.TicketMessage,
+                abrirCajon = AppState.OpenCashDrawer,
+                simboloMoneda = "C$ ",
+                cliente = selectedClient?.NombreCompleto ?? "Cliente General",
+                vendedor = UserSession.Username ?? "N/A",
+                subtotal = SubTotal,
+                descuento = Discount,
+                total = Total,
+                detalles = Items.Select(i => new
+                {
+                    cantidad = i.Quantity,
+                    descripcion = i.Description,
+                    total = i.UnitPrice * i.Quantity,
+                    imeis = i.Details.Select(d => d.Imei).Where(im => !string.IsNullOrEmpty(im)).ToList()
+                }).ToList()
+            };
+
+            await JSRuntime.InvokeVoidAsync("qzPrintInvoice", invoiceData, AppState.PrinterName);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al imprimir ticket: {ex.Message}");
+            ToastService.ShowWarning("La venta se guardó, pero hubo un error al imprimir el ticket.");
         }
     }
 }

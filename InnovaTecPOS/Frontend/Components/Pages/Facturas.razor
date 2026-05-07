@@ -357,6 +357,10 @@
             ruc = AppState.BusinessRuc,
             direccion = AppState.BusinessAddress,
             telefono = AppState.BusinessPhone,
+            logoPath = AppState.BusinessLogo,
+            mensajeTicket = AppState.TicketMessage,
+            abrirCajon = AppState.OpenCashDrawer,
+            simboloMoneda = "C$ ", // TODO: Obtener del catálogo de monedas si es necesario
             cliente = selectedVenta.IdPersonaNavigation?.NombreCompleto ?? "Cliente General",
             vendedor = selectedVenta.IdUsuarioNavigation?.Username ?? "N/A",
             subtotal = selectedVenta.SubtotalNio,
@@ -373,9 +377,10 @@
 
         try
         {
-            await JSRuntime.InvokeVoidAsync("qzPrintInvoice", invoiceData);
+            await JSRuntime.InvokeVoidAsync("qzPrintInvoice", invoiceData, AppState.PrinterName);
             ToastService.ShowSuccess("Comprobante enviado a la impresora.");
         }
+
         catch (Exception ex)
         {
             ToastService.ShowError("Error al imprimir: " + ex.Message);

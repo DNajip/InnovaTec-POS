@@ -10,6 +10,7 @@
 @inject UserService UserService
 @inject IWebHostEnvironment Environment
 @inject ToastService ToastService
+@inject IJSRuntime JSRuntime
 @inject UserSession UserSession
 @inject NavigationManager Navigation
 
@@ -170,8 +171,40 @@
                     <div class="content-inner">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label">Nombre Impresora Predeterminada (QZ Tray)</label>
-                                <input type="text" class="form-control" @bind='settings["Hardware_Impresora"]' placeholder="Ej. POS-58" />
+                                <label class="form-label d-flex justify-content-between">
+                                    Nombre Impresora Predeterminada (QZ Tray)
+                                    <button class="btn btn-link btn-sm p-0 text-decoration-none" @onclick="BuscarImpresoras" disabled="@isSearchingPrinters">
+                                        @if (isSearchingPrinters)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-search me-1"></i>
+                                        }
+                                        Buscar
+                                    </button>
+                                </label>
+                                <div class="input-group">
+                                    @if (availablePrinters != null && availablePrinters.Any())
+                                    {
+                                        <select class="form-select" @bind='settings["Hardware_Impresora"]'>
+                                            <option value="">-- Seleccionar Impresora --</option>
+                                            @foreach (var p in availablePrinters)
+                                            {
+                                                <option value="@p">@p</option>
+                                            }
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        <input type="text" class="form-control" @bind='settings["Hardware_Impresora"]' placeholder="Ej. POS-58" />
+                                    }
+                                    <button class="btn btn-outline-secondary" type="button" @onclick="ProbarImpresion" disabled="@(string.IsNullOrEmpty(settings["Hardware_Impresora"]))">
+                                        <i class="bi bi-printer"></i> Probar
+                                    </button>
+                                </div>
+                                <small class="text-muted">Asegúrese de que QZ Tray esté iniciado y conectado.</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Apertura Automática de Cajón</label>
@@ -185,29 +218,6 @@
                 </div>
             </div>
 
-            <!-- 5. Inventario -->
-            <div class="accordion-item @(activeSection == "inventario" ? "active" : "")">
-                <div class="accordion-header" @onclick="@(() => ToggleSection("inventario"))">
-                    <div class="d-flex align-items-center">
-                        <div class="icon-box"><i class="bi bi-box-seam"></i></div>
-                        <h5>Inventario</h5>
-                    </div>
-                    <i class="bi @(activeSection == "inventario" ? "bi-chevron-up" : "bi-chevron-down") chevron-icon"></i>
-                </div>
-                <div class="accordion-content">
-                    <div class="content-inner">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Permitir Ventas con Stock Cero/Negativo</label>
-                                <select class="form-select" @bind='settings["Inventario_VentaSinStock"]'>
-                                    <option value="NO">No permitir (Bloquear venta)</option>
-                                    <option value="SI">Sí permitir (Advertir pero dejar vender)</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
             
             <!-- 6. Usuarios y Permisos -->
             <div class="accordion-item @(activeSection == "usuarios" ? "active" : "")">
@@ -299,6 +309,8 @@
     private string activeSection = "empresa";
     private bool isLoading = true;
     private bool isSaving = false;
+    private bool isSearchingPrinters = false;
+    private List<string>? availablePrinters;
 
     private Dictionary<string, string> settings = new();
 
@@ -387,6 +399,43 @@
             isSaving = false;
         }
     }
+
+    private async Task BuscarImpresoras()
+    {
+        isSearchingPrinters = true;
+        try
+        {
+            availablePrinters = await JSRuntime.InvokeAsync<List<string>>("qzListPrinters");
+            if (availablePrinters == null || !availablePrinters.Any())
+            {
+                ToastService.ShowWarning("No se encontraron impresoras. Verifique que QZ Tray esté abierto.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Error al conectar con QZ Tray: " + ex.Message);
+        }
+        finally
+        {
+            isSearchingPrinters = false;
+        }
+    }
+
+    private async Task ProbarImpresion()
+    {
+        try
+        {
+            var printer = settings["Hardware_Impresora"];
+            var business = settings["Empresa_Nombre"];
+            await JSRuntime.InvokeAsync<bool>("qzTestPrint", printer, business);
+            ToastService.ShowSuccess("Prueba enviada a la impresora.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Error en la prueba: " + ex.Message);
+        }
+    }
+
 
     // User Management Methods
     private void OpenAddUserModal()

@@ -1,3 +1,6 @@
+@using InnovaTecPOS.Backend.Services
+@inject ConfiguracionService ConfigService
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -6,13 +9,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="login-redesign.css" />
     <ImportMap />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="icon" type="image/png" href="favicon.png" />
+    
+    @{
+        // Intentar obtener el logo de la configuración de forma síncrona o con una tarea bloqueante
+        // ya que App.razor en SSR no soporta OnInitializedAsync de la misma forma para el <head>
+        // Pero en .NET 8, App.razor puede usar servicios.
+        // Usaremos un valor por defecto mientras tanto.
+        var logoSetting = "favicon.png";
+    }
+    <link rel="icon" type="image/png" href="@logoSetting" id="dynamic-favicon" />
     <HeadOutlet @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
 </head>
 
@@ -59,6 +71,18 @@
                 
                 toast.show();
             }
+        };
+
+        window.updateFavicon = (url) => {
+            let link = document.getElementById('dynamic-favicon');
+            if (!link) {
+                link = document.createElement('link');
+                link.id = 'dynamic-favicon';
+                link.rel = 'icon';
+                link.type = 'image/png';
+                document.head.appendChild(link);
+            }
+            link.href = url + '?v=' + new Date().getTime(); // Anti-cache
         };
 
         window.downloadFileFromStream = async (fileName, contentStreamReference) => {

@@ -93,53 +93,40 @@ function resizeImage(url, maxWidth, maxHeight) {
     });
 }
 
-window.qzPrintInvoice = async (invoice) => {
+window.qzPrintInvoice = async (invoice, printerName) => {
     try {
         if (!qz.websocket.isActive()) {
             await qz.websocket.connect();
         }
 
-        let printer = null;
+        let printer = printerName;
         
-        try {
-            const printers = await qz.printers.find("EPSON");
-            if (printers && printers.length > 0) {
-                printer = printers[0];
-            }
-        } catch (e) {
-            console.log("Error buscando 'EPSON':", e);
-        }
-
         if (!printer) {
+            // Fallback si no viene nombre específico
             try {
-                const printers = await qz.printers.find("TM-T20");
-                if (printers && printers.length > 0) {
-                    printer = printers[0];
-                }
-            } catch (e) {
-                console.log("Error buscando 'TM-T20':", e);
+                const printers = await qz.printers.find("EPSON");
+                if (printers && printers.length > 0) printer = printers[0];
+            } catch (e) {}
+
+            if (!printer) {
+                try {
+                    printer = await qz.printers.getDefault();
+                } catch (e) {}
             }
         }
 
         if (!printer) {
-            try {
-                printer = await qz.printers.getDefault();
-            } catch (e) {
-                console.log("Error obteniendo predeterminada:", e);
-            }
-        }
-
-        if (!printer) {
-            throw new Error("No se encontró la impresora Epson TM-T20III.");
+            throw new Error("No se configuró ninguna impresora válida.");
         }
 
         // Redimensionar el logo a 150px de ancho máximo antes de imprimir
         let base64Logo = null;
         try {
-            const dataUrl = await resizeImage(window.location.origin + '/images/logo.png', 150, 150);
-            base64Logo = dataUrl.split(',')[1]; // Extraer solo el contenido base64
+            const logoPath = invoice.logoPath || (window.location.origin + '/images/logo.png');
+            const dataUrl = await resizeImage(logoPath, 150, 150);
+            base64Logo = dataUrl.split(',')[1];
         } catch (e) {
-            console.error("No se pudo redimensionar el logo, se omitirá de la impresión:", e);
+            console.error("No se pudo procesar el logo:", e);
         }
 
         const config = qz.configs.create(printer, { encoding: 'ISO-8859-1' });
@@ -156,30 +143,34 @@ window.qzPrintInvoice = async (invoice) => {
         const doubleSize = ESC + '!' + '\x30'; 
         const normalSize = ESC + '!' + '\x00'; 
         const cut = GS + 'V' + '\x41' + '\x00'; 
+        const openDrawer = '\x1B' + '\x70' + '\x00' + '\x19' + '\xFA'; // Comando ESC/POS para abrir cajon
 
-        let data = [
-            init,
-            center
-        ];
+        let data = [init];
 
-        // Añadir logo si se procesó correctamente
+        // Abrir cajón si está configurado
+        if (invoice.abrirCajon) {
+            data.push(openDrawer);
+        }
+
+        data.push(center);
+
+        // Añadir logo
         if (base64Logo) {
             data.push({ 
                 type: 'pixel', 
                 format: 'image', 
                 flavor: 'base64', 
                 data: base64Logo,
-                options: { 
-                    language: 'ESCPOS',
-                    dotDensity: 'double'
-                } 
+                options: { language: 'ESCPOS', dotDensity: 'double' } 
             });
             data.push("\n");
         }
 
         data = data.concat([
-            boldOn + doubleSize + "INNOVATEC\n" + normalSize + boldOff,
-            "Soluciones Tecnologicas\n",
+            boldOn + (invoice.nombreNegocio || "INNOVATEC POS") + "\n" + boldOff,
+            (invoice.ruc ? "RUC: " + invoice.ruc + "\n" : ""),
+            (invoice.direccion ? invoice.direccion + "\n" : ""),
+            (invoice.telefono ? "Tel: " + invoice.telefono + "\n" : ""),
             "------------------------------------------------\n",
             left,
             `Factura: ${invoice.numeroFactura}\n`,
@@ -196,7 +187,7 @@ window.qzPrintInvoice = async (invoice) => {
         invoice.detalles.forEach(d => {
             let cantStr = d.cantidad.toString().padEnd(5);
             let descStr = d.descripcion.substring(0, 28).padEnd(28);
-            let totalStr = ("C$ " + d.total.toFixed(2)).padStart(12);
+            let totalStr = (invoice.simboloMoneda || "C$ ") + d.total.toFixed(2).padStart(12);
             
             data.push(`${cantStr} ${descStr} ${totalStr}\n`);
             
@@ -208,19 +199,20 @@ window.qzPrintInvoice = async (invoice) => {
         data.push("------------------------------------------------\n");
         
         data.push(right);
-        data.push(`Subtotal:  C$ ${invoice.subtotal.toFixed(2)}\n`);
+        data.push(`Subtotal:  ${invoice.simboloMoneda || "C$"} ${invoice.subtotal.toFixed(2)}\n`);
         if (invoice.descuento > 0) {
-            data.push(`Descuento: C$ ${invoice.descuento.toFixed(2)}\n`);
+            data.push(`Descuento: ${invoice.simboloMoneda || "C$"} ${invoice.descuento.toFixed(2)}\n`);
         }
         data.push(boldOn);
-        data.push(`TOTAL:      C$ ${invoice.total.toFixed(2)}\n`);
+        data.push(`TOTAL:      ${invoice.simboloMoneda || "C$"} ${invoice.total.toFixed(2)}\n`);
         data.push(boldOff);
         
         data.push(center);
-        data.push("\nGracias por su compra!\n\n\n\n");
+        data.push("\n" + (invoice.mensajeTicket || "Gracias por su compra!") + "\n\n\n\n");
         data.push(cut);
 
         await qz.print(config, data);
+
         
     } catch (err) {
         console.error("Error en QZ Tray:", err);
@@ -228,3 +220,47 @@ window.qzPrintInvoice = async (invoice) => {
         throw err;
     }
 };
+
+window.qzListPrinters = async () => {
+    try {
+        if (!qz.websocket.isActive()) {
+            await qz.websocket.connect();
+        }
+        return await qz.printers.find();
+    } catch (err) {
+        console.error("Error al listar impresoras:", err);
+        return [];
+    }
+};
+
+window.qzTestPrint = async (printerName, businessName) => {
+    try {
+        if (!qz.websocket.isActive()) {
+            await qz.websocket.connect();
+        }
+        
+        const config = qz.configs.create(printerName);
+        const data = [
+            '\x1B' + '@',          // Init
+            '\x1B' + 'a' + '\x01', // Center
+            '\x1B' + 'E' + '\x01', // Bold on
+            (businessName || "InnovaTec POS") + "\n",
+            '\x1B' + 'E' + '\x00', // Bold off
+            "PRUEBA DE IMPRESION\n",
+            "--------------------------------\n",
+            "QZ Tray Conectado: OK\n",
+            "Impresora: " + printerName + "\n",
+            "Fecha: " + new Date().toLocaleString() + "\n",
+            "--------------------------------\n",
+            "\n\n\n\n",
+            '\x1D' + 'V' + '\x41' + '\x00' // Cut
+        ];
+        
+        await qz.print(config, data);
+        return true;
+    } catch (err) {
+        console.error("Error en prueba de impresión:", err);
+        throw err;
+    }
+};
+

@@ -92,6 +92,34 @@ public class AppState
         }
     }
 
+    private string _printerName = "";
+    public string PrinterName
+    {
+        get => _printerName;
+        set
+        {
+            if (_printerName != value)
+            {
+                _printerName = value;
+                NotifyStateChanged();
+            }
+        }
+    }
+
+    private bool _openCashDrawer = true;
+    public bool OpenCashDrawer
+    {
+        get => _openCashDrawer;
+        set
+        {
+            if (_openCashDrawer != value)
+            {
+                _openCashDrawer = value;
+                NotifyStateChanged();
+            }
+        }
+    }
+
     public void UpdateFromDictionary(Dictionary<string, string> settings)
     {
         if (settings.TryGetValue("Empresa_Nombre", out var name)) BusinessName = name;
@@ -100,6 +128,8 @@ public class AppState
         if (settings.TryGetValue("Empresa_Telefono", out var phone)) BusinessPhone = phone;
         if (settings.TryGetValue("Empresa_Direccion", out var address)) BusinessAddress = address;
         if (settings.TryGetValue("Ventas_MensajeTicket", out var msg)) TicketMessage = msg;
+        if (settings.TryGetValue("Hardware_Impresora", out var printer)) PrinterName = printer;
+        if (settings.TryGetValue("Hardware_AbrirCajon", out var openDrawer)) OpenCashDrawer = openDrawer == "SI";
     }
 
     private void NotifyStateChanged() => OnChange?.Invoke();
