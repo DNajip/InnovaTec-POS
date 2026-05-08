@@ -179,14 +179,17 @@ window.qzPrintInvoice = async (invoice, printerName) => {
             `Cajero:  ${invoice.vendedor}\n`,
             "------------------------------------------------\n",
             boldOn,
-            "Cant  Descripcion                  Total\n",
+            "Cant Descripcion                 Total\n",
             boldOff,
             "------------------------------------------------\n"
         ]);
 
         invoice.detalles.forEach(d => {
-            let cantStr = d.cantidad.toString().padEnd(5);
-            let descStr = d.descripcion.substring(0, 28).padEnd(28);
+            // Asegurar que la cantidad sea entera y tenga un ancho de 4
+            let cantStr = Math.floor(d.cantidad).toString().padEnd(4);
+            // Reducir descripción a 26 caracteres para evitar desbordamiento
+            let descStr = d.descripcion.substring(0, 26).padEnd(26);
+            // Símbolo de moneda + total formateado (ancho total de la columna ~15)
             let totalStr = (invoice.simboloMoneda || "C$ ") + d.total.toFixed(2).padStart(12);
             
             data.push(`${cantStr} ${descStr} ${totalStr}\n`);
@@ -334,7 +337,12 @@ window.qzPrintShiftClosing = async (shift, config_negocio) => {
 
         data.push(boldOn + "CUADRE DE CAJA\n" + boldOff);
         data.push(`Monto Inicial:     C$ ${shift.montoInicialNio.toFixed(2)} | $ ${shift.montoInicialUsd.toFixed(2)}\n`);
-        data.push(`Total Esperado:    C$ ${(shift.montoInicialNio + shift.totalEfectivoNio).toFixed(2)} | $ ${(shift.montoInicialUsd + shift.totalEfectivoUsd).toFixed(2)}\n`);
+        data.push(`Ingresos Manuales: C$ ${(shift.montoManualNio || 0).toFixed(2)} | $ ${(shift.montoManualUsd || 0).toFixed(2)}\n`);
+        
+        const esperadoNio = shift.montoInicialNio + shift.totalEfectivoNio + (shift.montoManualNio || 0);
+        const esperadoUsd = shift.montoInicialUsd + shift.totalEfectivoUsd + (shift.montoManualUsd || 0);
+        
+        data.push(`Total Esperado:    C$ ${esperadoNio.toFixed(2)} | $ ${esperadoUsd.toFixed(2)}\n`);
         data.push(`Total Contado:     C$ ${shift.montoContadoNio.toFixed(2)} | $ ${shift.montoContadoUsd.toFixed(2)}\n`);
         
         data.push(boldOn);

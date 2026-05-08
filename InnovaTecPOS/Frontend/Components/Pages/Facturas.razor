@@ -190,19 +190,45 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var d in selectedVenta.VentaDetalles)
-                                {
-                                    <tr>
-                                        <td class="align-top">@d.Cantidad</td>
-                                        <td>
-                                            @d.DescripcionSnap
-                                            @if (d.VentaDetalleImeis.Any())
+                                @{
+                                    var groupedDetails = selectedVenta.VentaDetalles
+                                        .GroupBy(d => new { d.DescripcionSnap, d.PrecioUnitarioNio, HasImei = d.VentaDetalleImeis.Any() })
+                                        .Select(g => new {
+                                            Cantidad = g.Sum(x => x.Cantidad),
+                                            Descripcion = g.Key.DescripcionSnap,
+                                            Total = g.Sum(x => x.SubtotalNio),
+                                            Imeis = g.SelectMany(x => x.VentaDetalleImeis).ToList(),
+                                            IsImeiGroup = g.Key.HasImei
+                                        });
+
+                                    foreach (var d in groupedDetails)
+                                    {
+                                        if (d.IsImeiGroup)
+                                        {
+                                            // Si tienen IMEI, los mostramos desglosados para que se vea cada IMEI
+                                            // O podríamos mostrarlos juntos con una lista de IMEIs. 
+                                            // El usuario dijo: "Si cargo 12 celulares esos si se tienen que desglozar"
+                                            foreach(var item in selectedVenta.VentaDetalles.Where(x => x.DescripcionSnap == d.Descripcion && x.VentaDetalleImeis.Any()))
                                             {
-                                                <div class="x-small text-muted" style="font-size: 10px;">IMEI: @string.Join(", ", d.VentaDetalleImeis.Select(i => i.ImeiSnap))</div>
+                                                <tr>
+                                                    <td class="align-top">@item.Cantidad</td>
+                                                    <td>
+                                                        @item.DescripcionSnap
+                                                        <div class="x-small text-muted" style="font-size: 10px;">IMEI: @string.Join(", ", item.VentaDetalleImeis.Select(i => i.ImeiSnap))</div>
+                                                    </td>
+                                                    <td class="text-end align-top">C$ @item.SubtotalNio.ToString("N2")</td>
+                                                </tr>
                                             }
-                                        </td>
-                                        <td class="text-end align-top">C$ @d.SubtotalNio.ToString("N2")</td>
-                                    </tr>
+                                        }
+                                        else
+                                        {
+                                            <tr>
+                                                <td class="align-top">@d.Cantidad</td>
+                                                <td>@d.Descripcion</td>
+                                                <td class="text-end align-top">C$ @d.Total.ToString("N2")</td>
+                                            </tr>
+                                        }
+                                    }
                                 }
                             </tbody>
                         </table>
@@ -366,13 +392,27 @@
             subtotal = selectedVenta.SubtotalNio,
             descuento = selectedVenta.DescuentoNio,
             total = selectedVenta.TotalNio,
-            detalles = selectedVenta.VentaDetalles.Select(d => new
-            {
-                cantidad = d.Cantidad,
-                descripcion = d.DescripcionSnap,
-                total = d.SubtotalNio,
-                imeis = d.VentaDetalleImeis.Select(i => i.ImeiSnap).ToList()
-            }).ToList()
+            detalles = selectedVenta.VentaDetalles
+                .GroupBy(d => new { d.DescripcionSnap, d.PrecioUnitarioNio, HasImei = d.VentaDetalleImeis.Any() })
+                .SelectMany(g => {
+                    if (g.Key.HasImei) {
+                        // Si tiene IMEI, devolvemos cada registro individualmente (desglosado)
+                        return g.Select(x => new {
+                            cantidad = x.Cantidad,
+                            descripcion = x.DescripcionSnap,
+                            total = x.SubtotalNio,
+                            imeis = x.VentaDetalleImeis.Select(i => i.ImeiSnap).ToList()
+                        });
+                    } else {
+                        // Si no tiene IMEI, agrupamos todo en una sola línea
+                        return new[] { new {
+                            cantidad = g.Sum(x => x.Cantidad),
+                            descripcion = g.Key.DescripcionSnap,
+                            total = g.Sum(x => x.SubtotalNio),
+                            imeis = new List<string>()
+                        }};
+                    }
+                }).ToList()
         };
 
         try

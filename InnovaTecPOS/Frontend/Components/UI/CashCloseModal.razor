@@ -351,6 +351,8 @@
                     montoInicialUsd = closedShift.MontoInicialUsd,
                     montoContadoNio = closedShift.MontoContadoNio,
                     montoContadoUsd = closedShift.MontoContadoUsd,
+                    montoManualNio = closedShift.MovimientosVarios.Where(m => m.IdMoneda == 1).Sum(m => m.Monto),
+                    montoManualUsd = closedShift.MovimientosVarios.Where(m => m.IdMoneda == 2).Sum(m => m.Monto),
                     diferenciaNio = closedShift.DiferenciaNio,
                     diferenciaUsd = closedShift.DiferenciaUsd,
                     observaciones = closedShift.Observaciones

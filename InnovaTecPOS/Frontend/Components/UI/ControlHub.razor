@@ -6,6 +6,7 @@
 @inject IShiftService ShiftService
 @inject UserSession UserSession
 @inject ToastService ToastService
+@inject ConfiguracionService ConfigService
 <footer class="pos-footer">
     <div class="position-relative w-100">
         @if (showSelectionModal)
@@ -16,6 +17,14 @@
                     <div class="text-start">
                         <div class="fw-bold">Ingresar Cambio</div>
                         <div class="x-small text-muted">Añadir sencillo</div>
+                    </div>
+                </button>
+                <div class="dropdown-divider m-0"></div>
+                <button type="button" class="option-item text-secondary" @onclick="ReprintLastZReport">
+                    <i class="fas fa-print"></i>
+                    <div class="text-start">
+                        <div class="fw-bold">Reimprimir Arqueo</div>
+                        <div class="x-small text-muted">Último reporte Z</div>
                     </div>
                 </button>
                 <div class="dropdown-divider m-0"></div>
@@ -175,6 +184,58 @@
         UserSession.ActiveShift = turno;
         showOpenModal = false;
         StateHasChanged();
+    }
+
+    private async Task ReprintLastZReport()
+    {
+        try
+        {
+            if (!UserSession.UserId.HasValue) return;
+            
+            var lastShift = await ShiftService.GetLastClosedShiftAsync(UserSession.UserId.Value);
+            if (lastShift == null)
+            {
+                ToastService.ShowError("No se encontraron turnos cerrados.");
+                return;
+            }
+
+            var settings = await ConfigService.GetAllSettingsAsync();
+            var configPrint = new {
+                nombreNegocio = settings.GetValueOrDefault("Empresa_Nombre", "INNOVATEC POS"),
+                printerName = settings.GetValueOrDefault("Hardware_Impresora_Nombre", "")
+            };
+
+            var printData = new {
+                idTurno = lastShift.IdTurno,
+                cajero = UserSession.Username,
+                fechaApertura = lastShift.FechaApertura,
+                fechaCierre = lastShift.FechaCierre ?? DateTime.Now,
+                totalVentasNio = lastShift.TotalVentasNio,
+                totalEfectivoNio = lastShift.TotalEfectivoNio,
+                totalEfectivoUsd = lastShift.TotalEfectivoUsd,
+                totalTarjeta = lastShift.TotalTarjeta,
+                totalTransferencia = lastShift.TotalTransferencia,
+                montoInicialNio = lastShift.MontoInicialNio,
+                montoInicialUsd = lastShift.MontoInicialUsd,
+                montoContadoNio = lastShift.MontoContadoNio,
+                montoContadoUsd = lastShift.MontoContadoUsd,
+                montoManualNio = lastShift.MovimientosVarios.Where(m => m.IdMoneda == 1).Sum(m => m.Monto),
+                montoManualUsd = lastShift.MovimientosVarios.Where(m => m.IdMoneda == 2).Sum(m => m.Monto),
+                diferenciaNio = lastShift.DiferenciaNio,
+                diferenciaUsd = lastShift.DiferenciaUsd,
+                observaciones = lastShift.Observaciones
+            };
+
+            await JSRuntime.InvokeVoidAsync("qzPrintShiftClosing", printData, configPrint);
+            ToastService.ShowSuccess("Reimpresión enviada");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Error al reimprimir: " + ex.Message);
+        }
+        finally {
+            showSelectionModal = false;
+        }
     }
 
     public void Dispose()
