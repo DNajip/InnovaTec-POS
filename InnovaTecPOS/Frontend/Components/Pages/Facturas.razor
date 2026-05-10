@@ -329,8 +329,8 @@
 
             if (!string.IsNullOrWhiteSpace(searchQuery))
             {
-                query = query.Where(v => v.NumeroFactura.Contains(searchQuery) || 
-                                       (v.IdPersonaNavigation != null && v.IdPersonaNavigation.NombreCompleto.Contains(searchQuery)));
+                query = query.Where(v => (v.NumeroFactura != null && v.NumeroFactura.Contains(searchQuery)) || 
+                                       (v.IdPersonaNavigation != null && v.IdPersonaNavigation.NombreCompleto != null && v.IdPersonaNavigation.NombreCompleto.Contains(searchQuery)));
             }
 
             ventas = await query.OrderByDescending(v => v.FechaVenta).ToListAsync();

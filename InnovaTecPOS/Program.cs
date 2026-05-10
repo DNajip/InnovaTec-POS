@@ -3,6 +3,7 @@ using InnovaTecPOS.Backend.Models;
 using InnovaTecPOS.Backend.Services;
 using InnovaTecPOS.Frontend.Services;
 using Microsoft.EntityFrameworkCore;
+using InnovaTecPOS.Backend.Interceptors;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +14,8 @@ builder.Services.AddRazorComponents()
 
 // Registramos la Factoría de Contexto para evitar errores de concurrencia en Blazor Server
 builder.Services.AddDbContextFactory<InnovaTecDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .AddInterceptors(new SqlSettingInterceptor()));
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductService, ProductService>();
@@ -26,6 +28,7 @@ builder.Services.AddScoped<UserSession>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<ConfiguracionService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<AppState>();
 
 var app = builder.Build();

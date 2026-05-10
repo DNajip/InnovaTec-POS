@@ -1,0 +1,63 @@
+@using InnovaTecPOS.Backend.Services
+@using InnovaTecPOS.Backend.Models
+@inject IReportService ReportService
+
+@if (arqueos == null)
+{
+    <div class="text-center py-5">
+        <div class="skeleton" style="height: 200px; border-radius: 20px;"></div>
+    </div>
+}
+else
+{
+    <div class="report-card mb-4">
+        <div class="report-card-title">Auditoría de Arqueos y Turnos</div>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Turno</th>
+                        <th>Cajero</th>
+                        <th>Apertura</th>
+                        <th>Cierre</th>
+                        <th class="text-end">Téórico</th>
+                        <th class="text-end">Real</th>
+                        <th class="text-end">Diferencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in arqueos)
+                    {
+                        <tr>
+                            <td>#@a.IdTurno</td>
+                            <td class="fw-bold">@a.Usuario</td>
+                            <td>@a.Apertura.ToString("dd/MM HH:mm")</td>
+                            <td>@(a.Cierre?.ToString("dd/MM HH:mm") ?? "En curso")</td>
+                            <td class="text-end">C$ @a.SaldoTeorico.ToString("N2")</td>
+                            <td class="text-end">C$ @a.SaldoReal.ToString("N2")</td>
+                            <td class="text-end fw-bold @(a.Diferencia < 0 ? "text-danger" : a.Diferencia > 0 ? "text-warning" : "text-success")">
+                                C$ @a.Diferencia.ToString("N2")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public DateTime StartDate { get; set; }
+    [Parameter] public DateTime EndDate { get; set; }
+    private List<ArqueoInsightDTO>? arqueos;
+
+    protected override async Task OnParametersSetAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        arqueos = null;
+        StateHasChanged();
+        arqueos = await ReportService.GetArqueoInsightsAsync(StartDate, EndDate);
+        StateHasChanged();
+    }
+}

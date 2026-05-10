@@ -1,0 +1,56 @@
+@using InnovaTecPOS.Backend.Services
+@using InnovaTecPOS.Backend.Models
+@inject IReportService ReportService
+
+@if (clientes == null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Analizando fidelidad de clientes...</p>
+    </div>
+}
+else
+{
+    <div class="report-card">
+        <div class="report-card-title">Top 10 Clientes VIP (Por Monto de Compra)</div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Cliente</th>
+                        <th class="text-center">Total Compras</th>
+                        <th class="text-end">Monto Acumulado</th>
+                        <th class="text-center">Nivel</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in clientes)
+                    {
+                        <tr>
+                            <td class="fw-bold">@c.Nombre</td>
+                            <td class="text-center">@c.TotalCompras</td>
+                            <td class="text-end fw-bold text-primary">C$ @c.MontoTotal.ToString("N2")</td>
+                            <td class="text-center">
+                                @if (c.MontoTotal > 50000) { <span class="badge bg-dark">PLATINUM</span> }
+                                else if (c.MontoTotal > 20000) { <span class="badge bg-warning text-dark">GOLD</span> }
+                                else { <span class="badge bg-light text-dark border">REGULAR</span> }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public DateTime StartDate { get; set; }
+    [Parameter] public DateTime EndDate { get; set; }
+
+    private List<ClientInsightDTO>? clientes;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        clientes = await ReportService.GetClientInsightsAsync(StartDate, EndDate);
+    }
+}

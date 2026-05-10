@@ -120,6 +120,34 @@ public class AppState
         }
     }
 
+    private DateTime _reportStartDate = DateTime.Today;
+    public DateTime ReportStartDate
+    {
+        get => _reportStartDate;
+        set
+        {
+            if (_reportStartDate != value)
+            {
+                _reportStartDate = value;
+                NotifyStateChanged();
+            }
+        }
+    }
+
+    private DateTime _reportEndDate = DateTime.Today;
+    public DateTime ReportEndDate
+    {
+        get => _reportEndDate;
+        set
+        {
+            if (_reportEndDate != value)
+            {
+                _reportEndDate = value;
+                NotifyStateChanged();
+            }
+        }
+    }
+
     public void UpdateFromDictionary(Dictionary<string, string> settings)
     {
         if (settings.TryGetValue("Empresa_Nombre", out var name)) BusinessName = name;

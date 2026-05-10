@@ -1,0 +1,83 @@
+@using InnovaTecPOS.Backend.Services
+@using InnovaTecPOS.Backend.Models
+@inject IReportService ReportService
+
+@if (insight == null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Analizando inventario y rotación...</p>
+    </div>
+}
+else
+{
+    <div class="report-row">
+        <!-- Stock Crítico -->
+        <div class="report-card">
+            <div class="report-card-title">
+                <span><i class="fas fa-exclamation-triangle text-danger me-2"></i> Stock Crítico</span>
+                <span class="badge bg-danger">@insight.StockCritico.Count ítems</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover small">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Categoría</th>
+                            <th class="text-center">Stock Actual</th>
+                            <th class="text-center">Mínimo</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in insight.StockCritico.Take(10))
+                        {
+                            <tr>
+                                <td class="fw-bold">@p.Nombre</td>
+                                <td>@p.Categoria</td>
+                                <td class="text-center">@p.StockActual</td>
+                                <td class="text-center">@p.StockMinimo</td>
+                                <td>
+                                    <span class="badge @(p.StockActual == 0 ? "bg-danger" : "bg-warning text-dark")">
+                                        @p.EstadoStock
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Productos Sin Movimiento -->
+        <div class="report-card">
+            <div class="report-card-title">
+                <span><i class="fas fa-snowflake text-primary me-2"></i> Inventario "Muerto"</span>
+            </div>
+            <p class="text-muted small">Productos sin ventas en los últimos 30 días.</p>
+            <div class="list-group list-group-flush">
+                @foreach (var p in insight.SinMovimiento)
+                {
+                    <div class="list-group-item px-0 py-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold">@p.Nombre</div>
+                            <div class="text-muted x-small">Última venta: @(p.UltimaVenta?.ToString("dd/MM/yyyy") ?? "Nunca")</div>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-light text-dark rounded-pill border">@p.DiasSinVenta días</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private InventoryInsightDTO? insight;
+
+    protected override async Task OnInitializedAsync()
+    {
+        insight = await ReportService.GetInventoryInsightsAsync();
+    }
+}
