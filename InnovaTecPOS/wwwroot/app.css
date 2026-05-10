@@ -156,6 +156,15 @@ html, body {
     padding: 0;
 }
 
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.cli-container, .configuracion-container, .report-main-container {
+    animation: fadeIn 0.3s ease-in-out forwards;
+}
+
 .pos-table {
     width: 100%;
     border-collapse: collapse;
@@ -886,12 +895,15 @@ html, body {
 }
 
 .report-sidebar {
-    width: 260px;
+    width: 240px;
+    min-width: 240px;
+    flex-shrink: 0;
     background: white;
     border-right: 1px solid #e2e8f0;
     display: flex;
     flex-direction: column;
     padding: 20px 0;
+    overflow-x: hidden;
 }
 
 .report-sidebar-header {
@@ -925,6 +937,8 @@ html, body {
     align-items: center;
     gap: 12px;
     transition: all 0.2s ease;
+    white-space: nowrap;
+    cursor: pointer;
 }
 
 .report-nav-item i {
@@ -945,6 +959,7 @@ html, body {
 
 .report-content {
     flex-grow: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -975,7 +990,8 @@ html, body {
 .report-date-selector {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .quick-ranges {
@@ -984,6 +1000,7 @@ html, body {
     padding: 4px;
     border-radius: 10px;
     gap: 4px;
+    white-space: nowrap;
 }
 
 .btn-quick {
@@ -995,6 +1012,8 @@ html, body {
     font-weight: 600;
     color: #64748b;
     transition: all 0.2s;
+    white-space: nowrap;
+    cursor: pointer;
 }
 
 .btn-quick.active {
@@ -1014,12 +1033,13 @@ html, body {
 
 .export-actions {
     display: flex;
-    gap: 10px;
+    gap: 8px;
+    white-space: nowrap;
 }
 
 .report-view-area {
     flex-grow: 1;
-    overflow-y: auto;
+    overflow-y: scroll;
     padding: 30px;
 }
 
@@ -1166,8 +1186,8 @@ html, body {
 
 /* Responsive adjustments */
 @@media (max-width: 1024px) {
-    .report-sidebar { width: 80px; }
+    .report-sidebar { width: 70px; min-width: 70px; }
     .report-sidebar span, .report-sidebar-header span { display: none; }
-    .report-nav-item { justify-content: center; padding: 15px; }
+    .report-nav-item { justify-content: center; padding: 15px; white-space: normal; }
     .report-nav-item i { font-size: 1.2rem; }
 }
