@@ -13,17 +13,17 @@
         <button class="report-nav-item @(ActiveSection == "ventas" ? "active" : "")" @onclick='() => SetSection("ventas")'>
             <i class="fas fa-file-invoice-dollar"></i> Ventas
         </button>
+        <button class="report-nav-item @(ActiveSection == "arqueos" ? "active" : "")" @onclick='() => SetSection("arqueos")'>
+            <i class="fas fa-cash-register"></i> Caja y Arqueos
+        </button>
+        <button class="report-nav-item @(ActiveSection == "cajeros" ? "active" : "")" @onclick='() => SetSection("cajeros")'>
+            <i class="fas fa-user-tie"></i> Cajeros
+        </button>
         <button class="report-nav-item @(ActiveSection == "inventario" ? "active" : "")" @onclick='() => SetSection("inventario")'>
             <i class="fas fa-boxes"></i> Inventario
         </button>
         <button class="report-nav-item @(ActiveSection == "clientes" ? "active" : "")" @onclick='() => SetSection("clientes")'>
             <i class="fas fa-users"></i> Clientes
-        </button>
-        <button class="report-nav-item @(ActiveSection == "cajeros" ? "active" : "")" @onclick='() => SetSection("cajeros")'>
-            <i class="fas fa-user-tie"></i> Cajeros
-        </button>
-        <button class="report-nav-item @(ActiveSection == "arqueos" ? "active" : "")" @onclick='() => SetSection("arqueos")'>
-            <i class="fas fa-cash-register"></i> Caja y Arqueos
         </button>
     </nav>
 </div>

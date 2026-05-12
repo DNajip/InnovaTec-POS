@@ -59,7 +59,8 @@ public class ReportService : IReportService
             TicketPromedio = currentVentas.Any() ? currentVentas.Average(v => v.TotalNio) : 0,
             UtilidadNeta = currentVentas.SelectMany(v => v.VentaDetalles).Sum(d => 
                 d.SubtotalNio - ((d.IdProductoNavigation?.PrecioCompra ?? 0) * d.Cantidad)),
-            ClientesNuevos = await _context.Personas.CountAsync(p => p.FechaCreacion >= start && p.FechaCreacion <= end && p.EsCliente)
+            ClientesNuevos = await _context.Personas.CountAsync(p => p.FechaCreacion >= start && p.FechaCreacion <= end && p.EsCliente),
+            Anulaciones = await _context.Ventas.CountAsync(v => v.FechaVenta >= start && v.FechaVenta <= end && v.Anulada)
         };
 
         // Calcular porcentajes

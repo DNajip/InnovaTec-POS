@@ -11,6 +11,7 @@ public class DashboardStatsDTO
     public decimal TicketPromedio { get; set; }
     public int ClientesNuevos { get; set; }
     public int ProductosVendidos { get; set; }
+    public int Anulaciones { get; set; }
     
     // Comparativas con periodo anterior
     public decimal PorcentajeVentas { get; set; }
