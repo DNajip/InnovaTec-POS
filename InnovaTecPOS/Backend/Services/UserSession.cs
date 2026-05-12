@@ -9,7 +9,7 @@ public class UserSession
     private int? _userId;
     public int? UserId 
     { 
-        get => _userId ?? 1; // Default to Admin for development
+        get => _userId; 
         set 
         {
             if (_userId != value)
@@ -20,9 +20,9 @@ public class UserSession
         }
     }
     
-    public string? Username { get; set; } = "ADMIN";
-    public string? NombreCompleto { get; set; } = "Administrador del Sistema";
-    public string? Rol { get; set; } = "ADMINISTRADOR";
+    public string? Username { get; set; }
+    public string? NombreCompleto { get; set; }
+    public string? Rol { get; set; }
     
     private Turno? _activeShift;
     public Turno? ActiveShift
@@ -42,7 +42,7 @@ public class UserSession
 
     public string? CurrentObservation { get; set; }
 
-    public bool IsAuthenticated => _userId.HasValue || true; // Mantenemos true para desarrollo si no hay login real
+    public bool IsAuthenticated => _userId.HasValue;
     
     public List<string> PermittedModules { get; set; } = new();
 

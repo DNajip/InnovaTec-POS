@@ -22,6 +22,7 @@ public partial class Usuario
     public DateTime? UltimoAcceso { get; set; }
 
     public int IdEstado { get; set; }
+    public int IntentosFallidos { get; set; }
 
     public virtual ICollection<Configuracion> Configuracions { get; set; } = new List<Configuracion>();
 

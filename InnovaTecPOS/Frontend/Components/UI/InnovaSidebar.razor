@@ -6,7 +6,7 @@
 <nav class="sidebar-tabs">
     @if (Session.HasModuleAccess("Ventas") || Session.HasModuleAccess("Caja"))
     {
-        <a href="/" class="tab-vertical @(IsActive("/") ? "active" : "")">TRANSACCIÓN</a>
+        <a href="/ventas" class="tab-vertical @(IsActive("/ventas") ? "active" : "")">TRANSACCIÓN</a>
     }
     
     @if (Session.HasModuleAccess("Reportes"))
@@ -46,7 +46,7 @@
         int queryIndex = relativePath.IndexOfAny(new[] { '?', '#' });
         if (queryIndex >= 0) relativePath = relativePath.Substring(0, queryIndex);
 
-        if (href == "/") return string.IsNullOrEmpty(relativePath);
+        if (href == "/ventas") return relativePath == "ventas" || string.IsNullOrEmpty(relativePath);
         return $"/{relativePath}" == href;
     }
 }

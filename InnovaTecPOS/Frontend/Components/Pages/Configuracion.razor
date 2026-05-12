@@ -260,6 +260,10 @@
                                                 {
                                                     <span class="badge bg-success">Activo</span>
                                                 }
+                                                else if (user.IdEstado == 3)
+                                                {
+                                                    <span class="badge bg-warning text-dark">Bloqueado</span>
+                                                }
                                                 else
                                                 {
                                                     <span class="badge bg-danger">Inactivo</span>
@@ -269,10 +273,10 @@
                                                 <button class="btn btn-sm btn-action" title="Editar" @onclick="() => OpenEditUserModal(user)">
                                                     <i class="bi bi-pencil"></i>
                                                 </button>
-                                                <button class="btn btn-sm btn-action @(user.IdEstado == 1 ? "text-danger" : "text-success")" 
-                                                        title="@(user.IdEstado == 1 ? "Suspender" : "Habilitar")" 
+                                                <button class="btn btn-sm btn-action @(user.IdEstado == 3 ? "text-warning" : (user.IdEstado == 1 ? "text-danger" : "text-success"))" 
+                                                        title="@(user.IdEstado == 3 ? "Desbloquear" : (user.IdEstado == 1 ? "Suspender" : "Habilitar"))" 
                                                         @onclick="() => ToggleUserStatus(user)">
-                                                    <i class="bi @(user.IdEstado == 1 ? "bi-person-x-fill" : "bi-person-check-fill")"></i>
+                                                    <i class="bi @(user.IdEstado == 3 ? "bi-unlock-fill" : (user.IdEstado == 1 ? "bi-person-x-fill" : "bi-person-check-fill"))"></i>
                                                 </button>
                                             </td>
                                         </tr>
@@ -505,9 +509,14 @@
         {
             if (user.IdUsuario.HasValue)
             {
+                int oldEstado = user.IdEstado;
                 await UserService.ToggleUserStatusAsync(user.IdUsuario.Value);
-                user.IdEstado = user.IdEstado == 1 ? 2 : 1;
-                ToastService.ShowInfo($"El usuario ha sido {(user.IdEstado == 1 ? "habilitado" : "suspendido")}.");
+                
+                if (oldEstado == 3) user.IdEstado = 1;
+                else user.IdEstado = user.IdEstado == 1 ? 2 : 1;
+                
+                string accion = oldEstado == 3 ? "desbloqueado" : (user.IdEstado == 1 ? "habilitado" : "suspendido");
+                ToastService.ShowInfo($"El usuario ha sido {accion}.");
             }
         }
         catch (Exception ex)

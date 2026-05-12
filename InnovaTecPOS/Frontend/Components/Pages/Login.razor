@@ -1,4 +1,4 @@
-@page "/login"
+@page "/"
 @layout EmptyLayout
 @using InnovaTecPOS.Backend.Services
 @inject IAuthService AuthService
@@ -104,7 +104,7 @@
 
             if (result.Success == 1)
             {
-                Navigation.NavigateTo("/");
+                Navigation.NavigateTo("/ventas");
             }
             else
             {

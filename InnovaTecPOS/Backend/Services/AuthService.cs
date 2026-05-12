@@ -55,10 +55,18 @@ public class AuthService : IAuthService
                     _userSession.NombreCompleto = user.IdEmpleadoNavigation.IdPersonaNavigation.NombreCompleto;
                     _userSession.Rol = user.IdRolNavigation.Nombre;
                     _userSession.PermittedModules = user.IdModulos.Select(m => m.Nombre).ToList();
+                    
+                    return response;
                 }
             }
 
-            return response;
+            // Seguridad: Mensaje genérico para evitar enumeración de usuarios,
+            // pero permitimos informar si la cuenta ha sido bloqueada.
+            string finalMessage = response.Message == "Su cuenta ha sido bloqueada" 
+                ? response.Message 
+                : "Usuario o contraseña incorrectos";
+
+            return new LoginResponse { Success = 0, Message = finalMessage };
         }
         catch (Exception ex)
         {

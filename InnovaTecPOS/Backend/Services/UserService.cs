@@ -249,7 +249,15 @@ public class UserService
         var usuario = await context.Usuarios.FindAsync(idUsuario);
         if (usuario != null)
         {
-            usuario.IdEstado = usuario.IdEstado == 1 ? 2 : 1; // 1 = Activo, 2 = Inactivo
+            if (usuario.IdEstado == 3) // 3 = Bloqueado
+            {
+                usuario.IdEstado = 1; // Restaurar a Activo
+                usuario.IntentosFallidos = 0; // Reiniciar contador
+            }
+            else
+            {
+                usuario.IdEstado = usuario.IdEstado == 1 ? 2 : 1; // Alternar entre Activo (1) e Inactivo (2)
+            }
             await context.SaveChangesAsync();
         }
     }

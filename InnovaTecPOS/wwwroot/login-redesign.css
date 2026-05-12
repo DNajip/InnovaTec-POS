@@ -74,6 +74,12 @@
     font-size: 2.4rem !important;
     letter-spacing: -1px !important;
     margin-bottom: 0.1rem !important;
+    outline: none !important; /* Elimina el cuadro de enfoque inicial */
+}
+
+.login-title-premium:focus {
+    outline: none !important;
+    box-shadow: none !important;
 }
 
 .login-subtitle-premium {
