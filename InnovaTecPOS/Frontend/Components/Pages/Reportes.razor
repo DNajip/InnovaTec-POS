@@ -79,9 +79,9 @@
         if (!Session.IsAuthenticated) return;
         
         // Inicializar si es la primera vez que se entra en la sesión
-        if (AppState.ReportStartDate == DateTime.MinValue || AppState.ReportStartDate == DateTime.Today)
+        if (AppState.ReportStartDate == DateTime.MinValue)
         {
-            AppState.ReportStartDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+            AppState.ReportStartDate = DateTime.Today;
             AppState.ReportEndDate = DateTime.Today;
         }
     }
