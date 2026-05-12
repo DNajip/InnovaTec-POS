@@ -167,7 +167,7 @@
             return;
         }
 
-        var results = await ProductService.SearchProductsAsync(term);
+        var results = await ProductService.SearchProductsAsync(term, onlyInStock: true);
         if (results != null && results.Count == 1)
         {
             SelectProduct(results[0]);
@@ -187,7 +187,7 @@
             {
                 if (SearchTerm.Length >= 2)
                 {
-                    SearchResults = await ProductService.SearchProductsAsync(SearchTerm);
+                    SearchResults = await ProductService.SearchProductsAsync(SearchTerm, onlyInStock: true);
                 }
                 else
                 {
@@ -205,6 +205,12 @@
 
     private void SelectProduct(InnovaTecPOS.Backend.Models.Producto prod)
     {
+        if (prod.StockActual <= 0)
+        {
+            ToastService.ShowError($"El producto '{prod.Nombre}' no cuenta con existencias disponibles.");
+            return;
+        }
+
         var existingItem = SaleService.Items.FirstOrDefault(i => i.IdProducto == prod.IdProducto);
         
         bool requiresImei = prod.IdCategoriaNavigation?.ManejaImei == true;

@@ -73,6 +73,6 @@
     private bool ShouldShowSummary()
     {
         var path = Navigation.ToBaseRelativePath(Navigation.Uri);
-        return string.IsNullOrEmpty(path);
+        return string.IsNullOrEmpty(path) || path.StartsWith("ventas");
     }
 }

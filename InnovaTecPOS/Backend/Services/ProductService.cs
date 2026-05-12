@@ -10,11 +10,11 @@ namespace InnovaTecPOS.Backend.Services;
 
 public interface IProductService
 {
-    Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null, bool includeInactive = false);
+    Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null, bool includeInactive = false, bool onlyInStock = false);
     Task<Producto?> GetProductByIdAsync(int id);
     Task<Producto?> GetProductByCodeAsync(string code);
     Task<Producto?> GetProductByBarcodeAsync(string barcode);
-    Task<List<Producto>> SearchProductsAsync(string term);
+    Task<List<Producto>> SearchProductsAsync(string term, bool onlyInStock = false);
     Task CreateProductAsync(Producto producto);
     Task UpdateProductAsync(Producto producto);
     Task<List<Categoria>> GetCategoriasAsync();
@@ -35,7 +35,7 @@ public class ProductService : IProductService
         _userSession = userSession;
     }
 
-    public async Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null, bool includeInactive = false)
+    public async Task<List<Producto>> GetAllProductsAsync(string? search = null, int? idCategoria = null, bool includeInactive = false, bool onlyInStock = false)
     {
         using var context = await _factory.CreateDbContextAsync();
         
@@ -49,6 +49,9 @@ public class ProductService : IProductService
 
         if (idCategoria.HasValue && idCategoria > 0)
             query = query.Where(p => p.IdCategoria == idCategoria);
+
+        if (onlyInStock)
+            query = query.Where(p => p.StockActual > 0);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -81,7 +84,7 @@ public class ProductService : IProductService
 
     public async Task<Producto?> GetProductByBarcodeAsync(string barcode) => await GetProductByCodeAsync(barcode);
 
-    public async Task<List<Producto>> SearchProductsAsync(string term) => await GetAllProductsAsync(search: term);
+    public async Task<List<Producto>> SearchProductsAsync(string term, bool onlyInStock = false) => await GetAllProductsAsync(search: term, onlyInStock: onlyInStock);
 
     public async Task CreateProductAsync(Producto producto)
     {
