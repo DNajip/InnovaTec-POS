@@ -18,17 +18,12 @@
             </div>
             
             <div class="report-date-selector">
-                <div class="quick-ranges">
-                    <button class="btn-quick @(rangeType == "hoy" ? "active" : "")" @onclick='() => SetRange("hoy")'>Hoy</button>
-                    <button class="btn-quick @(rangeType == "7d" ? "active" : "")" @onclick='() => SetRange("7d")'>7 Días</button>
-                    <button class="btn-quick @(rangeType == "mes" ? "active" : "")" @onclick='() => SetRange("mes")'>Mes Actual</button>
-                </div>
-                
-                <div class="custom-range">
+                <div class="custom-range d-flex align-items-center gap-2">
+                    <span class="fw-bold text-muted small">Desde</span>
                     <input type="date" class="form-control form-control-sm" @bind="startDate" />
-                    <span>a</span>
+                    <span class="fw-bold text-muted small">a</span>
                     <input type="date" class="form-control form-control-sm" @bind="endDate" />
-                    <button class="btn btn-primary btn-sm rounded-pill" @onclick="RefreshData">
+                    <button class="btn btn-primary btn-sm rounded-pill ms-1" @onclick="RefreshData">
                         <i class="fas fa-sync-alt"></i>
                     </button>
                 </div>
@@ -76,7 +71,6 @@
 
 @code {
     private string activeSection = "dashboard";
-    private string rangeType = "mes";
     private DateTime startDate { get => AppState.ReportStartDate; set => AppState.ReportStartDate = value; }
     private DateTime endDate { get => AppState.ReportEndDate; set => AppState.ReportEndDate = value; }
 
@@ -96,27 +90,6 @@
     {
         activeSection = section;
         StateHasChanged();
-    }
-
-    private async Task SetRange(string type)
-    {
-        rangeType = type;
-        switch (type)
-        {
-            case "hoy":
-                startDate = DateTime.Today;
-                endDate = DateTime.Today.AddDays(1).AddTicks(-1);
-                break;
-            case "7d":
-                startDate = DateTime.Today.AddDays(-7);
-                endDate = DateTime.Today.AddDays(1).AddTicks(-1);
-                break;
-            case "mes":
-                startDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-                endDate = DateTime.Today.AddDays(1).AddTicks(-1);
-                break;
-        }
-        await RefreshData();
     }
 
     private async Task RefreshData()

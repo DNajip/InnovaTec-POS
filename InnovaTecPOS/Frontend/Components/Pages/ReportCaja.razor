@@ -10,39 +10,117 @@
 }
 else
 {
-    <div class="report-card mb-4">
-        <div class="report-card-title">Auditoría de Arqueos y Turnos</div>
+    <div class="report-card mb-4 shadow-sm" style="border-radius: 16px; border: none; overflow: hidden;">
+        <div class="report-card-title px-4 py-3 bg-white fw-bold" style="font-size: 1.1rem; color: var(--text-dark); border-bottom: 1px solid #f1f3f5;">
+            <i class="fas fa-audit me-2 text-primary"></i>Auditoría de Arqueos y Turnos
+        </div>
         <div class="table-responsive">
-            <table class="table table-hover">
-                <thead class="table-light">
+            <table class="table table-hover mb-0">
+                <thead style="background: #f8f9fa;">
                     <tr>
-                        <th>Turno</th>
-                        <th>Cajero</th>
-                        <th>Apertura</th>
-                        <th>Cierre</th>
-                        <th class="text-end">Téórico</th>
-                        <th class="text-end">Real</th>
-                        <th class="text-end">Diferencia</th>
+                        <th class="ps-4 py-3 text-uppercase small fw-bold text-muted">Turno</th>
+                        <th class="py-3 text-uppercase small fw-bold text-muted">Cajero</th>
+                        <th class="py-3 text-uppercase small fw-bold text-muted">Apertura</th>
+                        <th class="py-3 text-uppercase small fw-bold text-muted">Cierre</th>
+                        <th class="py-3 text-uppercase small fw-bold text-muted text-end">Téórico</th>
+                        <th class="py-3 text-uppercase small fw-bold text-muted text-end">Real</th>
+                        <th class="py-3 text-uppercase small fw-bold text-muted text-end pe-4">Diferencia</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var a in arqueos)
+                    @if (!arqueos.Any())
                     {
                         <tr>
-                            <td>#@a.IdTurno</td>
-                            <td class="fw-bold">@a.Usuario</td>
-                            <td>@a.Apertura.ToString("dd/MM HH:mm")</td>
-                            <td>@(a.Cierre?.ToString("dd/MM HH:mm") ?? "En curso")</td>
-                            <td class="text-end">C$ @a.SaldoTeorico.ToString("N2")</td>
-                            <td class="text-end">C$ @a.SaldoReal.ToString("N2")</td>
-                            <td class="text-end fw-bold @(a.Diferencia < 0 ? "text-danger" : a.Diferencia > 0 ? "text-warning" : "text-success")">
-                                C$ @a.Diferencia.ToString("N2")
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="fas fa-receipt fa-2x mb-2 opacity-50"></i>
+                                <p class="mb-0">No hay registros para este período</p>
                             </td>
                         </tr>
+                    }
+                    else
+                    {
+                        @foreach (var a in arqueos.Skip((currentPage - 1) * pageSize).Take(pageSize))
+                        {
+                            <tr style="transition: all 0.2s;">
+                                <td class="ps-4 py-3 fw-bold text-primary">#@a.IdTurno</td>
+                                <td class="py-3 fw-semibold">@a.Usuario</td>
+                                <td class="py-3 text-muted">@a.Apertura.ToString("dd/MM HH:mm")</td>
+                                <td class="py-3">
+                                    @if (a.Cierre == null)
+                                    {
+                                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-bold" style="font-size: 0.7rem;">
+                                            <i class="fas fa-spinner fa-spin me-1"></i> EN CURSO
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">@a.Cierre?.ToString("dd/MM HH:mm")</span>
+                                    }
+                                </td>
+                                <td class="py-3 text-end fw-semibold">C$ @a.SaldoTeorico.ToString("N2")</td>
+                                <td class="py-3 text-end fw-semibold">C$ @a.SaldoReal.ToString("N2")</td>
+                                <td class="py-3 text-end pe-4 fw-bold @(a.Diferencia < 0 ? "text-danger" : a.Diferencia > 0 ? "text-warning" : "text-success")">
+                                    C$ @a.Diferencia.ToString("N2")
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
         </div>
+
+        @if (arqueos != null && arqueos.Count > pageSize)
+        {
+            var totalPages = (int)Math.Ceiling((double)arqueos.Count / pageSize);
+            <div class="pagination-container d-flex align-items-center p-3 border-top bg-white">
+                <div class="flex-grow-1 ps-2">
+                    <span class="small text-muted">Mostrando @(Math.Min(arqueos.Count, (currentPage - 1) * pageSize + 1)) a @(Math.Min(arqueos.Count, currentPage * pageSize)) de @arqueos.Count registros</span>
+                </div>
+                <div class="pagination-carousel-container">
+                    <ul class="pagination pagination-premium mb-0">
+                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => SetPage(currentPage - 1)" title="Anterior">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                        </li>
+                        
+                        @{
+                            int maxVisible = 5;
+                            int startPage = Math.Max(1, Math.Min(currentPage - 2, totalPages - maxVisible + 1));
+                            int endPage = Math.Min(totalPages, startPage + maxVisible - 1);
+                            
+                            if (totalPages > maxVisible && endPage == totalPages) startPage = Math.Max(1, totalPages - maxVisible + 1);
+
+                            for (int i = startPage; i <= endPage; i++)
+                            {
+                                var pageNum = i;
+                                <li class="page-item @(currentPage == pageNum ? "active" : "") page-item-animated" @key="pageNum">
+                                    <button class="page-link" @onclick="() => SetPage(pageNum)">@pageNum</button>
+                                </li>
+                            }
+
+                            if (endPage < totalPages)
+                            {
+                                if (endPage < totalPages - 1)
+                                {
+                                    <li class="pagination-ellipsis">...</li>
+                                }
+                                <li class="page-item @(currentPage == totalPages ? "active" : "") page-item-animated">
+                                    <button class="page-link" @onclick="() => SetPage(totalPages)">@totalPages</button>
+                                </li>
+                            }
+                        }
+
+                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => SetPage(currentPage + 1)" title="Siguiente">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="flex-grow-1 text-end"></div>
+            </div>
+        }
     </div>
 }
 
@@ -50,14 +128,26 @@ else
     [Parameter] public DateTime StartDate { get; set; }
     [Parameter] public DateTime EndDate { get; set; }
     private List<ArqueoInsightDTO>? arqueos;
+    private int currentPage = 1;
+    private int pageSize = 10;
 
-    protected override async Task OnParametersSetAsync() => await LoadData();
+    protected override async Task OnParametersSetAsync() 
+    {
+        currentPage = 1; // Reset al cambiar fechas
+        await LoadData();
+    }
 
     private async Task LoadData()
     {
         arqueos = null;
         StateHasChanged();
         arqueos = await ReportService.GetArqueoInsightsAsync(StartDate, EndDate);
+        StateHasChanged();
+    }
+
+    private void SetPage(int page)
+    {
+        currentPage = page;
         StateHasChanged();
     }
 }

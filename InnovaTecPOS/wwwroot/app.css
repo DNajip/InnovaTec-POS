@@ -994,41 +994,12 @@ html, body {
     flex-wrap: wrap;
 }
 
-.quick-ranges {
-    display: flex;
-    background: #f1f5f9;
-    padding: 4px;
-    border-radius: 10px;
-    gap: 4px;
-    white-space: nowrap;
-}
-
-.btn-quick {
-    border: none;
-    background: transparent;
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #64748b;
-    transition: all 0.2s;
-    white-space: nowrap;
-    cursor: pointer;
-}
-
-.btn-quick.active {
-    background: white;
-    color: #2563eb;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
 
 .custom-range {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 0 15px;
-    border-left: 1px solid #e2e8f0;
-    border-right: 1px solid #e2e8f0;
+    padding: 0 5px;
 }
 
 .export-actions {

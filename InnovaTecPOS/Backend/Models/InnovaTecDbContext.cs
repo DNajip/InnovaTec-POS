@@ -923,6 +923,9 @@ public partial class InnovaTecDbContext : DbContext
                 .HasMaxLength(32)
                 .HasColumnName("PASSWORD_SALT");
             entity.Property(e => e.UltimoAcceso).HasColumnName("ULTIMO_ACCESO");
+            entity.Property(e => e.IntentosFallidos)
+                .HasDefaultValue(0)
+                .HasColumnName("INTENTOS_FALLIDOS");
             entity.Property(e => e.Username)
                 .HasMaxLength(80)
                 .IsUnicode(false)

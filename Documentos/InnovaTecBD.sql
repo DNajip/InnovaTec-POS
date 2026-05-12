@@ -758,10 +758,10 @@ BEGIN
     -- Normalizar el Username (quitar guiones y espacios)
     SET @Username = REPLACE(REPLACE(@Username, '-', ''), ' ', '');
 
-    DECLARE @UserId INT, @StoredHash VARBINARY(64), @StoredSalt VARBINARY(32), @Estado INT, @Intentos INT;
+    DECLARE @UserId INT, @StoredHash VARBINARY(64), @StoredSalt VARBINARY(32), @Estado INT, @Intentos INT, @RoleId INT;
 
     SELECT @UserId = ID_USUARIO, @StoredHash = PASSWORD_HASH, @StoredSalt = PASSWORD_SALT, 
-           @Estado = ID_ESTADO, @Intentos = ISNULL(INTENTOS_FALLIDOS, 0)
+           @Estado = ID_ESTADO, @Intentos = ISNULL(INTENTOS_FALLIDOS, 0), @RoleId = ID_ROL
     FROM ADM.USUARIOS WHERE USERNAME = @Username;
 
     IF @UserId IS NULL
@@ -796,7 +796,8 @@ BEGIN
         -- Fallo: Incrementar intentos
         SET @Intentos = @Intentos + 1;
         
-        IF @Intentos >= 5
+        -- Si es admin (Rol 1), no se bloquea nunca
+        IF @Intentos >= 5 AND @RoleId <> 1
         BEGIN
             UPDATE ADM.USUARIOS SET INTENTOS_FALLIDOS = @Intentos, ID_ESTADO = @IdBloqueado WHERE ID_USUARIO = @UserId;
             SELECT 0 AS Success, 'Su cuenta ha sido bloqueada' AS Message, NULL AS UserId;
