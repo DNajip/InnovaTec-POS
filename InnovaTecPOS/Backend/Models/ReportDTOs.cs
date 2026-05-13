@@ -124,3 +124,14 @@ public class SystemAlertDTO
     public string Tipo { get; set; } = "info"; // info, warning, danger
     public DateTime Fecha { get; set; }
 }
+
+public class VentaTurnoDTO
+{
+    public int IdVenta { get; set; }
+    public string NumeroFactura { get; set; } = "";
+    public DateTime FechaVenta { get; set; }
+    public string Cliente { get; set; } = "";
+    public decimal TotalNio { get; set; }
+    public string MetodoPago { get; set; } = "";
+    public bool Anulada { get; set; }
+}

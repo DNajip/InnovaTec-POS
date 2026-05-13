@@ -92,7 +92,7 @@
 {
     <CheckoutModal Items="SaleService.Items" 
                    SubTotal="SaleService.SubTotal" 
-                   Discount="SaleService.Discount" 
+                   Discount="SaleService.Discount ?? 0" 
                    Total="SaleService.Total" 
                    OnClose="() => showCheckoutModal = false"
                    OnSuccess="HandleSaleSuccess" />

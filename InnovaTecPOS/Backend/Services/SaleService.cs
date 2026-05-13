@@ -7,8 +7,8 @@ namespace InnovaTecPOS.Backend.Services
     {
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        private decimal _discount;
-        public decimal Discount
+        private decimal? _discount = null;
+        public decimal? Discount
         {
             get => _discount;
             set
@@ -28,7 +28,7 @@ namespace InnovaTecPOS.Backend.Services
 
         public int TotalUnits => Items.Sum(i => i.Quantity);
         public decimal SubTotal => Items.Sum(i => i.SubTotal);
-        public decimal Total => Math.Max(0, SubTotal - Discount);
+        public decimal Total => Math.Max(0, SubTotal - (Discount ?? 0));
 
         public void AddItem(CartItem item)
         {

@@ -19,6 +19,7 @@ public interface IReportService
     Task<List<ClientInsightDTO>> GetClientInsightsAsync(DateTime start, DateTime end);
     Task<List<CashierAuditDTO>> GetCashierAuditAsync(DateTime start, DateTime end);
     Task<List<ArqueoInsightDTO>> GetArqueoInsightsAsync(DateTime start, DateTime end);
+    Task<List<VentaTurnoDTO>> GetVentasPorTurnoAsync(int idTurno);
     Task<GarantiaInsightDTO> GetGarantiaStatsAsync();
     Task<List<SystemAlertDTO>> GetSystemAlertsAsync();
 }
@@ -284,6 +285,13 @@ public class ReportService : IReportService
                 SaldoReal = t.MontoContadoNio ?? 0
             };
         }).ToList();
+    }
+
+    public async Task<List<VentaTurnoDTO>> GetVentasPorTurnoAsync(int idTurno)
+    {
+        return await _context.Database.SqlQuery<VentaTurnoDTO>(
+            $"SELECT * FROM VEN.V_VENTAS_POR_TURNO WHERE ID_TURNO = {idTurno}"
+        ).ToListAsync();
     }
 
     public async Task<GarantiaInsightDTO> GetGarantiaStatsAsync()
