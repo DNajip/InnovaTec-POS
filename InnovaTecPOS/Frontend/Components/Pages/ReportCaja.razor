@@ -180,7 +180,7 @@ else
                     }
                     else
                     {
-                        @foreach (var v in ventasTurno)
+                        @foreach (var v in ventasTurno.Skip((currentPageVentas - 1) * pageSizeVentas).Take(pageSizeVentas))
                         {
                             <tr>
                                 <td class="ps-4 py-3 fw-bold">@v.NumeroFactura</td>
@@ -206,6 +206,59 @@ else
                 </tbody>
             </table>
         </div>
+
+        @if (ventasTurno != null && ventasTurno.Count > pageSizeVentas)
+        {
+            var totalPages = (int)Math.Ceiling((double)ventasTurno.Count / pageSizeVentas);
+            <div class="pagination-container d-flex align-items-center p-3 border-top bg-white">
+                <div class="flex-grow-1 ps-2">
+                    <span class="small text-muted">Mostrando @(Math.Min(ventasTurno.Count, (currentPageVentas - 1) * pageSizeVentas + 1)) a @(Math.Min(ventasTurno.Count, currentPageVentas * pageSizeVentas)) de @ventasTurno.Count registros</span>
+                </div>
+                <div class="pagination-carousel-container">
+                    <ul class="pagination pagination-premium mb-0">
+                        <li class="page-item @(currentPageVentas == 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => SetPageVentas(currentPageVentas - 1)" title="Anterior">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                        </li>
+                        
+                        @{
+                            int maxVisible = 5;
+                            int startPage = Math.Max(1, Math.Min(currentPageVentas - 2, totalPages - maxVisible + 1));
+                            int endPage = Math.Min(totalPages, startPage + maxVisible - 1);
+                            
+                            if (totalPages > maxVisible && endPage == totalPages) startPage = Math.Max(1, totalPages - maxVisible + 1);
+
+                            for (int i = startPage; i <= endPage; i++)
+                            {
+                                var pageNum = i;
+                                <li class="page-item @(currentPageVentas == pageNum ? "active" : "") page-item-animated" @key="@("v-" + pageNum)">
+                                    <button class="page-link" @onclick="() => SetPageVentas(pageNum)">@pageNum</button>
+                                </li>
+                            }
+
+                            if (endPage < totalPages)
+                            {
+                                if (endPage < totalPages - 1)
+                                {
+                                    <li class="pagination-ellipsis">...</li>
+                                }
+                                <li class="page-item @(currentPageVentas == totalPages ? "active" : "") page-item-animated">
+                                    <button class="page-link" @onclick="() => SetPageVentas(totalPages)">@totalPages</button>
+                                </li>
+                            }
+                        }
+
+                        <li class="page-item @(currentPageVentas == totalPages ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => SetPageVentas(currentPageVentas + 1)" title="Siguiente">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="flex-grow-1 text-end"></div>
+            </div>
+        }
     </div>
 }
 
@@ -219,6 +272,8 @@ else
     private int? selectedTurnoId;
     private List<VentaTurnoDTO>? ventasTurno;
     private bool loadingVentas = false;
+    private int currentPageVentas = 1;
+    private int pageSizeVentas = 10;
 
     protected override async Task OnParametersSetAsync() 
     {
@@ -241,6 +296,7 @@ else
         if (selectedTurnoId == idTurno) return;
         
         selectedTurnoId = idTurno;
+        currentPageVentas = 1;
         loadingVentas = true;
         ventasTurno = null;
         StateHasChanged();
@@ -253,6 +309,12 @@ else
     private void SetPage(int page)
     {
         currentPage = page;
+        StateHasChanged();
+    }
+
+    private void SetPageVentas(int page)
+    {
+        currentPageVentas = page;
         StateHasChanged();
     }
 }
