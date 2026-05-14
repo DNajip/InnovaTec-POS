@@ -1,7 +1,8 @@
 @inherits LayoutComponentBase
 @using InnovaTecPOS.Backend.Services
-@inject ConfiguracionService ConfiguracionService
-@inject AppState AppState
+@inject InnovaTecPOS.Backend.Services.UserSession UserSession
+@inject InnovaTecPOS.Backend.Services.ConfiguracionService ConfiguracionService
+@inject InnovaTecPOS.Backend.Services.AppState AppState
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -33,6 +34,12 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!UserSession.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
         var settings = await ConfiguracionService.GetAllSettingsAsync();
         AppState.UpdateFromDictionary(settings);
         AppState.OnChange += StateHasChanged;

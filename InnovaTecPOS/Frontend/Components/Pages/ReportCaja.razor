@@ -12,7 +12,9 @@ else
 {
     <div class="report-card mb-4 shadow-sm" style="border-radius: 16px; border: none; overflow: hidden;">
         <div class="report-card-title px-4 py-3 bg-white fw-bold" style="font-size: 1.1rem; color: var(--text-dark); border-bottom: 1px solid #f1f3f5;">
-            <i class="fas fa-audit me-2 text-primary"></i>Auditoría de Arqueos y Turnos
+            <span>
+                <i class="fas fa-audit me-2 text-primary"></i>Auditoría de Arqueos y Turnos
+            </span>
         </div>
         <div class="table-responsive">
             <table class="table table-hover mb-0">
@@ -74,8 +76,8 @@ else
         @if (arqueos != null && arqueos.Count > pageSize)
         {
             var totalPages = (int)Math.Ceiling((double)arqueos.Count / pageSize);
-            <div class="pagination-container d-flex align-items-center p-3 border-top bg-white">
-                <div class="flex-grow-1 ps-2">
+            <div class="pagination-container p-3 border-top bg-white d-flex justify-content-center align-items-center position-relative">
+                <div class="position-absolute start-0 ps-4 d-none d-lg-block">
                     <span class="small text-muted">Mostrando @(Math.Min(arqueos.Count, (currentPage - 1) * pageSize + 1)) a @(Math.Min(arqueos.Count, currentPage * pageSize)) de @arqueos.Count registros</span>
                 </div>
                 <div class="pagination-carousel-container">
@@ -120,7 +122,6 @@ else
                         </li>
                     </ul>
                 </div>
-                <div class="flex-grow-1 text-end"></div>
             </div>
         }
     </div>
@@ -210,8 +211,8 @@ else
         @if (ventasTurno != null && ventasTurno.Count > pageSizeVentas)
         {
             var totalPages = (int)Math.Ceiling((double)ventasTurno.Count / pageSizeVentas);
-            <div class="pagination-container d-flex align-items-center p-3 border-top bg-white">
-                <div class="flex-grow-1 ps-2">
+            <div class="pagination-container p-3 border-top bg-white d-flex justify-content-center align-items-center position-relative">
+                <div class="position-absolute start-0 ps-4 d-none d-lg-block">
                     <span class="small text-muted">Mostrando @(Math.Min(ventasTurno.Count, (currentPageVentas - 1) * pageSizeVentas + 1)) a @(Math.Min(ventasTurno.Count, currentPageVentas * pageSizeVentas)) de @ventasTurno.Count registros</span>
                 </div>
                 <div class="pagination-carousel-container">
@@ -256,7 +257,6 @@ else
                         </li>
                     </ul>
                 </div>
-                <div class="flex-grow-1 text-end"></div>
             </div>
         }
     </div>

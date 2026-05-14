@@ -17,7 +17,7 @@
                     <div class="status-label">Usuario activo</div>
                     <div class="fw-bold text-primary">
                         <i class="fas fa-user-circle me-1"></i>
-                        @(UserSession.IsAuthenticated ? UserSession.NombreCompleto : "Invitado")
+                        @UserSession.NombreCompleto
                     </div>
                 </div>
             </div>
