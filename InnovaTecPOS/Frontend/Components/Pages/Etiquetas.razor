@@ -126,14 +126,30 @@
 
                     @if (TotalPages > 1)
                     {
-                        <div class="pagination-premium mt-3">
-                            <button class="btn-page @(currentPage == 1 ? "disabled" : "")" @onclick="() => SetPage(currentPage - 1)">
-                                <i class="fas fa-chevron-left"></i>
-                            </button>
-                            <span class="page-info">Página <b>@currentPage</b> de @TotalPages</span>
-                            <button class="btn-page @(currentPage == TotalPages ? "disabled" : "")" @onclick="() => SetPage(currentPage + 1)">
-                                <i class="fas fa-chevron-right"></i>
-                            </button>
+                        <div class="d-flex justify-content-center mt-3">
+                            <nav>
+                                <ul class="pagination pagination-sm pagination-premium mb-0">
+                                    <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                        <button class="page-link" @onclick="() => SetPage(currentPage - 1)">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                    </li>
+                                    
+                                    @for (int i = 1; i <= TotalPages; i++)
+                                    {
+                                        var pageNum = i;
+                                        <li class="page-item @(currentPage == pageNum ? "active" : "")">
+                                            <button class="page-link" @onclick="() => SetPage(pageNum)">@pageNum</button>
+                                        </li>
+                                    }
+                                    
+                                    <li class="page-item @(currentPage == TotalPages ? "disabled" : "")">
+                                        <button class="page-link" @onclick="() => SetPage(currentPage + 1)">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
                         </div>
                     }
                 </div>
@@ -404,42 +420,8 @@
         box-shadow: 0 10px 30px rgba(0,0,0,0.08);
     }
 
-    /* Pagination */
-    .pagination-premium {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid #f1f3f5;
-    }
-
-    .btn-page {
-        width: 35px;
-        height: 35px;
-        border-radius: 10px;
-        border: 1px solid #eee;
-        background: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #1a2a6c;
-        transition: all 0.2s;
-    }
-
-    .btn-page:hover:not(.disabled) {
-        background: #1a2a6c;
-        color: white;
-    }
-
-    .btn-page.disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .page-info {
-        font-size: 0.9rem;
-        color: #636e72;
+    .shadow-premium {
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
     }
 </style>
 
@@ -449,6 +431,8 @@
     private List<Producto> searchResults = new();
     private List<Categoria> categorias = new();
     private Producto? selectedProduct;
+    private bool isSearching = false;
+    private bool showNewProductModal = false;
     private int currentPage = 1;
     private int pageSize = 3;
 
