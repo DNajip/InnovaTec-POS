@@ -20,6 +20,7 @@ public class DashboardStatsDTO
     public decimal PorcentajeTicket { get; set; }
     public decimal PorcentajeClientes { get; set; }
     public decimal PorcentajeProductos { get; set; }
+    public decimal MargenUtilidadPorcentaje => VentasBrutas > 0 ? (UtilidadNeta / VentasBrutas) * 100 : 0;
 }
 
 public class TrendPointDTO
@@ -63,8 +64,26 @@ public class HourlySalesDTO
 
 public class InventoryInsightDTO
 {
-    public List<VStockCritico> StockCritico { get; set; } = new();
+    public List<VStockValorizadoDTO> StockCritico { get; set; } = new();
     public List<ProductNoMovementDTO> SinMovimiento { get; set; } = new();
+    public decimal ValorTotalCosto { get; set; }
+    public decimal ValorTotalVenta { get; set; }
+}
+
+public class VStockValorizadoDTO
+{
+    public int IdProducto { get; set; }
+    public string Nombre { get; set; } = "";
+    public string Categoria { get; set; } = "";
+    public string Marca { get; set; } = "";
+    public string Modelo { get; set; } = "";
+    public int StockActual { get; set; }
+    public int StockMinimo { get; set; }
+    public string EstadoStock { get; set; } = "";
+    public decimal PrecioCompra { get; set; }
+    public decimal PrecioVenta { get; set; }
+    public decimal ValorCostoTotal => StockActual * PrecioCompra;
+    public decimal ValorVentaTotal => StockActual * PrecioVenta;
 }
 
 public class ProductNoMovementDTO
@@ -99,6 +118,7 @@ public class ArqueoInsightDTO
     public decimal SaldoTeorico { get; set; }
     public decimal SaldoReal { get; set; }
     public decimal Diferencia => SaldoReal - SaldoTeorico;
+    public List<PaymentMethodStatDTO> DesglosePagos { get; set; } = new();
 }
 
 public class GarantiaInsightDTO
@@ -134,4 +154,10 @@ public class VentaTurnoDTO
     public decimal TotalNio { get; set; }
     public string MetodoPago { get; set; } = "";
     public bool Anulada { get; set; }
+}
+
+public class CategoryStatDTO
+{
+    public string Categoria { get; set; } = "";
+    public decimal Total { get; set; }
 }

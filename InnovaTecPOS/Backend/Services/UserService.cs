@@ -9,10 +9,12 @@ namespace InnovaTecPOS.Backend.Services;
 public class UserService
 {
     private readonly IDbContextFactory<InnovaTecDbContext> _factory;
+    private readonly UserSession _session;
 
-    public UserService(IDbContextFactory<InnovaTecDbContext> factory)
+    public UserService(IDbContextFactory<InnovaTecDbContext> factory, UserSession session)
     {
         _factory = factory;
+        _session = session;
     }
 
     public async Task<List<UserDto>> GetUsersAsync()
@@ -178,6 +180,8 @@ public class UserService
     public async Task UpdateUserAsync(UserDto dto)
     {
         using var context = await _factory.CreateDbContextAsync();
+        context.Session = _session; // Pasar la sesión para auditoría SQL
+        
         if (dto.IdUsuario == null) throw new Exception("ID de usuario no válido.");
 
         var usuario = await context.Usuarios
@@ -188,59 +192,73 @@ public class UserService
 
         if (usuario == null) throw new Exception("Usuario no encontrado.");
 
-        // Normalizar entrada
-        dto.Username = dto.Username.Replace("-", "").Replace(" ", "");
-        dto.NumIdentificacion = dto.NumIdentificacion.Replace("-", "").Replace(" ", "");
-
-        // Validar Username único si lo cambió
-        if (usuario.Username.ToLower() != dto.Username.ToLower() && 
-            await context.Usuarios.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower()))
+        try 
         {
-            throw new Exception("El nombre de usuario ya está en uso por otra cuenta.");
-        }
+            // Normalizar entrada
+            dto.Username = dto.Username?.Replace("-", "").Replace(" ", "") ?? "";
+            dto.NumIdentificacion = dto.NumIdentificacion?.Replace("-", "").Replace(" ", "") ?? "";
 
-        // Actualizar Persona
-        var persona = usuario.IdEmpleadoNavigation.IdPersonaNavigation;
-        persona.PrimerNombre = dto.PrimerNombre;
-        persona.SegundoNombre = dto.SegundoNombre;
-        persona.PrimerApellido = dto.PrimerApellido;
-        persona.SegundoApellido = dto.SegundoApellido;
-        persona.NombreCompleto = $"{dto.PrimerNombre} {dto.PrimerApellido}".Trim();
-        persona.IdTipoId = dto.IdTipoId;
-        persona.NumIdentificacion = dto.NumIdentificacion;
-        persona.IdGenero = dto.IdGenero;
-        persona.Telefono = dto.Telefono;
-        persona.Email = dto.Email;
-        persona.Direccion = dto.Direccion;
-
-        // Actualizar Empleado
-        var empleado = usuario.IdEmpleadoNavigation;
-        empleado.IdRol = dto.IdRol;
-
-        // Actualizar Usuario
-        usuario.Username = dto.Username;
-        usuario.IdRol = dto.IdRol;
-
-        // Actualizar contraseña si se proporcionó una nueva
-        if (!string.IsNullOrWhiteSpace(dto.Password))
-        {
-            var (passwordHash, passwordSalt) = await CreatePasswordHashAsync(dto.Password);
-            usuario.PasswordHash = passwordHash;
-            usuario.PasswordSalt = passwordSalt;
-        }
-
-        // Actualizar Módulos
-        usuario.IdModulos.Clear();
-        if (dto.SelectedModuloIds != null && dto.SelectedModuloIds.Any())
-        {
-            var modulos = await context.Modulos.Where(m => dto.SelectedModuloIds.Contains(m.IdModulo)).ToListAsync();
-            foreach (var mod in modulos)
+            // Validar Username único si lo cambió
+            if (usuario.Username.ToLower() != dto.Username.ToLower() && 
+                await context.Usuarios.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower()))
             {
-                usuario.IdModulos.Add(mod);
+                throw new Exception("El nombre de usuario ya está en uso por otra cuenta.");
             }
-        }
 
-        await context.SaveChangesAsync();
+            // Actualizar Persona
+            var persona = usuario.IdEmpleadoNavigation.IdPersonaNavigation;
+            persona.PrimerNombre = dto.PrimerNombre;
+            persona.SegundoNombre = dto.SegundoNombre;
+            persona.PrimerApellido = dto.PrimerApellido;
+            persona.SegundoApellido = dto.SegundoApellido;
+            persona.NombreCompleto = $"{dto.PrimerNombre} {dto.PrimerApellido}".Trim();
+            persona.IdTipoId = dto.IdTipoId;
+            persona.NumIdentificacion = dto.NumIdentificacion;
+            persona.IdGenero = dto.IdGenero;
+            persona.Telefono = dto.Telefono;
+            persona.Email = dto.Email;
+            persona.Direccion = dto.Direccion;
+
+            // Actualizar Empleado y Usuario (Rol redundante en ambas tablas)
+            usuario.IdEmpleadoNavigation.IdRol = dto.IdRol;
+            usuario.IdRol = dto.IdRol;
+            usuario.Username = dto.Username;
+
+            // Actualizar contraseña si se proporcionó una nueva
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+            {
+                var (passwordHash, passwordSalt) = await CreatePasswordHashAsync(dto.Password);
+                usuario.PasswordHash = passwordHash;
+                usuario.PasswordSalt = passwordSalt;
+            }
+
+            // Actualizar Módulos de forma quirúrgica
+            var currentModIds = usuario.IdModulos.Select(m => m.IdModulo).ToList();
+            var targetModIds = dto.SelectedModuloIds ?? new List<int>();
+
+            // Quitar los que ya no están
+            var toRemove = usuario.IdModulos.Where(m => !targetModIds.Contains(m.IdModulo)).ToList();
+            foreach (var mod in toRemove) usuario.IdModulos.Remove(mod);
+
+            // Agregar los nuevos
+            var toAddIds = targetModIds.Where(id => !currentModIds.Contains(id)).ToList();
+            if (toAddIds.Any())
+            {
+                var newModulos = await context.Modulos.Where(m => toAddIds.Contains(m.IdModulo)).ToListAsync();
+                foreach (var mod in newModulos) usuario.IdModulos.Add(mod);
+            }
+
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateException dbEx)
+        {
+            var innerMsg = dbEx.InnerException?.Message ?? dbEx.Message;
+            throw new Exception($"Error de base de datos al guardar: {innerMsg}");
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error al actualizar usuario: {ex.Message}");
+        }
     }
 
     public async Task ToggleUserStatusAsync(int idUsuario)

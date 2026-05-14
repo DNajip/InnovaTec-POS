@@ -29,6 +29,7 @@ builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<ConfiguracionService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<ExcelExportService>();
 builder.Services.AddScoped<AppState>();
 
 var app = builder.Build();

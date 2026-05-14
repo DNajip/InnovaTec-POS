@@ -21,6 +21,7 @@ public interface IReportService
     Task<List<ArqueoInsightDTO>> GetArqueoInsightsAsync(DateTime start, DateTime end);
     Task<List<VentaTurnoDTO>> GetVentasPorTurnoAsync(int idTurno);
     Task<GarantiaInsightDTO> GetGarantiaStatsAsync();
+    Task<List<CategoryStatDTO>> GetCategorySalesAsync(DateTime start, DateTime end);
     Task<List<SystemAlertDTO>> GetSystemAlertsAsync();
 }
 
@@ -187,8 +188,26 @@ public class ReportService : IReportService
 
     public async Task<InventoryInsightDTO> GetInventoryInsightsAsync()
     {
-        var critico = await _context.VStockCriticos.ToListAsync();
+        var critico = await _context.Productos
+            .Include(p => p.IdCategoriaNavigation)
+            .Where(p => p.Activo && p.StockActual <= p.StockMinimo)
+            .Select(p => new VStockValorizadoDTO
+            {
+                IdProducto = p.IdProducto,
+                Nombre = p.Nombre,
+                Categoria = p.IdCategoriaNavigation.Nombre,
+                Marca = p.Marca,
+                Modelo = p.Modelo,
+                StockActual = p.StockActual,
+                StockMinimo = p.StockMinimo,
+                EstadoStock = p.EstadoStock,
+                PrecioCompra = p.PrecioCompra ?? 0m,
+                PrecioVenta = p.PrecioVenta
+            })
+            .ToListAsync();
         
+        var valorCosto = critico.Sum(p => p.ValorCostoTotal);
+        var valorVenta = critico.Sum(p => p.ValorVentaTotal);
         var fechaLimite = DateTime.Today.AddDays(-30);
         var productosSinVenta = await _context.Productos
             .Where(p => p.Activo && !_context.VentaDetalles.Any(d => d.IdProducto == p.IdProducto && d.IdVentaNavigation.FechaVenta >= fechaLimite))
@@ -217,7 +236,9 @@ public class ReportService : IReportService
         return new InventoryInsightDTO
         {
             StockCritico = critico,
-            SinMovimiento = result
+            SinMovimiento = result,
+            ValorTotalCosto = valorCosto,
+            ValorTotalVenta = valorVenta
         };
     }
 
@@ -267,6 +288,9 @@ public class ReportService : IReportService
         var turnos = await _context.Turnos
             .Include(t => t.IdUsuarioNavigation)
             .Include(t => t.MovimientosVarios)
+            .Include(t => t.Venta)
+                .ThenInclude(v => v.Pagos)
+                    .ThenInclude(p => p.IdMetodoPagoNavigation)
             .Where(t => t.FechaApertura <= end && (t.FechaCierre == null || t.FechaCierre >= start))
             .OrderByDescending(t => t.FechaApertura)
             .ToListAsync();
@@ -275,6 +299,15 @@ public class ReportService : IReportService
             decimal ingresosVarios = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO").Sum(m => m.Monto);
             decimal salidasVarias = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO").Sum(m => m.Monto);
             
+            var desglose = t.Venta.Where(v => !v.Anulada)
+                .SelectMany(v => v.Pagos)
+                .GroupBy(p => p.IdMetodoPagoNavigation.Nombre)
+                .Select(g => new PaymentMethodStatDTO
+                {
+                    Metodo = g.Key,
+                    Total = g.Sum(p => p.MontoEnNio)
+                }).ToList();
+
             return new ArqueoInsightDTO
             {
                 IdTurno = t.IdTurno,
@@ -282,7 +315,8 @@ public class ReportService : IReportService
                 Apertura = t.FechaApertura,
                 Cierre = t.FechaCierre,
                 SaldoTeorico = t.MontoInicialNio + t.TotalVentasNio + ingresosVarios - salidasVarias,
-                SaldoReal = t.MontoContadoNio ?? 0
+                SaldoReal = t.MontoContadoNio ?? 0,
+                DesglosePagos = desglose
             };
         }).ToList();
     }
@@ -320,6 +354,23 @@ public class ReportService : IReportService
                     Estado = d.FechaVenceGarantia > nowOnly ? "Activa" : "Vencida"
                 }).ToList()
         };
+    }
+
+    public async Task<List<CategoryStatDTO>> GetCategorySalesAsync(DateTime start, DateTime end)
+    {
+        return await _context.VentaDetalles
+            .Include(d => d.IdVentaNavigation)
+            .Include(d => d.IdProductoNavigation)
+                .ThenInclude(p => p.IdCategoriaNavigation)
+            .Where(d => d.IdVentaNavigation.FechaVenta >= start && d.IdVentaNavigation.FechaVenta <= end && !d.IdVentaNavigation.Anulada)
+            .GroupBy(d => d.IdProductoNavigation.IdCategoriaNavigation.Nombre)
+            .Select(g => new CategoryStatDTO
+            {
+                Categoria = g.Key ?? "Otros",
+                Total = g.Sum(d => d.SubtotalNio)
+            })
+            .OrderByDescending(x => x.Total)
+            .ToListAsync();
     }
 
     public async Task<List<SystemAlertDTO>> GetSystemAlertsAsync()

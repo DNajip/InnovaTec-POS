@@ -1,0 +1,167 @@
+@page "/etiquetas"
+@inject UserSession Session
+@inject NavigationManager Navigation
+
+<div class="etiquetas-container animate__animated animate__fadeIn">
+    <div class="etiquetas-header">
+        <div class="header-content">
+            <h1>Etiquetas y Código de Barras</h1>
+            <p>Diseño e impresión de etiquetas para productos</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i> Nueva Plantilla
+            </button>
+        </div>
+    </div>
+
+    <div class="etiquetas-grid">
+        <div class="glass-card module-card">
+            <div class="card-icon">
+                <i class="fas fa-barcode"></i>
+            </div>
+            <h3>Generador de Código</h3>
+            <p>Genera y personaliza códigos de barras para tus productos.</p>
+            <button class="btn btn-outline-primary btn-sm">Acceder</button>
+        </div>
+
+        <div class="glass-card module-card">
+            <div class="card-icon">
+                <i class="fas fa-print"></i>
+            </div>
+            <h3>Cola de Impresión</h3>
+            <p>Gestiona los productos pendientes de etiquetado.</p>
+            <button class="btn btn-outline-primary btn-sm">Ver Cola</button>
+        </div>
+
+        <div class="glass-card module-card">
+            <div class="card-icon">
+                <i class="fas fa-tags"></i>
+            </div>
+            <h3>Precios y Ofertas</h3>
+            <p>Diseña etiquetas de estantería con precios dinámicos.</p>
+            <button class="btn btn-outline-primary btn-sm">Diseñar</button>
+        </div>
+    </div>
+
+    <div class="empty-state-section">
+        <div class="empty-illustration">
+            <i class="fas fa-layer-group"></i>
+        </div>
+        <h4>Comienza a organizar tu inventario</h4>
+        <p>Selecciona una opción superior para comenzar con el etiquetado de tus productos.</p>
+    </div>
+</div>
+
+<style>
+    .etiquetas-container {
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .etiquetas-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 3rem;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding-bottom: 1.5rem;
+    }
+
+    .header-content h1 {
+        font-weight: 800;
+        color: #1a2a6c;
+        margin-bottom: 0.5rem;
+        font-size: 2.2rem;
+    }
+
+    .header-content p {
+        color: #666;
+        font-size: 1.1rem;
+    }
+
+    .etiquetas-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-bottom: 4rem;
+    }
+
+    .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .glass-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 15px 45px rgba(31, 38, 135, 0.15);
+    }
+
+    .card-icon {
+        width: 70px;
+        height: 70px;
+        background: linear-gradient(135deg, #1a2a6c, #b21f1f);
+        border-radius: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+        color: white;
+        font-size: 1.8rem;
+    }
+
+    .glass-card h3 {
+        color: #2d3436;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    .glass-card p {
+        color: #636e72;
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+
+    .empty-state-section {
+        text-align: center;
+        padding: 4rem;
+        background: rgba(0,0,0,0.02);
+        border-radius: 30px;
+        border: 2px dashed rgba(0,0,0,0.05);
+    }
+
+    .empty-illustration {
+        font-size: 4rem;
+        color: #dfe6e9;
+        margin-bottom: 1.5rem;
+    }
+
+    .empty-state-section h4 {
+        color: #636e72;
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state-section p {
+        color: #b2bec3;
+    }
+</style>
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+}

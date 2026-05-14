@@ -8,6 +8,11 @@
     {
         <a href="/ventas" class="tab-vertical @(IsActive("/ventas") ? "active" : "")">TRANSACCIÓN</a>
     }
+
+    @if (Session.HasModuleAccess("Etiquetas"))
+    {
+        <a href="/etiquetas" class="tab-vertical @(IsActive("/etiquetas") ? "active" : "")">ETIQUETAS</a>
+    }
     
     @if (Session.HasModuleAccess("Reportes"))
     {
