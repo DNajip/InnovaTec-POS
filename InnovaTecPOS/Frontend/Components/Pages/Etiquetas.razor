@@ -124,12 +124,8 @@
                         }
                     </div>
 
-                    @if (TotalPages > 1)
-                    {
-                        <div class="pagination-container d-flex align-items-center p-3 border-top mx-auto w-100">
-                            <div class="flex-grow-1">
-                                <span class="small text-muted">@searchResults.Count encontrados</span>
-                            </div>
+                        <div class="pagination-container d-flex align-items-center p-2 border-top mx-auto w-100">
+                            <div class="flex-grow-1"></div>
                             <div class="pagination-carousel-container">
                                 <ul class="pagination pagination-premium mb-0">
                                     <li class="page-item @(currentPage == 1 ? "disabled" : "")">
@@ -175,11 +171,8 @@
                                     </li>
                                 </ul>
                             </div>
-                            <div class="flex-grow-1 text-end">
-                                <span class="small text-muted">Pág. @currentPage</span>
-                            </div>
+                            <div class="flex-grow-1 text-end"></div>
                         </div>
-                    }
                 </div>
                 <div class="panel-footer bg-light border-top-0 pt-0 pb-3 text-center">
                     <button class="btn btn-success py-2 px-5 rounded-pill fw-bold shadow-lg" 
