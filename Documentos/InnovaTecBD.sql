@@ -920,6 +920,30 @@ JOIN ADM.USUARIOS U ON V.ID_USUARIO = U.ID_USUARIO
 LEFT JOIN ADM.PERSONAS P ON V.ID_PERSONA = P.ID_PERSONA;
 GO
 
+IF EXISTS (SELECT 1 FROM sys.views WHERE name = 'V_VENTAS_POR_TURNO' AND schema_id = SCHEMA_ID('VEN'))
+    DROP VIEW VEN.V_VENTAS_POR_TURNO;
+GO
+
+CREATE VIEW VEN.V_VENTAS_POR_TURNO AS
+SELECT 
+    V.ID_VENTA AS IdVenta,
+    V.NUMERO_FACTURA AS NumeroFactura,
+    V.FECHA_VENTA AS FechaVenta,
+    COALESCE(P.NOMBRE_COMPLETO, 'CLIENTE GENERAL') AS Cliente,
+    V.TOTAL_NIO AS TotalNio,
+    V.ANULADA AS Anulada,
+    V.ID_TURNO,
+    STUFF((
+        SELECT ', ' + MP.NOMBRE
+        FROM VEN.PAGOS PG 
+        JOIN CAT.METODOS_PAGO MP ON PG.ID_METODO_PAGO = MP.ID_METODO 
+        WHERE PG.ID_VENTA = V.ID_VENTA
+        FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS MetodoPago
+FROM VEN.VENTAS V
+LEFT JOIN ADM.PERSONAS P ON V.ID_PERSONA = P.ID_PERSONA;
+GO
+
+
 IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_ProcesarVenta' AND schema_id = SCHEMA_ID('VEN'))
     DROP PROCEDURE VEN.sp_ProcesarVenta;
 GO
@@ -1225,3 +1249,5 @@ GO
 
 PRINT '>>> InnovaTecBD actualizada con vistas y procedimientos complementarios. <<<';
 GO
+
+
