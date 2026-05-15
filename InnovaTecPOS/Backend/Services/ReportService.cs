@@ -23,6 +23,7 @@ public interface IReportService
     Task<GarantiaInsightDTO> GetGarantiaStatsAsync();
     Task<List<CategoryStatDTO>> GetCategorySalesAsync(DateTime start, DateTime end);
     Task<List<SystemAlertDTO>> GetSystemAlertsAsync();
+    Task<VClienteDashboardStat> GetClienteDashboardStatsAsync();
 }
 
 public class ReportService : IReportService
@@ -69,6 +70,16 @@ public class ReportService : IReportService
         decimal prevVentasTotal = prevVentas.Sum(v => v.TotalNio);
         stats.PorcentajeVentas = CalcularVariacion(stats.VentasBrutas, prevVentasTotal);
         stats.PorcentajeFacturas = CalcularVariacion(stats.TotalFacturas, prevVentas.Count);
+        
+        decimal prevUtilidad = prevVentas.SelectMany(v => v.VentaDetalles).Sum(d => 
+            d.SubtotalNio - ((d.IdProductoNavigation?.PrecioCompra ?? 0) * d.Cantidad));
+        stats.PorcentajeUtilidad = CalcularVariacion(stats.UtilidadNeta, prevUtilidad);
+        
+        decimal prevTicket = prevVentas.Any() ? prevVentas.Average(v => v.TotalNio) : 0;
+        stats.PorcentajeTicket = CalcularVariacion(stats.TicketPromedio, prevTicket);
+
+        var prevClientes = await _context.Personas.CountAsync(p => p.FechaCreacion >= prevStart && p.FechaCreacion <= prevEnd && p.EsCliente);
+        stats.PorcentajeClientes = CalcularVariacion(stats.ClientesNuevos, prevClientes);
 
         return stats;
     }
@@ -389,6 +400,12 @@ public class ReportService : IReportService
         }
 
         return alerts;
+    }
+
+    public async Task<VClienteDashboardStat> GetClienteDashboardStatsAsync()
+    {
+        return await _context.VClienteDashboardStats.FirstOrDefaultAsync() 
+            ?? new VClienteDashboardStat { TotalClientes = 0, TotalGarantiasActivas = 0, ClientesConComprasRecientes = 0 };
     }
 
     private decimal CalcularVariacion(decimal actual, decimal anterior)

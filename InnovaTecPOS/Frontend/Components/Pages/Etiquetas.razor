@@ -78,7 +78,7 @@
                     <h3><i class="fas fa-link me-2"></i> Vincular con Producto</h3>
                 </div>
                 <div class="panel-body">
-                    <div class="search-box-premium mb-4 mx-auto">
+                    <div class="search-box-premium mb-4" style="max-width: 400px;">
                         <i class="fas fa-search search-icon"></i>
                         <input type="text" class="search-input" placeholder="Buscar producto por nombre..." 
                                @bind="searchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
@@ -105,11 +105,7 @@
                             {
                                 <div class="product-item @(selectedProduct?.IdProducto == prod.IdProducto ? "selected" : "")" 
                                      @onclick="() => SelectProduct(prod)">
-                                    <div class="product-info d-flex align-items-center gap-2 flex-wrap">
-                                        <span class="product-name mb-0">@prod.Nombre</span>
-                                        <span class="product-meta opacity-75">| @prod.Marca @prod.Modelo | @(prod.CodigoBarras ?? "Sin Código")</span>
-                                    </div>
-                                    <div class="product-status">
+                                    <div class="product-status me-3">
                                         @if (string.IsNullOrEmpty(prod.CodigoBarras))
                                         {
                                             <span class="badge bg-warning text-dark rounded-pill px-2">Pendiente</span>
@@ -119,13 +115,16 @@
                                             <span class="badge bg-success rounded-pill px-2">Asociado</span>
                                         }
                                     </div>
+                                    <div class="product-info d-flex flex-column align-items-start">
+                                        <span class="product-name mb-0">@prod.Nombre</span>
+                                        <span class="product-meta opacity-75">@(prod.Marca ?? "") @(prod.Modelo ?? "") | @(prod.CodigoBarras ?? "Sin Código")</span>
+                                    </div>
                                 </div>
                             }
                         }
                     </div>
 
-                        <div class="pagination-container d-flex align-items-center p-2 border-top mx-auto w-100">
-                            <div class="flex-grow-1"></div>
+                        <div class="pagination-container d-flex align-items-center p-2 border-top w-100">
                             <div class="pagination-carousel-container">
                                 <ul class="pagination pagination-premium mb-0">
                                     <li class="page-item @(currentPage == 1 ? "disabled" : "")">
@@ -171,10 +170,9 @@
                                     </li>
                                 </ul>
                             </div>
-                            <div class="flex-grow-1 text-end"></div>
                         </div>
                 </div>
-                <div class="panel-footer bg-light border-top-0 pt-0 pb-3 text-center">
+                <div class="panel-footer bg-light border-top-0 pt-0 pb-3 text-start ps-4">
                     <button class="btn btn-success py-2 px-5 rounded-pill fw-bold shadow-lg" 
                             style="width: auto; min-width: 280px;"
                             disabled="@(!CanAssociate)" @onclick="AssociateCode">
@@ -259,7 +257,7 @@
 
     .etiquetas-workspace {
         display: grid;
-        grid-template-columns: 380px minmax(400px, 850px);
+        grid-template-columns: 380px 480px;
         gap: 1.5rem;
         align-items: start;
         width: 100%;
@@ -399,7 +397,7 @@
         cursor: pointer;
         transition: all 0.2s ease;
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-start;
         align-items: center;
     }
 
@@ -441,7 +439,8 @@
     /* Ajustes para la paginación premium dentro del panel */
     .pagination-container {
         padding: 1rem !important;
-        flex-direction: column;
+        flex-direction: row;
+        justify-content: flex-start;
         gap: 0.8rem;
     }
 
@@ -472,7 +471,7 @@
     private bool isSearching = false;
     private bool showNewProductModal = false;
     private int currentPage = 1;
-    private int pageSize = 5;
+    private int pageSize = 3;
 
     private IEnumerable<Producto> PagedResults => searchResults
         .OrderByDescending(p => p.IdProducto)
