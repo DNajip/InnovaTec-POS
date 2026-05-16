@@ -69,9 +69,9 @@ public class LabelService : ILabelService
         // 1. Nombre del Producto (Siempre presente)
         var namePara = new Paragraph(product.Nombre)
             .SetFont(bold)
-            .SetFontSize(templateType == "grande" ? 9 : 7)
+            .SetFontSize(templateType == "grande" ? 10 : 8)
             .SetTextAlignment(TextAlignment.CENTER)
-            .SetFixedLeading(templateType == "grande" ? 9 : 7)
+            .SetFixedLeading(templateType == "grande" ? 10 : 8)
             .SetMarginBottom(0);
         doc.Add(namePara);
 
@@ -80,30 +80,29 @@ public class LabelService : ILabelService
             // Modelo y Marca
             var metaPara = new Paragraph($"Modelo: {product.Modelo ?? "N/A"} | {product.Marca ?? "Genérico"}")
                 .SetFont(regular)
-                .SetFontSize(6)
+                .SetFontSize(7)
                 .SetTextAlignment(TextAlignment.CENTER)
                 .SetMarginTop(0)
-                .SetMarginBottom(1);
+                .SetMarginBottom(2);
             doc.Add(metaPara);
         }
 
         // 2. Precio (Si no es mini)
         if (templateType != "mini")
         {
-            float priceSize = templateType == "grande" ? 10 : 9;
             var pricePara = new Paragraph($"C$ {product.PrecioVenta:N2}")
                 .SetFont(bold)
-                .SetFontSize(priceSize)
+                .SetFontSize(12)
                 .SetTextAlignment(TextAlignment.CENTER)
-                .SetMarginTop(1)
-                .SetMarginBottom(1);
+                .SetMarginTop(2)
+                .SetMarginBottom(2);
             
             if (templateType == "grande")
             {
                  // En la grande el precio va con etiqueta "Precio:" a la izquierda
                  Table priceTable = new Table(UnitValue.CreatePercentArray(new float[] { 30, 70 })).UseAllAvailableWidth();
-                 priceTable.AddCell(new Cell().Add(new Paragraph("Precio:").SetFont(regular).SetFontSize(7)).SetBorder(iText.Layout.Borders.Border.NO_BORDER));
-                 priceTable.AddCell(new Cell().Add(new Paragraph($"C$ {product.PrecioVenta:N2}").SetFont(bold).SetFontSize(10)).SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT));
+                 priceTable.AddCell(new Cell().Add(new Paragraph("Precio:").SetFont(regular).SetFontSize(8)).SetBorder(iText.Layout.Borders.Border.NO_BORDER));
+                 priceTable.AddCell(new Cell().Add(new Paragraph($"C$ {product.PrecioVenta:N2}").SetFont(bold).SetFontSize(12)).SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT));
                  doc.Add(priceTable);
             }
             else
@@ -123,12 +122,12 @@ public class LabelService : ILabelService
             Image barcodeImg = new Image(barcode.CreateFormXObject(iText.Kernel.Colors.ColorConstants.BLACK, iText.Kernel.Colors.ColorConstants.WHITE, pdf))
                 .SetHorizontalAlignment(HorizontalAlignment.CENTER);
             
-            // Maximizar altura
+            // Ajustar altura del código de barras según el espacio restante
             float barcodeHeight = templateType switch {
-                "mini" => 42f,
-                "mediana" => 65f,
-                "grande" => 90f,
-                _ => 60f
+                "mini" => 35f,
+                "mediana" => 55f,
+                "grande" => 75f,
+                _ => 50f
             };
             barcodeImg.SetHeight(barcodeHeight);
             doc.Add(barcodeImg);
@@ -136,9 +135,9 @@ public class LabelService : ILabelService
             // Número de código abajo
             var codeNumPara = new Paragraph(product.CodigoBarras)
                 .SetFont(regular)
-                .SetFontSize(6)
+                .SetFontSize(7)
                 .SetTextAlignment(TextAlignment.CENTER)
-                .SetMarginTop(-1);
+                .SetMarginTop(-2);
             doc.Add(codeNumPara);
         }
 
