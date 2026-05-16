@@ -22,8 +22,6 @@ public class LabelService : ILabelService
         using (var stream = new MemoryStream())
         {
             var writer = new PdfWriter(stream);
-            var pdf = new PdfDocument(writer);
-            
             // Definir tamaño de página según plantilla (en mm, convertido a puntos: 1mm = 2.83465 pts)
             PageSize pageSize;
             switch (templateType.ToLower())
@@ -42,17 +40,22 @@ public class LabelService : ILabelService
                     break;
             }
 
-            var document = new Document(pdf, pageSize);
-            document.SetMargins(2, 2, 2, 2);
+            var pdf = new PdfDocument(writer);
+            pdf.SetDefaultPageSize(pageSize);
+            
+            var document = new Document(pdf);
+            document.SetMargins(2, 2, 2, 2); 
 
             PdfFont bold = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
             PdfFont regular = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
 
             for (int i = 0; i < quantity; i++)
             {
-                if (i > 0) pdf.AddNewPage();
-
-                RenderTemplate(document, pdf, product, templateType, bold, regular);
+                // Crear página explícitamente para cada etiqueta
+                pdf.AddNewPage(pageSize);
+                
+                // Mover el renderizado a la página recién creada
+                RenderTemplate(document, pdf, product, templateType, bold, regular, pageSize, i + 1);
             }
 
             document.Close();
@@ -60,49 +63,51 @@ public class LabelService : ILabelService
         }
     }
 
-    private void RenderTemplate(Document doc, PdfDocument pdf, Producto product, string templateType, PdfFont bold, PdfFont regular)
+    private void RenderTemplate(Document doc, PdfDocument pdf, Producto product, string templateType, PdfFont bold, PdfFont regular, PageSize pageSize, int pageNum)
     {
-        var pageSize = pdf.GetLastPage().GetPageSize();
         float width = pageSize.GetWidth();
         float height = pageSize.GetHeight();
 
-        // 1. Nombre del Producto (Siempre presente)
+        // 1. Nombre del Producto (Muy pequeño para dar espacio)
         var namePara = new Paragraph(product.Nombre)
             .SetFont(bold)
-            .SetFontSize(templateType == "grande" ? 10 : 8)
+            .SetFontSize(templateType == "grande" ? 8 : 6)
             .SetTextAlignment(TextAlignment.CENTER)
-            .SetFixedLeading(templateType == "grande" ? 10 : 8)
+            .SetFixedLeading(templateType == "grande" ? 8 : 6)
             .SetMarginBottom(0);
         doc.Add(namePara);
 
         if (templateType == "grande")
         {
-            // Modelo y Marca
-            var metaPara = new Paragraph($"Modelo: {product.Modelo ?? "N/A"} | {product.Marca ?? "Genérico"}")
+            // Modelo y Marca (Minúsculo)
+            var metaPara = new Paragraph($"Mod: {product.Modelo ?? "N/A"} | {product.Marca ?? "Gen"}")
                 .SetFont(regular)
-                .SetFontSize(7)
+                .SetFontSize(5)
                 .SetTextAlignment(TextAlignment.CENTER)
                 .SetMarginTop(0)
-                .SetMarginBottom(2);
+                .SetFixedLeading(5)
+                .SetMarginBottom(0);
             doc.Add(metaPara);
         }
 
         // 2. Precio (Si no es mini)
         if (templateType != "mini")
         {
+            float priceSize = templateType == "grande" ? 9 : 8;
             var pricePara = new Paragraph($"C$ {product.PrecioVenta:N2}")
                 .SetFont(bold)
-                .SetFontSize(12)
+                .SetFontSize(priceSize)
                 .SetTextAlignment(TextAlignment.CENTER)
-                .SetMarginTop(2)
-                .SetMarginBottom(2);
+                .SetMarginTop(0)
+                .SetFixedLeading(priceSize)
+                .SetMarginBottom(0);
             
             if (templateType == "grande")
             {
-                 // En la grande el precio va con etiqueta "Precio:" a la izquierda
                  Table priceTable = new Table(UnitValue.CreatePercentArray(new float[] { 30, 70 })).UseAllAvailableWidth();
-                 priceTable.AddCell(new Cell().Add(new Paragraph("Precio:").SetFont(regular).SetFontSize(8)).SetBorder(iText.Layout.Borders.Border.NO_BORDER));
-                 priceTable.AddCell(new Cell().Add(new Paragraph($"C$ {product.PrecioVenta:N2}").SetFont(bold).SetFontSize(12)).SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT));
+                 priceTable.SetMarginTop(0).SetMarginBottom(0);
+                 priceTable.AddCell(new Cell().Add(new Paragraph("Precio:").SetFont(regular).SetFontSize(6).SetFixedLeading(6)).SetBorder(iText.Layout.Borders.Border.NO_BORDER));
+                 priceTable.AddCell(new Cell().Add(new Paragraph($"C$ {product.PrecioVenta:N2}").SetFont(bold).SetFontSize(9).SetFixedLeading(9)).SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT));
                  doc.Add(priceTable);
             }
             else
@@ -111,7 +116,7 @@ public class LabelService : ILabelService
             }
         }
 
-        // 3. Código de Barras (Siempre presente)
+        // 3. Código de Barras (AJUSTADO PARA UNA SOLA PÁGINA)
         if (!string.IsNullOrEmpty(product.CodigoBarras))
         {
             Barcode128 barcode = new Barcode128(pdf);
@@ -122,22 +127,24 @@ public class LabelService : ILabelService
             Image barcodeImg = new Image(barcode.CreateFormXObject(iText.Kernel.Colors.ColorConstants.BLACK, iText.Kernel.Colors.ColorConstants.WHITE, pdf))
                 .SetHorizontalAlignment(HorizontalAlignment.CENTER);
             
-            // Ajustar altura del código de barras según el espacio restante
+            // Alturas calibradas para evitar saltos de página
             float barcodeHeight = templateType switch {
-                "mini" => 35f,
-                "mediana" => 55f,
-                "grande" => 75f,
+                "mini" => 32f,    
+                "mediana" => 50f,  
+                "grande" => 70f,  
                 _ => 50f
             };
             barcodeImg.SetHeight(barcodeHeight);
+            barcodeImg.SetMarginTop(1);
             doc.Add(barcodeImg);
 
-            // Número de código abajo
+            // Número de código abajo (Pequeño)
             var codeNumPara = new Paragraph(product.CodigoBarras)
                 .SetFont(regular)
-                .SetFontSize(7)
+                .SetFontSize(5)
                 .SetTextAlignment(TextAlignment.CENTER)
-                .SetMarginTop(-2);
+                .SetFixedLeading(5)
+                .SetMarginTop(-1);
             doc.Add(codeNumPara);
         }
 

@@ -1243,44 +1243,44 @@ html, body {
     word-break: break-all;
 }
 
-.label-preview-mini .label-product-name { font-size: 10pt; margin-bottom: 0.5mm; }
-.label-preview-mediana .label-product-name { font-size: 11pt; margin-bottom: 1mm; }
-.label-preview-grande .label-product-name { font-size: 14pt; margin-bottom: 1mm; }
+.label-preview-mini .label-product-name { font-size: 8pt; margin-bottom: 0.1mm; }
+.label-preview-mediana .label-product-name { font-size: 8.5pt; margin-bottom: 0.2mm; }
+.label-preview-grande .label-product-name { font-size: 10pt; margin-bottom: 0.2mm; }
 
 .label-product-meta {
-    font-size: 8pt;
+    font-size: 5pt;
     color: #444;
     text-align: center;
-    margin-bottom: 1mm;
+    margin-bottom: 0.1mm;
 }
 
 .label-price-container {
     display: flex;
     justify-content: center;
     align-items: baseline;
-    margin: 0.5mm 0;
+    margin: 0.1mm 0;
 }
 
 .label-price-label {
-    font-size: 9pt;
+    font-size: 7pt;
     color: #666;
-    margin-right: 4mm;
+    margin-right: 2mm;
 }
 
 .label-price-value {
-    font-size: 14pt;
+    font-size: 10pt;
     font-weight: 800;
     color: #000;
 }
 
 .label-barcode-svg {
-    width: 95%;
-    max-height: 15mm;
+    width: 99%;
+    max-height: 18mm;
 }
 
-.label-preview-mini .label-barcode-svg { max-height: 11mm; }
-.label-preview-mediana .label-barcode-svg { max-height: 16mm; }
-.label-preview-grande .label-barcode-svg { max-height: 22mm; }
+.label-preview-mini .label-barcode-svg { max-height: 15mm; }
+.label-preview-mediana .label-barcode-svg { max-height: 25mm; }
+.label-preview-grande .label-barcode-svg { max-height: 35mm; }
 
 .label-footer {
     position: absolute;
