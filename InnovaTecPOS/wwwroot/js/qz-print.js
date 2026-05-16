@@ -364,3 +364,58 @@ window.qzPrintShiftClosing = async (shift, config_negocio) => {
         console.error("Error al imprimir arqueo:", err);
     }
 };
+
+window.qzPrintLabelPixel = async (base64Data, printerName, widthMm, heightMm) => {
+    try {
+        if (!qz.websocket.isActive()) {
+            await qz.websocket.connect();
+        }
+
+        const config = qz.configs.create(printerName, {
+            size: { width: widthMm, height: heightMm },
+            units: 'mm',
+            colorType: 'blackwhite',
+            interpolation: 'nearest-neighbor',
+            density: 203
+        });
+
+        const data = [
+            {
+                type: 'pixel',
+                format: 'image',
+                flavor: 'base64',
+                data: base64Data
+            }
+        ];
+
+        await qz.print(config, data);
+    } catch (err) {
+        console.error("Error al imprimir etiqueta (pixel):", err);
+        throw err;
+    }
+};
+
+window.qzPrintPdf = async (base64Pdf, printerName) => {
+    try {
+        if (!qz.websocket.isActive()) {
+            await qz.websocket.connect();
+        }
+
+        const config = qz.configs.create(printerName);
+        const data = [
+            {
+                type: 'pixel',
+                format: 'pdf',
+                flavor: 'base64',
+                data: base64Pdf
+            }
+        ];
+
+        await qz.print(config, data);
+    } catch (err) {
+        console.error("Error al imprimir PDF vía QZ:", err);
+        throw err;
+    }
+};
+
+

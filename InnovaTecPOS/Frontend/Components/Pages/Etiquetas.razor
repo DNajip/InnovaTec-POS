@@ -7,6 +7,7 @@
 @inject NavigationManager Navigation
 @inject ToastService Toast
 @inject IJSRuntime JS
+@inject ILabelService LabelService
 
 <div class="etiquetas-premium-container animate__animated animate__fadeIn">
     <!-- Header Refinado -->
@@ -71,7 +72,7 @@
             </div>
         </div>
 
-        <!-- Panel Derecho: Asociación -->
+        <!-- Panel Central: Asociación -->
         <div class="workspace-panel panel-association">
             <div class="panel-card shadow-premium">
                 <div class="panel-header">
@@ -80,23 +81,22 @@
                 <div class="panel-body">
                     <div class="search-box-premium mb-4" style="max-width: 400px;">
                         <i class="fas fa-search search-icon"></i>
-                        <input type="text" class="search-input" placeholder="Buscar producto por nombre..." 
+                        <input type="text" class="search-input" placeholder="Buscar producto..." 
                                @bind="searchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
                     </div>
 
-                    <div class="product-selection-list custom-scrollbar mx-auto w-100">
+                    <div class="product-selection-list custom-scrollbar mx-auto w-100" style="max-height: 250px;">
                         @if (isSearching)
                         {
-                            <div class="text-center py-5">
-                                <div class="spinner-border text-primary" role="status"></div>
-                                <p class="mt-2 text-muted">Buscando productos...</p>
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
                             </div>
                         }
                         else if (!PagedResults.Any())
                         {
-                            <div class="empty-results py-5 text-center">
-                                <i class="fas fa-box-open fa-3x text-muted mb-3 opacity-30"></i>
-                                <p class="text-muted">No se encontraron productos o no se ha buscado.</p>
+                            <div class="empty-results py-4 text-center">
+                                <i class="fas fa-box-open text-muted opacity-30"></i>
+                                <p class="text-muted small">Sin resultados.</p>
                             </div>
                         }
                         else
@@ -105,19 +105,9 @@
                             {
                                 <div class="product-item @(selectedProduct?.IdProducto == prod.IdProducto ? "selected" : "")" 
                                      @onclick="() => SelectProduct(prod)">
-                                    <div class="product-status me-3">
-                                        @if (string.IsNullOrEmpty(prod.CodigoBarras))
-                                        {
-                                            <span class="badge bg-warning text-dark rounded-pill px-2">Pendiente</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-success rounded-pill px-2">Asociado</span>
-                                        }
-                                    </div>
                                     <div class="product-info d-flex flex-column align-items-start">
                                         <span class="product-name mb-0">@prod.Nombre</span>
-                                        <span class="product-meta opacity-75">@(prod.Marca ?? "") @(prod.Modelo ?? "") | @(prod.CodigoBarras ?? "Sin Código")</span>
+                                        <span class="product-meta opacity-75">@(prod.Marca ?? "") | @(prod.CodigoBarras ?? "Sin Código")</span>
                                     </div>
                                 </div>
                             }
@@ -128,43 +118,24 @@
                             <div class="pagination-carousel-container">
                                 <ul class="pagination pagination-premium mb-0">
                                     <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                                        <button class="page-link py-1" @onclick="() => SetPage(currentPage - 1)" title="Anterior">
+                                        <button class="page-link py-1" @onclick="() => SetPage(currentPage - 1)">
                                             <i class="fas fa-chevron-left"></i>
                                         </button>
                                     </li>
-                                    
                                     @{
-                                        // Lógica de ventana deslizante (Carrusel de 6 números)
-                                        int maxVisible = 6;
-                                        int startPage = Math.Max(1, Math.Min(currentPage - 2, TotalPages - maxVisible + 1));
+                                        int maxVisible = 4;
+                                        int startPage = Math.Max(1, Math.Min(currentPage - 1, TotalPages - maxVisible + 1));
                                         int endPage = Math.Min(TotalPages, startPage + maxVisible - 1);
-                                        
-                                        // Re-ajustar si estamos cerca del final
-                                        if (TotalPages > maxVisible && endPage == TotalPages) startPage = Math.Max(1, TotalPages - maxVisible + 1);
-
                                         for (int i = startPage; i <= endPage; i++)
                                         {
                                             var pageNum = i;
-                                            <li class="page-item @(currentPage == pageNum ? "active" : "") page-item-animated" @key="pageNum">
+                                            <li class="page-item @(currentPage == pageNum ? "active" : "")" @key="pageNum">
                                                 <button class="page-link py-1" @onclick="() => SetPage(pageNum)">@pageNum</button>
                                             </li>
                                         }
-
-                                        // Mostrar Elipsis y Última Página si es necesario
-                                        if (endPage < TotalPages)
-                                        {
-                                            if (endPage < TotalPages - 1)
-                                            {
-                                                <li class="pagination-ellipsis px-1">...</li>
-                                            }
-                                            <li class="page-item @(currentPage == TotalPages ? "active" : "") page-item-animated">
-                                                <button class="page-link py-1" @onclick="() => SetPage(TotalPages)">@TotalPages</button>
-                                            </li>
-                                        }
                                     }
-
                                     <li class="page-item @(currentPage == TotalPages ? "disabled" : "")">
-                                        <button class="page-link py-1" @onclick="() => SetPage(currentPage + 1)" title="Siguiente">
+                                        <button class="page-link py-1" @onclick="() => SetPage(currentPage + 1)">
                                             <i class="fas fa-chevron-right"></i>
                                         </button>
                                     </li>
@@ -172,11 +143,132 @@
                             </div>
                         </div>
                 </div>
-                <div class="panel-footer bg-light border-top-0 pt-0 pb-3 text-start ps-4">
-                    <button class="btn btn-success py-2 px-5 rounded-pill fw-bold shadow-lg" 
-                            style="width: auto; min-width: 280px;"
+                <div class="panel-footer bg-light border-top-0 pt-0 pb-3 text-center">
+                    <button class="btn btn-success btn-sm w-100 rounded-pill fw-bold shadow" 
                             disabled="@(!CanAssociate)" @onclick="AssociateCode">
-                        <i class="fas fa-check-circle me-2"></i> CONFIRMAR ASOCIACIÓN
+                        <i class="fas fa-check-circle me-1"></i> ASOCIAR
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TERCER PANEL: IMPRESIÓN -->
+        <div class="workspace-panel panel-print">
+            <div class="panel-card shadow-premium border-primary-subtle">
+                <div class="panel-header bg-primary text-white py-2" style="border-radius: 20px 20px 0 0;">
+                    <h3 class="text-white"><i class="fas fa-print me-2"></i> Imprimir Etiquetas</h3>
+                </div>
+                <div class="panel-body custom-scrollbar">
+                    <div class="print-panel-controls mb-3">
+                        <div class="print-control-group">
+                            <label><i class="fas fa-print me-1"></i> Impresora</label>
+                            <select class="form-select form-select-sm rounded-3" @bind="selectedPrinter">
+                                <option value="pdf">Descargar como PDF</option>
+                                @foreach (var printer in availablePrinters)
+                                {
+                                    <option value="@printer">@printer</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="print-control-group mt-2">
+                            <label><i class="fas fa-search me-1"></i> Buscar Producto</label>
+                            <div class="search-box-premium" style="width: 100%;">
+                                <input type="text" class="form-control form-control-sm rounded-3" placeholder="Nombre del producto..." 
+                                       @bind="printSearchTerm" @bind:event="oninput" @onkeyup="HandlePrintSearch" />
+                            </div>
+                        </div>
+
+                        @if (printSearchResults.Any())
+                        {
+                            <div class="print-search-dropdown shadow-sm rounded-3 border mt-1">
+                                @foreach (var prod in printSearchResults)
+                                {
+                                    <div class="print-search-item p-2 border-bottom @(printSelectedProduct?.IdProducto == prod.IdProducto ? "bg-primary-subtle" : "")" 
+                                         @onclick="() => SelectPrintProduct(prod)">
+                                        <div class="small fw-bold">@prod.Nombre</div>
+                                        <div class="smaller text-muted">@(prod.CodigoBarras ?? "Sin Código") | C$ @prod.PrecioVenta:N2</div>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <div class="print-control-group mt-2">
+                            <label><i class="fas fa-layer-group me-1"></i> Plantilla</label>
+                            <select class="form-select form-select-sm rounded-3" @bind="selectedTemplate" @bind:after="UpdatePrintPreview">
+                                <option value="mini">Mini (80x20mm)</option>
+                                <option value="mediana">Mediana (80x30mm)</option>
+                                <option value="grande">Grande (80x40mm)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Preview Area -->
+                    <div class="label-template-container mb-3">
+                        @if (printSelectedProduct != null)
+                        {
+                            <div class="label-preview-box label-preview-@selectedTemplate" id="label-preview-render">
+                                <p class="label-product-name">@printSelectedProduct.Nombre</p>
+                                
+                                @if (selectedTemplate == "grande")
+                                {
+                                    <p class="label-product-meta">
+                                        Modelo: @(printSelectedProduct.Modelo ?? "N/A") | @(printSelectedProduct.Marca ?? "Genérico")
+                                    </p>
+                                }
+
+                                @if (selectedTemplate != "mini")
+                                {
+                                    <div class="label-price-container">
+                                        @if (selectedTemplate == "grande") { <span class="label-price-label">Precio:</span> }
+                                        <span class="label-price-value">C$ @printSelectedProduct.PrecioVenta.ToString("N2")</span>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrEmpty(printSelectedProduct.CodigoBarras))
+                                {
+                                    <svg class="label-barcode-svg" id="print-barcode-canvas"></svg>
+                                    <span style="font-size: 7pt; font-family: monospace;">@printSelectedProduct.CodigoBarras</span>
+                                }
+                                else
+                                {
+                                    <div class="alert alert-warning py-1 px-2 small mt-2">Sin código de barras</div>
+                                }
+
+                                @if (selectedTemplate == "grande")
+                                {
+                                    <div class="label-footer">
+                                        <span>InnovaTec POS</span>
+                                        <span>@DateTime.Now.ToString("dd/MM/yyyy")</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted opacity-50">
+                                <i class="fas fa-eye fa-2x mb-2"></i>
+                                <p class="small">Selecciona un producto para previsualizar</p>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="print-control-group">
+                        <label><i class="fas fa-sort-numeric-up me-1"></i> Cantidad</label>
+                        <input type="number" class="form-control form-control-sm text-center fw-bold" @bind="printQuantity" min="1" max="100" />
+                    </div>
+
+                    <button class="btn-print-submit w-100 mt-3" disabled="@(printSelectedProduct == null)" @onclick="ExecutePrint">
+                        @if (isPrinting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Procesando...</span>
+                        }
+                        else
+                        {
+                            <i class="fas fa-print me-2"></i>
+                            <span>@(selectedPrinter == "pdf" ? "GENERAR PDF" : "IMPRIMIR")</span>
+                        }
                     </button>
                 </div>
             </div>
@@ -257,10 +349,12 @@
 
     .etiquetas-workspace {
         display: grid;
-        grid-template-columns: 380px 480px;
-        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.2rem;
         align-items: start;
         width: 100%;
+        max-width: 1400px;
+        margin: 0 auto;
     }
 
     .panel-card {
@@ -452,13 +546,30 @@
     }
 
     .pagination-premium .page-link {
-        width: 30px !important;
-        height: 30px !important;
-        font-size: 0.8rem !important;
+        width: 25px !important;
+        height: 25px !important;
+        font-size: 0.75rem !important;
     }
 
-    .pagination-ellipsis {
-        font-size: 0.8rem;
+    /* Print Panel Specific Styles */
+    .print-search-dropdown {
+        background: white;
+        max-height: 150px;
+        overflow-y: auto;
+        z-index: 100;
+    }
+
+    .print-search-item {
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .print-search-item:hover {
+        background: #f8f9fa;
+    }
+
+    .smaller {
+        font-size: 0.7rem;
     }
 </style>
 
@@ -471,7 +582,17 @@
     private bool isSearching = false;
     private bool showNewProductModal = false;
     private int currentPage = 1;
-    private int pageSize = 3;
+    private int pageSize = 5;
+
+    // Estados de Impresión
+    private List<string> availablePrinters = new();
+    private string selectedPrinter = "pdf";
+    private string selectedTemplate = "mediana";
+    private int printQuantity = 1;
+    private string printSearchTerm = "";
+    private List<Producto> printSearchResults = new();
+    private Producto? printSelectedProduct;
+    private bool isPrinting = false;
 
     private IEnumerable<Producto> PagedResults => searchResults
         .OrderByDescending(p => p.IdProducto)
@@ -494,6 +615,16 @@
         // Cargar productos iniciales sin código de barras para facilitar el uso
         var allProds = await ProductService.SearchProductsAsync("");
         searchResults = allProds.Where(p => string.IsNullOrEmpty(p.CodigoBarras)).ToList();
+
+        // Cargar impresoras
+        try 
+        {
+            availablePrinters = await JS.InvokeAsync<List<string>>("qzListPrinters");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("QZ Tray no detectado: " + ex.Message);
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -501,6 +632,11 @@
         if (!string.IsNullOrEmpty(generatedBarcode))
         {
             await JS.InvokeVoidAsync("generateBarcode", "barcode-canvas", generatedBarcode);
+        }
+
+        if (printSelectedProduct != null && !string.IsNullOrEmpty(printSelectedProduct.CodigoBarras))
+        {
+            await JS.InvokeVoidAsync("generateBarcode", "print-barcode-canvas", printSelectedProduct.CodigoBarras);
         }
     }
 
@@ -512,9 +648,19 @@
         }
     }
 
+    private async Task UpdatePrintPreview()
+    {
+        StateHasChanged();
+        if (printSelectedProduct != null && !string.IsNullOrEmpty(printSelectedProduct.CodigoBarras))
+        {
+             await Task.Delay(50); // Pequeño delay para que el DOM se actualice
+             await JS.InvokeVoidAsync("generateBarcode", "print-barcode-canvas", printSelectedProduct.CodigoBarras);
+        }
+    }
+
     private async Task GenerateCode()
     {
-        // Generador simple de 12 dígitos (EAN-12ish)
+        // Generador simple de 12 dígitos
         var random = new Random();
         generatedBarcode = DateTime.Now.ToString("yyMMdd") + random.Next(100000, 999999).ToString();
         await JS.InvokeVoidAsync("generateBarcode", "barcode-canvas", generatedBarcode);
@@ -523,7 +669,7 @@
 
     private async Task HandleSearch()
     {
-        if (searchTerm.Length < 3 && searchTerm.Length > 0) return;
+        if (searchTerm.Length < 2 && searchTerm.Length > 0) return;
         
         isSearching = true;
         currentPage = 1;
@@ -531,13 +677,33 @@
         
         try 
         {
-            searchResults = await ProductService.SearchProductsAsync(searchTerm);
+            var results = await ProductService.SearchProductsAsync(searchTerm);
+            searchResults = results.Where(p => string.IsNullOrEmpty(p.CodigoBarras)).ToList();
         }
         finally 
         {
             isSearching = false;
             StateHasChanged();
         }
+    }
+
+    private async Task HandlePrintSearch()
+    {
+        if (printSearchTerm.Length < 3)
+        {
+            printSearchResults.Clear();
+            return;
+        }
+
+        printSearchResults = await ProductService.SearchProductsAsync(printSearchTerm);
+    }
+
+    private void SelectPrintProduct(Producto prod)
+    {
+        printSelectedProduct = prod;
+        printSearchResults.Clear();
+        printSearchTerm = prod.Nombre;
+        UpdatePrintPreview();
     }
 
     private void SetPage(int page)
@@ -560,7 +726,6 @@
 
         try 
         {
-            // Clonamos el producto para no mutar el estado de la lista antes de tiempo
             var prodToUpdate = await ProductService.GetProductByIdAsync(selectedProduct.IdProducto);
             if (prodToUpdate != null)
             {
@@ -573,7 +738,7 @@
                 generatedBarcode = "";
                 selectedProduct = null;
                 searchTerm = "";
-                await HandleSearch(); // Refrescar lista
+                await HandleSearch();
             }
         }
         catch (Exception ex)
@@ -582,11 +747,45 @@
         }
     }
 
+    private async Task ExecutePrint()
+    {
+        if (printSelectedProduct == null) return;
+        
+        isPrinting = true;
+        StateHasChanged();
+
+        try 
+        {
+            byte[] pdfBytes = LabelService.GenerateLabelPdf(printSelectedProduct, selectedTemplate, printQuantity);
+            
+            if (selectedPrinter == "pdf")
+            {
+                // Descargar PDF
+                await JS.InvokeVoidAsync("downloadFile", $"Etiquetas_{printSelectedProduct.Nombre.Replace(" ", "_")}.pdf", "application/pdf", pdfBytes);
+                Toast.ShowSuccess("Descarga Iniciada", "El PDF con las etiquetas se ha generado correctamente.");
+            }
+            else
+            {
+                // Imprimir vía QZ
+                string base64Pdf = Convert.ToBase64String(pdfBytes);
+                await JS.InvokeVoidAsync("qzPrintPdf", base64Pdf, selectedPrinter);
+                Toast.ShowSuccess("Impresión Enviada", $"Se han enviado {printQuantity} etiquetas a la impresora {selectedPrinter}.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Toast.ShowError("Error de Impresión", ex.Message);
+        }
+        finally
+        {
+            isPrinting = false;
+            StateHasChanged();
+        }
+    }
+
     private async Task HandleNewProductSaved(Producto newProd)
     {
-        // Si se guardó un producto nuevo, lo seleccionamos automáticamente si es posible
-        // O simplemente refrescamos la búsqueda
         await HandleSearch();
-        Toast.ShowInfo("Inventario Actualizado", "El nuevo producto ya está disponible para ser asociado si no se le asignó código.");
+        Toast.ShowInfo("Inventario Actualizado", "El nuevo producto ya está disponible.");
     }
 }
