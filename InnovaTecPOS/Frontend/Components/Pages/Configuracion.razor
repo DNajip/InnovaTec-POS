@@ -547,18 +547,12 @@
                 // Redimensionar para optimizar espacio (Max 500x500)
                 var resizedFile = await file.RequestImageFileAsync(format, 500, 500);
                 
-                var fileName = $"logo_pos_{DateTime.Now.Ticks}{Path.GetExtension(file.Name)}";
-                var imagesPath = Path.Combine(Environment.WebRootPath, "images");
-                
-                if (!Directory.Exists(imagesPath)) Directory.CreateDirectory(imagesPath);
-                
-                var fullPath = Path.Combine(imagesPath, fileName);
-                
+                using var ms = new MemoryStream();
                 using var stream = resizedFile.OpenReadStream(1024 * 1024 * 5); // Buffer hasta 5MB
-                using var fileStream = new FileStream(fullPath, FileMode.Create);
-                await stream.CopyToAsync(fileStream);
+                await stream.CopyToAsync(ms);
+                var bytes = ms.ToArray();
                 
-                settings["Empresa_Logo"] = $"images/{fileName}";
+                settings["Empresa_Logo"] = $"data:{format};base64,{Convert.ToBase64String(bytes)}";
                 StateHasChanged();
                 ToastService.ShowInfo("Imagen cargada correctamente. No olvide Guardar Cambios.");
             }

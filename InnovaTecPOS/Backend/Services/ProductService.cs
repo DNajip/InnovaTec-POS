@@ -20,7 +20,7 @@ public interface IProductService
     Task<List<Categoria>> GetCategoriasAsync();
     Task AdjustStockAsync(int idProducto, int nuevaCantidad, string observacion);
     Task<List<VStockCritico>> GetStockCriticoAsync();
-    Task<InventoryStatsDto> GetInventoryStatsAsync();
+    Task<InventoryStatsDto> GetInventoryStatsAsync(string? search = null, int? idCategoria = null);
     Task<List<Movimiento>> GetProductMovementsAsync(int idProducto);
 }
 
@@ -185,13 +185,23 @@ public class ProductService : IProductService
         return await context.VStockCriticos.ToListAsync();
     }
 
-    public async Task<InventoryStatsDto> GetInventoryStatsAsync()
+    public async Task<InventoryStatsDto> GetInventoryStatsAsync(string? search = null, int? idCategoria = null)
     {
         using var context = await _factory.CreateDbContextAsync();
-        var productos = await context.Productos
+        var query = context.Productos
             .Where(p => p.Activo == true)
-            .AsNoTracking()
-            .ToListAsync();
+            .AsNoTracking();
+
+        if (idCategoria.HasValue && idCategoria > 0)
+            query = query.Where(p => p.IdCategoria == idCategoria);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.ToLower();
+            query = query.Where(p => p.Nombre.ToLower().Contains(s) || (p.CodigoBarras != null && p.CodigoBarras.ToLower().Contains(s)));
+        }
+
+        var productos = await query.ToListAsync();
 
         return new InventoryStatsDto
         {

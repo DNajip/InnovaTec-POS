@@ -192,7 +192,7 @@ INSERT INTO ADM.CONFIGURACION (CLAVE, VALOR, DESCRIPCION, SOLO_ADMIN) VALUES
     ('Empresa_RUC',             'J00000000000', 'RUC del negocio',                        0),
     ('Empresa_Telefono',        '+505 0000 0000', 'Teléfono de contacto',                  0),
     ('Empresa_Direccion',       'Managua, Nicaragua', 'Dirección física',                  0),
-    ('Empresa_Logo',            'images/logo.png', 'Ruta al logo de la empresa',           0),
+    ('Empresa_Logo',            'images/logo.png', 'Logo de la empresa en Base64 o Ruta',           0),
     ('Moneda_TasaCambio',       '36.50',        'Tasa de cambio Dolar a Cordoba',        1),
     ('Moneda_Principal',        '1',            'ID moneda base (NIO)',                  1),
     ('Hardware_Impresora',      '',             'Nombre impresora termica configurada',  0),

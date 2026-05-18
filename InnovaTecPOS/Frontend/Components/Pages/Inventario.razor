@@ -772,7 +772,7 @@
     {
         try
         {
-            var bytes = ExportService.GenerateInventoryPdf(productos ?? new List<Producto>());
+            var bytes = await ExportService.GenerateInventoryPdfAsync(productos ?? new List<Producto>());
             var stream = new MemoryStream(bytes);
             using var streamRef = new DotNetStreamReference(stream);
             await JSRuntime.InvokeVoidAsync("downloadFileFromStream", $"Inventario_{DateTime.Now:ddMMyy}.pdf", streamRef);
@@ -819,7 +819,7 @@
     {
         Console.WriteLine("Inventory: Starting LoadData...");
         currentPage = 1;
-        stats = await ProductService.GetInventoryStatsAsync();
+        stats = await ProductService.GetInventoryStatsAsync(SearchTerm, selectedCategoryId);
         productos = await ProductService.GetAllProductsAsync(SearchTerm, selectedCategoryId, includeInactive: true);
         Console.WriteLine($"Inventory: Loaded {productos.Count} products.");
         await InvokeAsync(StateHasChanged);
@@ -842,6 +842,7 @@
     private async Task HandleSearch()
     {
         currentPage = 1;
+        stats = await ProductService.GetInventoryStatsAsync(SearchTerm, selectedCategoryId);
         productos = await ProductService.GetAllProductsAsync(SearchTerm, selectedCategoryId, includeInactive: true);
         await InvokeAsync(StateHasChanged);
     }

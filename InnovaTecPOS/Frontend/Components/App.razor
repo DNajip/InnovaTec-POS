@@ -18,11 +18,19 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     
     @{
-        // Intentar obtener el logo de la configuración de forma síncrona o con una tarea bloqueante
-        // ya que App.razor en SSR no soporta OnInitializedAsync de la misma forma para el <head>
-        // Pero en .NET 8, App.razor puede usar servicios.
-        // Usaremos un valor por defecto mientras tanto.
         var logoSetting = "favicon.png";
+        try
+        {
+            var logoFromDb = Task.Run(async () => await ConfigService.GetSettingAsync("Empresa_Logo")).GetAwaiter().GetResult();
+            if (!string.IsNullOrEmpty(logoFromDb))
+            {
+                logoSetting = logoFromDb;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al precargar favicon en App.razor: {ex.Message}");
+        }
     }
     <link rel="icon" type="image/png" href="@logoSetting" id="dynamic-favicon" />
     <HeadOutlet @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
@@ -82,7 +90,11 @@
                 link.type = 'image/png';
                 document.head.appendChild(link);
             }
-            link.href = url + '?v=' + new Date().getTime(); // Anti-cache
+            if (url && url.startsWith('data:')) {
+                link.href = url; // Sin query string para datos Base64
+            } else {
+                link.href = url + '?v=' + new Date().getTime(); // Anti-cache para archivos tradicionales
+            }
         };
 
         window.downloadFileFromStream = async (fileName, contentStreamReference) => {

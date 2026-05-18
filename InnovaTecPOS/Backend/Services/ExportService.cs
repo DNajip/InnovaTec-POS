@@ -10,22 +10,26 @@ using Microsoft.AspNetCore.Hosting;
 using System.IO;
 using iText.Kernel.Font;
 using iText.IO.Font.Constants;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace InnovaTecPOS.Backend.Services;
 
 public interface IExportService
 {
     byte[] GenerateInventoryExcel(List<Producto> products);
-    byte[] GenerateInventoryPdf(List<Producto> products);
+    Task<byte[]> GenerateInventoryPdfAsync(List<Producto> products);
 }
 
 public class ExportService : IExportService
 {
     private readonly IWebHostEnvironment _env;
+    private readonly ConfiguracionService _configService;
 
-    public ExportService(IWebHostEnvironment env)
+    public ExportService(IWebHostEnvironment env, ConfiguracionService configService)
     {
         _env = env;
+        _configService = configService;
     }
 
     public byte[] GenerateInventoryExcel(List<Producto> products)
@@ -116,11 +120,20 @@ public class ExportService : IExportService
         }
     }
 
-    public byte[] GenerateInventoryPdf(List<Producto> products)
+    public async Task<byte[]> GenerateInventoryPdfAsync(List<Producto> products)
     {
         try
         {
             Console.WriteLine("PDF: Starting detailed horizontal generation...");
+            
+            // Cargar configuraciones de la empresa
+            var settings = await _configService.GetAllSettingsAsync();
+            var nombre = settings.GetValueOrDefault("Empresa_Nombre", "INNOVATEC");
+            var ruc = settings.GetValueOrDefault("Empresa_RUC", "");
+            var telefono = settings.GetValueOrDefault("Empresa_Telefono", "");
+            var direccion = settings.GetValueOrDefault("Empresa_Direccion", "");
+            var logoSetting = settings.GetValueOrDefault("Empresa_Logo", "images/logo.png");
+
             using (var stream = new MemoryStream())
             {
                 var writer = new PdfWriter(stream);
@@ -137,11 +150,40 @@ public class ExportService : IExportService
                 Table headerTable = new Table(UnitValue.CreatePercentArray(new float[] { 10, 90 })).UseAllAvailableWidth();
                 headerTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
 
-                string logoPath = System.IO.Path.Combine(_env.WebRootPath, "images", "logo.png");
-                if (System.IO.File.Exists(logoPath))
+                Image img = null;
+                if (!string.IsNullOrEmpty(logoSetting))
                 {
-                    ImageData data = ImageDataFactory.Create(logoPath);
-                    Image img = new Image(data).SetWidth(50).SetHorizontalAlignment(HorizontalAlignment.LEFT);
+                    try
+                    {
+                        if (logoSetting.StartsWith("data:image"))
+                        {
+                            var commaIndex = logoSetting.IndexOf(',');
+                            if (commaIndex >= 0)
+                            {
+                                var cleanBase64 = logoSetting.Substring(commaIndex + 1);
+                                var bytes = Convert.FromBase64String(cleanBase64);
+                                ImageData data = ImageDataFactory.Create(bytes);
+                                img = new Image(data).SetWidth(50).SetHorizontalAlignment(HorizontalAlignment.LEFT);
+                            }
+                        }
+                        else
+                        {
+                            string logoPath = System.IO.Path.Combine(_env.WebRootPath, logoSetting);
+                            if (System.IO.File.Exists(logoPath))
+                            {
+                                ImageData data = ImageDataFactory.Create(logoPath);
+                                img = new Image(data).SetWidth(50).SetHorizontalAlignment(HorizontalAlignment.LEFT);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error al renderizar imagen en PDF: {ex.Message}");
+                    }
+                }
+
+                if (img != null)
+                {
                     headerTable.AddCell(new Cell().Add(img).SetBorder(iText.Layout.Borders.Border.NO_BORDER));
                 }
                 else
@@ -150,9 +192,21 @@ public class ExportService : IExportService
                 }
 
                 Cell bizInfoCell = new Cell().SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPaddingLeft(5);
-                bizInfoCell.Add(new Paragraph("INNOVATEC").SetFontSize(20).SetFont(boldFont).SetFontColor(iText.Kernel.Colors.ColorConstants.DARK_GRAY).SetFixedLeading(18));
-                bizInfoCell.Add(new Paragraph("Soluciones Tecnológicas | RUC: 629-190602-1000V").SetFontSize(9).SetFont(italicFont).SetFontColor(iText.Kernel.Colors.ColorConstants.GRAY));
-                bizInfoCell.Add(new Paragraph($"Propietario: Jackson Polanco Espinoza | Contacto: 57340535").SetFontSize(9).SetFont(regularFont));
+                bizInfoCell.Add(new Paragraph(nombre.ToUpper()).SetFontSize(20).SetFont(boldFont).SetFontColor(iText.Kernel.Colors.ColorConstants.DARK_GRAY).SetFixedLeading(18));
+                
+                string subHeader = "";
+                if (!string.IsNullOrEmpty(ruc)) subHeader += $"RUC: {ruc}";
+                if (!string.IsNullOrEmpty(telefono)) subHeader += (subHeader == "" ? "" : " | ") + $"Contacto: {telefono}";
+                
+                if (!string.IsNullOrEmpty(subHeader))
+                {
+                    bizInfoCell.Add(new Paragraph(subHeader).SetFontSize(9).SetFont(italicFont).SetFontColor(iText.Kernel.Colors.ColorConstants.GRAY));
+                }
+                
+                if (!string.IsNullOrEmpty(direccion))
+                {
+                    bizInfoCell.Add(new Paragraph(direccion).SetFontSize(9).SetFont(regularFont));
+                }
                 headerTable.AddCell(bizInfoCell);
 
                 document.Add(headerTable);
@@ -249,7 +303,7 @@ public class ExportService : IExportService
 
                 // --- FOOTER ---
                 document.Add(new Paragraph("\n"));
-                Paragraph footerNote = new Paragraph($"Reporte de Auditoría de Inventario - InnovaTecPOS - Generado el {DateTime.Now:dd/MM/yyyy HH:mm}");
+                Paragraph footerNote = new Paragraph($"Reporte de Auditoría de Inventario - {nombre} - Generado el {DateTime.Now:dd/MM/yyyy HH:mm}");
                 footerNote.SetFontSize(7).SetFont(italicFont).SetTextAlignment(TextAlignment.CENTER).SetFontColor(iText.Kernel.Colors.ColorConstants.GRAY);
                 document.Add(footerNote);
 
