@@ -103,20 +103,7 @@
         }
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            try
-            {
-                await JSRuntime.InvokeVoidAsync("updateFavicon", empresaLogo);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error al actualizar favicon en Login: {ex.Message}");
-            }
-        }
-    }
+
 
     private void TogglePassword() => showPassword = !showPassword;
 

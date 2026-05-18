@@ -51,4 +51,24 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
+app.MapGet("/favicon.ico", async (ConfiguracionService config, IWebHostEnvironment env) => {
+    var logo = await config.GetSettingAsync("Empresa_Logo");
+    var path = string.IsNullOrEmpty(logo) ? "default_favicon.png" : logo;
+    var physicalPath = System.IO.Path.Combine(env.WebRootPath, path.TrimStart('/'));
+    if (System.IO.File.Exists(physicalPath)) {
+        return Results.File(physicalPath, "image/png");
+    }
+    return Results.File(System.IO.Path.Combine(env.WebRootPath, "default_favicon.png"), "image/png");
+});
+
+app.MapGet("/favicon.png", async (ConfiguracionService config, IWebHostEnvironment env) => {
+    var logo = await config.GetSettingAsync("Empresa_Logo");
+    var path = string.IsNullOrEmpty(logo) ? "default_favicon.png" : logo;
+    var physicalPath = System.IO.Path.Combine(env.WebRootPath, path.TrimStart('/'));
+    if (System.IO.File.Exists(physicalPath)) {
+        return Results.File(physicalPath, "image/png");
+    }
+    return Results.File(System.IO.Path.Combine(env.WebRootPath, "default_favicon.png"), "image/png");
+});
+
 app.Run();

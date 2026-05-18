@@ -1,5 +1,6 @@
 @using InnovaTecPOS.Backend.Services
 @inject ConfiguracionService ConfigService
+@inject IWebHostEnvironment Env
 
 <!DOCTYPE html>
 <html lang="en">
@@ -18,7 +19,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     
     @{
-        var logoSetting = "favicon.png";
+        var logoSetting = "default_favicon.png";
         try
         {
             var logoFromDb = Task.Run(async () => await ConfigService.GetSettingAsync("Empresa_Logo")).GetAwaiter().GetResult();
@@ -33,29 +34,30 @@
             Console.WriteLine($"Error al precargar favicon en App.razor: {ex.Message}");
         }
 
-        // Normalizar la URL del favicon con barra diagonal inicial si es ruta relativa
-        string normalizedFavicon = logoSetting;
-        if (!string.IsNullOrEmpty(logoSetting))
+        string normalizedFavicon = "";
+        try
         {
-            if (!logoSetting.StartsWith("data:") && !logoSetting.StartsWith("http:") && !logoSetting.StartsWith("https:") && !logoSetting.StartsWith("/"))
+            var path = logoSetting.TrimStart('/');
+            var physicalPath = System.IO.Path.Combine(Env.WebRootPath, path);
+            if (System.IO.File.Exists(physicalPath))
             {
-                normalizedFavicon = "/" + logoSetting;
+                var bytes = System.IO.File.ReadAllBytes(physicalPath);
+                normalizedFavicon = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
             }
-            
-            // Añadir cache-buster para evitar que el navegador use cache antigua (excepto para Base64)
-            if (!normalizedFavicon.StartsWith("data:"))
+            else
             {
-                normalizedFavicon = normalizedFavicon + "?v=" + DateTime.Now.Ticks;
+                normalizedFavicon = "/" + path + "?v=" + DateTime.Now.Ticks;
             }
         }
-        else
+        catch 
         {
-            normalizedFavicon = "/favicon.png";
+            normalizedFavicon = "/default_favicon.png?v=" + DateTime.Now.Ticks;
         }
         
-        Console.WriteLine($"[DEBUG APP.RAZOR] Final favicon href: '{normalizedFavicon}'");
+        Console.WriteLine($"[DEBUG APP.RAZOR] Final favicon loaded as base64: {normalizedFavicon.StartsWith("data:")}");
     }
     <link rel="icon" type="image/png" href="@normalizedFavicon" id="dynamic-favicon" />
+    <link rel="shortcut icon" type="image/png" href="@normalizedFavicon" id="dynamic-favicon-shortcut" />
     <HeadOutlet @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
 </head>
 
@@ -105,23 +107,33 @@
         };
 
         window.updateFavicon = (url) => {
-            let link = document.getElementById('dynamic-favicon');
-            if (!link) {
-                link = document.createElement('link');
-                link.id = 'dynamic-favicon';
-                link.rel = 'icon';
-                link.type = 'image/png';
-                document.head.appendChild(link);
-            }
             let normalizedUrl = url || 'favicon.png';
             if (normalizedUrl && !normalizedUrl.startsWith('data:') && !normalizedUrl.startsWith('http:') && !normalizedUrl.startsWith('https:') && !normalizedUrl.startsWith('/')) {
                 normalizedUrl = '/' + normalizedUrl;
             }
-            if (normalizedUrl && normalizedUrl.startsWith('data:')) {
-                link.href = normalizedUrl; // Sin query string para datos Base64
-            } else {
-                link.href = normalizedUrl + '?v=' + new Date().getTime(); // Anti-cache para archivos tradicionales
+            if (normalizedUrl && !normalizedUrl.startsWith('data:')) {
+                normalizedUrl = normalizedUrl + '?v=' + new Date().getTime(); // Anti-cache para archivos tradicionales
             }
+
+            // Remove existing icons
+            const oldIcons = document.querySelectorAll("link[rel~='icon']");
+            oldIcons.forEach(icon => icon.remove());
+
+            // Create new standard icon
+            let link = document.createElement('link');
+            link.id = 'dynamic-favicon';
+            link.rel = 'icon';
+            link.type = 'image/png';
+            link.href = normalizedUrl;
+            document.head.appendChild(link);
+
+            // Create new shortcut icon
+            let shortcutLink = document.createElement('link');
+            shortcutLink.id = 'dynamic-favicon-shortcut';
+            shortcutLink.rel = 'shortcut icon';
+            shortcutLink.type = 'image/png';
+            shortcutLink.href = normalizedUrl;
+            document.head.appendChild(shortcutLink);
         };
 
         window.downloadFileFromStream = async (fileName, contentStreamReference) => {
