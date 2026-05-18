@@ -43,11 +43,15 @@
 </header>
 
 @code {
+    protected override void OnInitialized()
+    {
+        AppState.OnChange += StateHasChanged;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            AppState.OnChange += StateHasChanged;
             await JSRuntime.InvokeVoidAsync("startClock");
         }
     }
