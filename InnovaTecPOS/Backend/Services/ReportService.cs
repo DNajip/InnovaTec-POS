@@ -37,6 +37,7 @@ public class ReportService : IReportService
 
     public async Task<DashboardStatsDTO> GetDashboardStatsAsync(DateTime start, DateTime end)
     {
+        end = end.Date.AddDays(1).AddTicks(-1);
         var currentVentas = await _context.Ventas
             .Include(v => v.VentaDetalles)
                 .ThenInclude(d => d.IdProductoNavigation)
@@ -86,6 +87,7 @@ public class ReportService : IReportService
 
     public async Task<List<TrendPointDTO>> GetSalesTrendsAsync(DateTime start, DateTime end)
     {
+        end = end.Date.AddDays(1).AddTicks(-1);
         var ventas = await _context.Ventas
             .Where(v => v.FechaVenta >= start && v.FechaVenta <= end && !v.Anulada)
             .OrderBy(v => v.FechaVenta)
@@ -103,6 +105,7 @@ public class ReportService : IReportService
 
     public async Task<List<PaymentMethodStatDTO>> GetPaymentMethodStatsAsync(DateTime start, DateTime end)
     {
+        end = end.Date.AddDays(1).AddTicks(-1);
         var pagos = await _context.Pagos
             .Include(p => p.IdMetodoPagoNavigation)
             .Include(p => p.IdVentaNavigation)
@@ -123,6 +126,7 @@ public class ReportService : IReportService
 
     public async Task<List<TopProductoDTO>> GetTopProductosAsync(DateTime start, DateTime end, int count = 5)
     {
+        end = end.Date.AddDays(1).AddTicks(-1);
         return await _context.VentaDetalles
             .Include(d => d.IdVentaNavigation)
             .Where(d => d.IdVentaNavigation.FechaVenta >= start && d.IdVentaNavigation.FechaVenta <= end && !d.IdVentaNavigation.Anulada)
@@ -140,6 +144,7 @@ public class ReportService : IReportService
 
     public async Task<List<ResumenDiarioDTO>> GetResumenDiarioAsync(DateTime start, DateTime end)
     {
+        end = end.Date.AddDays(1).AddTicks(-1);
         var ventas = await _context.Ventas
             .Where(v => v.FechaVenta >= start && v.FechaVenta <= end && !v.Anulada)
             .ToListAsync();
@@ -160,6 +165,7 @@ public class ReportService : IReportService
 
     public async Task<List<HourlySalesDTO>> GetHourlySalesAsync(DateTime start, DateTime end)
     {
+        end = end.Date.AddDays(1).AddTicks(-1);
         var ventas = await _context.Ventas
             .Where(v => v.FechaVenta >= start && v.FechaVenta <= end && !v.Anulada)
             .ToListAsync();
@@ -255,6 +261,7 @@ public class ReportService : IReportService
 
     public async Task<List<ClientInsightDTO>> GetClientInsightsAsync(DateTime start, DateTime end)
     {
+        end = end.Date.AddDays(1).AddTicks(-1);
         return await _context.Ventas
             .Where(v => v.FechaVenta >= start && v.FechaVenta <= end && !v.Anulada && v.IdPersona != null)
             .GroupBy(v => v.IdPersonaNavigation!.NombreCompleto)
@@ -271,6 +278,7 @@ public class ReportService : IReportService
 
     public async Task<List<CashierAuditDTO>> GetCashierAuditAsync(DateTime start, DateTime end)
     {
+        end = end.Date.AddDays(1).AddTicks(-1);
         var data = await _context.Ventas
             .Include(v => v.IdUsuarioNavigation)
             .Where(v => v.FechaVenta >= start && v.FechaVenta <= end && !v.Anulada)
@@ -296,6 +304,7 @@ public class ReportService : IReportService
 
     public async Task<List<ArqueoInsightDTO>> GetArqueoInsightsAsync(DateTime start, DateTime end)
     {
+        end = end.Date.AddDays(1).AddTicks(-1);
         var turnos = await _context.Turnos
             .Include(t => t.IdUsuarioNavigation)
             .Include(t => t.MovimientosVarios)
@@ -369,6 +378,7 @@ public class ReportService : IReportService
 
     public async Task<List<CategoryStatDTO>> GetCategorySalesAsync(DateTime start, DateTime end)
     {
+        end = end.Date.AddDays(1).AddTicks(-1);
         return await _context.VentaDetalles
             .Include(d => d.IdVentaNavigation)
             .Include(d => d.IdProductoNavigation)
