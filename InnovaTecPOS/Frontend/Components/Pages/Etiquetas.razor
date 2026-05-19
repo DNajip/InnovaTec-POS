@@ -198,7 +198,7 @@
                             <select class="form-select form-select-sm rounded-3" @bind="selectedTemplate" @bind:after="UpdatePrintPreview">
                                 <option value="mini">Mini (80x20mm)</option>
                                 <option value="mediana">Mediana (80x30mm)</option>
-                                <option value="grande">Grande (80x40mm)</option>
+                                <option value="grande">Grande (80x35mm)</option>
                             </select>
                         </div>
                     </div>
@@ -771,7 +771,7 @@
             {
                 // Imprimir vía QZ
                 string base64Pdf = Convert.ToBase64String(pdfBytes);
-                await JS.InvokeVoidAsync("qzPrintPdf", base64Pdf, selectedPrinter);
+                await JS.InvokeVoidAsync("qzPrintLabelPdf", base64Pdf, selectedPrinter, selectedTemplate);
                 Toast.ShowSuccess("Impresión Enviada", $"Se han enviado {printQuantity} etiquetas a la impresora {selectedPrinter}.");
             }
         }

@@ -228,5 +228,5 @@ E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\InnovaT
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\InnovaTecPOS.genruntimeconfig.cache
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\ref\InnovaTecPOS.dll
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\9zswrxkkl2-{0}-4gggcons5f-4gggcons5f.gz
-E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\4qde398ppw-{0}-rfmp4jgiws-rfmp4jgiws.gz
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\o93v90apvs-{0}-rkygp408b5-rkygp408b5.gz
+E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\4qde398ppw-{0}-ay2yxdrr6u-ay2yxdrr6u.gz

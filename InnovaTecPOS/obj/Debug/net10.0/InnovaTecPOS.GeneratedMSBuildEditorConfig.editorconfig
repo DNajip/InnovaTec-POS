@@ -19,157 +19,157 @@ build_property.TargetFrameworkIdentifier = .NETCoreApp
 build_property.TargetFrameworkVersion = v10.0
 build_property.RootNamespace = InnovaTecPOS
 build_property.RootNamespace = InnovaTecPOS
-build_property.ProjectDir = E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\
+build_property.ProjectDir = e:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.RazorLangVersion = 9.0
 build_property.SupportLocalizedComponentNames = 
 build_property.GenerateRazorMetadataSourceChecksumAttributes = 
-build_property.MSBuildProjectDirectory = E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS
+build_property.MSBuildProjectDirectory = e:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS
 build_property._RazorSourceGeneratorDebug = 
 build_property.EffectiveAnalysisLevelStyle = 10.0
 build_property.EnableCodeStyleSeverity = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/App.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/App.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xBcHAucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Layout/EmptyLayout.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Layout/EmptyLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xMYXlvdXRcRW1wdHlMYXlvdXQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Layout/MainLayout.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Layout/MainLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xMYXlvdXRcTWFpbkxheW91dC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Clientes.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Clientes.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xDbGllbnRlcy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Configuracion.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Configuracion.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xDb25maWd1cmFjaW9uLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Error.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Error.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xFcnJvci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Etiquetas.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Etiquetas.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xFdGlxdWV0YXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Facturas.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Facturas.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xGYWN0dXJhcy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Home.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Home.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xIb21lLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Inventario.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Inventario.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xJbnZlbnRhcmlvLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Login.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Login.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xMb2dpbi5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/NotFound.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/NotFound.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xOb3RGb3VuZC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportAlertas.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportAlertas.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xSZXBvcnRBbGVydGFzLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportCaja.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportCaja.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xSZXBvcnRDYWphLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportCajeros.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportCajeros.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xSZXBvcnRDYWplcm9zLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportClientes.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportClientes.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xSZXBvcnRDbGllbnRlcy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportDashboard.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportDashboard.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xSZXBvcnREYXNoYm9hcmQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Reportes.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/Reportes.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xSZXBvcnRlcy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportGarantias.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportGarantias.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xSZXBvcnRHYXJhbnRpYXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportInventario.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportInventario.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xSZXBvcnRJbnZlbnRhcmlvLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportVentas.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Pages/ReportVentas.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xQYWdlc1xSZXBvcnRWZW50YXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Routes.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/Routes.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xSb3V0ZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/CashCloseModal.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/CashCloseModal.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxDYXNoQ2xvc2VNb2RhbC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/CashCountModal.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/CashCountModal.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxDYXNoQ291bnRNb2RhbC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/CashEntryModal.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/CashEntryModal.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxDYXNoRW50cnlNb2RhbC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/CheckoutModal.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/CheckoutModal.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxDaGVja291dE1vZGFsLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/ControlHub.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/ControlHub.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxDb250cm9sSHViLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/InnovaHeader.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/InnovaHeader.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxJbm5vdmFIZWFkZXIucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/InnovaKpiCard.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/InnovaKpiCard.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxJbm5vdmFLcGlDYXJkLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/InnovaReportSidebar.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/InnovaReportSidebar.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxJbm5vdmFSZXBvcnRTaWRlYmFyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/InnovaSidebar.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/InnovaSidebar.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxJbm5vdmFTaWRlYmFyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/ProductRegisterForm.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/ProductRegisterForm.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxQcm9kdWN0UmVnaXN0ZXJGb3JtLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/SummaryBar.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/SummaryBar.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxTdW1tYXJ5QmFyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/ToastContainer.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/ToastContainer.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxUb2FzdENvbnRhaW5lci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/UserModal.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/UI/UserModal.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xVSVxVc2VyTW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/_Imports.razor]
+[e:/Programación/Antigravity/InnovaTecPOS/InnovaTecPOS/Frontend/Components/_Imports.razor]
 build_metadata.AdditionalFiles.TargetPath = RnJvbnRlbmRcQ29tcG9uZW50c1xfSW1wb3J0cy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 

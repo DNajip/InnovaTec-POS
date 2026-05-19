@@ -32,8 +32,8 @@ public class LabelService : ILabelService
                 case "mediana": // 80x30mm
                     pageSize = new PageSize(80 * 2.83465f, 30 * 2.83465f);
                     break;
-                case "grande": // 80x40mm
-                    pageSize = new PageSize(80 * 2.83465f, 40 * 2.83465f);
+                case "grande": // 80x35mm
+                    pageSize = new PageSize(80 * 2.83465f, 35 * 2.83465f);
                     break;
                 default:
                     pageSize = new PageSize(80 * 2.83465f, 30 * 2.83465f);
@@ -44,7 +44,7 @@ public class LabelService : ILabelService
             pdf.SetDefaultPageSize(pageSize);
             
             var document = new Document(pdf);
-            document.SetMargins(2, 2, 2, 2); 
+            document.SetMargins(2, 10, 2, 10); 
 
             PdfFont bold = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
             PdfFont regular = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
@@ -68,93 +68,132 @@ public class LabelService : ILabelService
         float width = pageSize.GetWidth();
         float height = pageSize.GetHeight();
 
-        // 1. Nombre del Producto (Muy pequeño para dar espacio)
-        var namePara = new Paragraph(product.Nombre)
-            .SetFont(bold)
-            .SetFontSize(templateType == "grande" ? 8 : 6)
-            .SetTextAlignment(TextAlignment.CENTER)
-            .SetFixedLeading(templateType == "grande" ? 8 : 6)
-            .SetMarginBottom(0);
-        doc.Add(namePara);
-
-        if (templateType == "grande")
+        if (templateType == "mini")
         {
-            // Modelo y Marca (Minúsculo)
-            var metaPara = new Paragraph($"Mod: {product.Modelo ?? "N/A"} | {product.Marca ?? "Gen"}")
-                .SetFont(regular)
-                .SetFontSize(5)
+            var namePara = new Paragraph(product.Nombre)
+                .SetFont(bold)
+                .SetFontSize(9)
                 .SetTextAlignment(TextAlignment.CENTER)
-                .SetMarginTop(0)
-                .SetFixedLeading(5)
-                .SetMarginBottom(0);
-            doc.Add(metaPara);
-        }
+                .SetFixedLeading(9)
+                .SetMarginBottom(2);
+            doc.Add(namePara);
 
-        // 2. Precio (Si no es mini)
-        if (templateType != "mini")
+            if (!string.IsNullOrEmpty(product.CodigoBarras))
+            {
+                Barcode128 barcode = new Barcode128(pdf);
+                barcode.SetCodeType(Barcode128.CODE128);
+                barcode.SetCode(product.CodigoBarras);
+                barcode.SetFont(null); 
+                
+                Image barcodeImg = new Image(barcode.CreateFormXObject(iText.Kernel.Colors.ColorConstants.BLACK, iText.Kernel.Colors.ColorConstants.WHITE, pdf))
+                    .SetHorizontalAlignment(HorizontalAlignment.CENTER);
+                
+                barcodeImg.SetWidth(width - 20); 
+                barcodeImg.SetHeight(30f);
+                doc.Add(barcodeImg);
+
+                var codeNumPara = new Paragraph(product.CodigoBarras)
+                    .SetFont(regular)
+                    .SetFontSize(7)
+                    .SetTextAlignment(TextAlignment.CENTER)
+                    .SetFixedLeading(7)
+                    .SetMarginTop(1);
+                doc.Add(codeNumPara);
+            }
+        }
+        else if (templateType == "mediana")
         {
-            float priceSize = templateType == "grande" ? 9 : 8;
+            var namePara = new Paragraph(product.Nombre)
+                .SetFont(bold)
+                .SetFontSize(11)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetFixedLeading(11)
+                .SetMarginBottom(2);
+            doc.Add(namePara);
+
             var pricePara = new Paragraph($"C$ {product.PrecioVenta:N2}")
                 .SetFont(bold)
-                .SetFontSize(priceSize)
+                .SetFontSize(14)
                 .SetTextAlignment(TextAlignment.CENTER)
-                .SetMarginTop(0)
-                .SetFixedLeading(priceSize)
-                .SetMarginBottom(0);
-            
-            if (templateType == "grande")
+                .SetFixedLeading(14)
+                .SetMarginBottom(2);
+            doc.Add(pricePara);
+
+            if (!string.IsNullOrEmpty(product.CodigoBarras))
             {
-                 Table priceTable = new Table(UnitValue.CreatePercentArray(new float[] { 30, 70 })).UseAllAvailableWidth();
-                 priceTable.SetMarginTop(0).SetMarginBottom(0);
-                 priceTable.AddCell(new Cell().Add(new Paragraph("Precio:").SetFont(regular).SetFontSize(6).SetFixedLeading(6)).SetBorder(iText.Layout.Borders.Border.NO_BORDER));
-                 priceTable.AddCell(new Cell().Add(new Paragraph($"C$ {product.PrecioVenta:N2}").SetFont(bold).SetFontSize(9).SetFixedLeading(9)).SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT));
-                 doc.Add(priceTable);
-            }
-            else
-            {
-                doc.Add(pricePara);
+                Barcode128 barcode = new Barcode128(pdf);
+                barcode.SetCodeType(Barcode128.CODE128);
+                barcode.SetCode(product.CodigoBarras);
+                barcode.SetFont(null); 
+                
+                Image barcodeImg = new Image(barcode.CreateFormXObject(iText.Kernel.Colors.ColorConstants.BLACK, iText.Kernel.Colors.ColorConstants.WHITE, pdf))
+                    .SetHorizontalAlignment(HorizontalAlignment.CENTER);
+                
+                barcodeImg.SetWidth(width - 20);
+                barcodeImg.SetHeight(38f);
+                doc.Add(barcodeImg);
+
+                var codeNumPara = new Paragraph(product.CodigoBarras)
+                    .SetFont(regular)
+                    .SetFontSize(8)
+                    .SetTextAlignment(TextAlignment.CENTER)
+                    .SetFixedLeading(8)
+                    .SetMarginTop(1);
+                doc.Add(codeNumPara);
             }
         }
-
-        // 3. Código de Barras (AJUSTADO PARA UNA SOLA PÁGINA)
-        if (!string.IsNullOrEmpty(product.CodigoBarras))
+        else // grande
         {
-            Barcode128 barcode = new Barcode128(pdf);
-            barcode.SetCodeType(Barcode128.CODE128);
-            barcode.SetCode(product.CodigoBarras);
-            barcode.SetFont(null); 
-            
-            Image barcodeImg = new Image(barcode.CreateFormXObject(iText.Kernel.Colors.ColorConstants.BLACK, iText.Kernel.Colors.ColorConstants.WHITE, pdf))
-                .SetHorizontalAlignment(HorizontalAlignment.CENTER);
-            
-            // Alturas calibradas para evitar saltos de página
-            float barcodeHeight = templateType switch {
-                "mini" => 32f,    
-                "mediana" => 50f,  
-                "grande" => 70f,  
-                _ => 50f
-            };
-            barcodeImg.SetHeight(barcodeHeight);
-            barcodeImg.SetMarginTop(1);
-            doc.Add(barcodeImg);
+            var namePara = new Paragraph(product.Nombre)
+                .SetFont(bold)
+                .SetFontSize(13)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetFixedLeading(13)
+                .SetMarginBottom(1);
+            doc.Add(namePara);
 
-            // Número de código abajo (Pequeño)
-            var codeNumPara = new Paragraph(product.CodigoBarras)
+            var metaPara = new Paragraph($"Mod: {product.Modelo ?? "N/A"} | {product.Marca ?? "Gen"}")
                 .SetFont(regular)
-                .SetFontSize(5)
+                .SetFontSize(8)
                 .SetTextAlignment(TextAlignment.CENTER)
-                .SetFixedLeading(5)
-                .SetMarginTop(-1);
-            doc.Add(codeNumPara);
-        }
+                .SetFixedLeading(8)
+                .SetMarginBottom(3);
+            doc.Add(metaPara);
 
-        if (templateType == "grande")
-        {
-            // Footer
+            Table priceTable = new Table(UnitValue.CreatePercentArray(new float[] { 30, 70 })).UseAllAvailableWidth();
+            priceTable.SetMarginBottom(3);
+            priceTable.AddCell(new Cell().Add(new Paragraph("Precio:").SetFont(regular).SetFontSize(10).SetFixedLeading(10)).SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetVerticalAlignment(VerticalAlignment.BOTTOM));
+            priceTable.AddCell(new Cell().Add(new Paragraph($"C$ {product.PrecioVenta:N2}").SetFont(bold).SetFontSize(18).SetFixedLeading(18)).SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.BOTTOM));
+            doc.Add(priceTable);
+
+            if (!string.IsNullOrEmpty(product.CodigoBarras))
+            {
+                Barcode128 barcode = new Barcode128(pdf);
+                barcode.SetCodeType(Barcode128.CODE128);
+                barcode.SetCode(product.CodigoBarras);
+                barcode.SetFont(null); 
+                
+                Image barcodeImg = new Image(barcode.CreateFormXObject(iText.Kernel.Colors.ColorConstants.BLACK, iText.Kernel.Colors.ColorConstants.WHITE, pdf))
+                    .SetHorizontalAlignment(HorizontalAlignment.CENTER);
+                
+                barcodeImg.SetWidth(width - 20);
+                barcodeImg.SetHeight(42f);
+                doc.Add(barcodeImg);
+
+                var codeNumPara = new Paragraph(product.CodigoBarras)
+                    .SetFont(regular)
+                    .SetFontSize(9)
+                    .SetTextAlignment(TextAlignment.CENTER)
+                    .SetFixedLeading(9)
+                    .SetMarginTop(1)
+                    .SetMarginBottom(0);
+                doc.Add(codeNumPara);
+            }
+
             Table footerTable = new Table(UnitValue.CreatePercentArray(new float[] { 50, 50 })).UseAllAvailableWidth();
-            footerTable.SetFixedPosition(2, 2, width - 4);
-            footerTable.AddCell(new Cell().Add(new Paragraph("InnovaTec POS").SetFontSize(6).SetFontColor(iText.Kernel.Colors.ColorConstants.GRAY)).SetBorder(iText.Layout.Borders.Border.NO_BORDER));
-            footerTable.AddCell(new Cell().Add(new Paragraph(DateTime.Now.ToString("dd/MM/yyyy")).SetFontSize(6).SetFontColor(iText.Kernel.Colors.ColorConstants.GRAY)).SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT));
+            footerTable.SetFixedPosition(10, 2, width - 20);
+            footerTable.AddCell(new Cell().Add(new Paragraph("InnovaTec POS").SetFontSize(7).SetFontColor(iText.Kernel.Colors.ColorConstants.GRAY)).SetBorder(iText.Layout.Borders.Border.NO_BORDER));
+            footerTable.AddCell(new Cell().Add(new Paragraph(DateTime.Now.ToString("dd/MM/yyyy")).SetFontSize(7).SetFontColor(iText.Kernel.Colors.ColorConstants.GRAY)).SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT));
             doc.Add(footerTable);
         }
     }

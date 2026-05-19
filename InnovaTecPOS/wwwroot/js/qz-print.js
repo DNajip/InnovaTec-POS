@@ -418,4 +418,41 @@ window.qzPrintPdf = async (base64Pdf, printerName) => {
     }
 };
 
+window.qzPrintLabelPdf = async (base64Pdf, printerName, templateType) => {
+    try {
+        if (!qz.websocket.isActive()) {
+            await qz.websocket.connect();
+        }
+
+        // Definir altura según la plantilla seleccionada
+        let heightMm = 20;
+        if (templateType === 'mediana') heightMm = 30;
+        if (templateType === 'grande') heightMm = 35; // Reducido de 40 a 35 para ahorrar papel
+
+        // Configuración estricta para evitar que la impresora de recibos (ej. EPSON TM-T20III) 
+        // rote el PDF horizontal y lo escale gigante.
+        const config = qz.configs.create(printerName, {
+            size: { width: 80, height: heightMm },
+            units: 'mm',
+            margins: 0,
+            scaleContent: false // FUNDAMENTAL: Evita que deforme la etiqueta
+        });
+
+        const data = [
+            {
+                type: 'pixel',
+                format: 'pdf',
+                flavor: 'base64',
+                data: base64Pdf
+            }
+        ];
+
+        await qz.print(config, data);
+    } catch (err) {
+        console.error("Error al imprimir Etiqueta PDF vía QZ:", err);
+        throw err;
+    }
+};
+
+
 
