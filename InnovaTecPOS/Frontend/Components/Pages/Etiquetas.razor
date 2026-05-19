@@ -663,11 +663,19 @@
 
     private async Task GenerateCode()
     {
-        // Generador simple de 12 dígitos
         var random = new Random();
-        generatedBarcode = DateTime.Now.ToString("yyMMdd") + random.Next(100000, 999999).ToString();
+        bool isUnique = false;
+        string newCode = "";
+        
+        while (!isUnique)
+        {
+            newCode = DateTime.Now.ToString("yyMMdd") + random.Next(100000, 999999).ToString();
+            isUnique = await ProductService.IsBarcodeUniqueAsync(newCode);
+        }
+        
+        generatedBarcode = newCode;
         await JS.InvokeVoidAsync("generateBarcode", "barcode-canvas", generatedBarcode);
-        Toast.ShowSuccess("Código generado", "Se ha creado un nuevo código único.");
+        Toast.ShowSuccess("Código generado", "Se ha creado un código único y verificado.");
     }
 
     private async Task HandleSearch()
@@ -729,6 +737,13 @@
 
         try 
         {
+            bool isUnique = await ProductService.IsBarcodeUniqueAsync(generatedBarcode);
+            if (!isUnique)
+            {
+                Toast.ShowError("Código Duplicado", "El código ingresado ya está asignado a otro producto en el sistema.");
+                return;
+            }
+
             var prodToUpdate = await ProductService.GetProductByIdAsync(selectedProduct.IdProducto);
             if (prodToUpdate != null)
             {

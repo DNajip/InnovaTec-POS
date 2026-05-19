@@ -14,6 +14,7 @@ public interface IProductService
     Task<Producto?> GetProductByIdAsync(int id);
     Task<Producto?> GetProductByCodeAsync(string code);
     Task<Producto?> GetProductByBarcodeAsync(string barcode);
+    Task<bool> IsBarcodeUniqueAsync(string barcode);
     Task<List<Producto>> SearchProductsAsync(string term, bool onlyInStock = false);
     Task CreateProductAsync(Producto producto);
     Task UpdateProductAsync(Producto producto);
@@ -83,6 +84,12 @@ public class ProductService : IProductService
     }
 
     public async Task<Producto?> GetProductByBarcodeAsync(string barcode) => await GetProductByCodeAsync(barcode);
+
+    public async Task<bool> IsBarcodeUniqueAsync(string barcode)
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        return !await context.Productos.AnyAsync(p => p.CodigoBarras == barcode);
+    }
 
     public async Task<List<Producto>> SearchProductsAsync(string term, bool onlyInStock = false) => await GetAllProductsAsync(search: term, onlyInStock: onlyInStock);
 
