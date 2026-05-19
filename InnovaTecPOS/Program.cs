@@ -32,6 +32,9 @@ builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<ExcelExportService>();
 builder.Services.AddScoped<ILabelService, LabelService>();
 builder.Services.AddScoped<AppState>();
+builder.Services.AddScoped<DailyReportPdfService>();
+builder.Services.AddScoped<EmailService>();
+builder.Services.AddHostedService<DailyReportScheduler>();
 
 var app = builder.Build();
 

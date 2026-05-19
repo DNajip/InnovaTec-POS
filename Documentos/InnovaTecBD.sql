@@ -197,7 +197,10 @@ INSERT INTO ADM.CONFIGURACION (CLAVE, VALOR, DESCRIPCION, SOLO_ADMIN) VALUES
     ('Moneda_Principal',        '1',            'ID moneda base (NIO)',                  1),
     ('Hardware_Impresora',      '',             'Nombre impresora termica configurada',  0),
     ('STOCK_MINIMO_DEFAULT',    '5',            'Stock minimo por defecto al crear prod',1),
-    ('PERMITE_VENTA_SIN_CAJA',  '0',            '1=Permite venta sin apertura de caja',  1);
+    ('PERMITE_VENTA_SIN_CAJA',  '0',            '1=Permite venta sin apertura de caja',  1),
+    ('Correo_Remitente',        '',             'Correo Gmail que enviará el reporte diario', 1),
+    ('Correo_Password',         '',             'Contraseña de aplicación de Gmail para el remitente', 1),
+    ('Correo_Destinatario',     '',             'Correo electrónico del destinatario del reporte diario', 1);
 GO
 
 -- Personas (entidad base: clientes y empleados)

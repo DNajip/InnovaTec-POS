@@ -231,3 +231,5 @@ E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compres
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\o93v90apvs-{0}-rkygp408b5-rkygp408b5.gz
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\fys9uh0btd-{0}-x8otwa5qf7-x8otwa5qf7.gz
 E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\obj\Debug\net10.0\compressed\4qde398ppw-{0}-5lmfwwfwuh-5lmfwwfwuh.gz
+E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\MailKit.dll
+E:\Programación\Antigravity\InnovaTecPOS\InnovaTecPOS\bin\Debug\net10.0\MimeKit.dll
