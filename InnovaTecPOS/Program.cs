@@ -74,4 +74,85 @@ app.MapGet("/favicon.png", async (ConfiguracionService config, IWebHostEnvironme
     return Results.File(System.IO.Path.Combine(env.WebRootPath, "default_favicon.png"), "image/png");
 });
 
+// Actualizar la contraseña en la base de datos temporalmente para validación
+using (var scope = app.Services.CreateScope())
+{
+    var configService = scope.ServiceProvider.GetRequiredService<ConfiguracionService>();
+    await configService.UpdateSettingsBatchAsync(new Dictionary<string, string>
+    {
+        { "Correo_Password", "yjgw jqsc guja ztdh" }
+    });
+}
+
+// Endpoint temporal para validar el envío del correo
+app.MapGet("/test-email", async (EmailService emailService, DailyReportPdfService pdfService, ConfiguracionService configService) => {
+    var logs = new System.Text.StringBuilder();
+    logs.AppendLine("--- TEST DE AUTENTICACION DE CORREOS ---");
+    
+    var rawPassword = "yjgw jqsc guja ztdh";
+    var cleanPassword = rawPassword.Replace(" ", "").Trim();
+    var testEmails = new[] { "darennajippineda@gmail.com", "daren.castillofurioso@gmail.com" };
+    
+    foreach (var email in testEmails)
+    {
+        logs.AppendLine($"Probando remitente: '{email}' con contraseña '{rawPassword}' (limpia: '{cleanPassword}')...");
+        try
+        {
+            using (var client = new MailKit.Net.Smtp.SmtpClient())
+            {
+                client.ServerCertificateValidationCallback = (s, c, h, e) => true;
+                try
+                {
+                    await client.ConnectAsync("smtp.gmail.com", 465, MailKit.Security.SecureSocketOptions.SslOnConnect);
+                    logs.AppendLine("  [✓] Conectado exitosamente al puerto 465.");
+                }
+                catch (Exception ex465)
+                {
+                    logs.AppendLine($"  [!] Puerto 465 falló: {ex465.Message}. Intentando puerto 587...");
+                    await client.ConnectAsync("smtp.gmail.com", 587, MailKit.Security.SecureSocketOptions.StartTls);
+                    logs.AppendLine("  [✓] Conectado exitosamente al puerto 587.");
+                }
+
+                await client.AuthenticateAsync(email, cleanPassword);
+                logs.AppendLine($"  [✓] ¡AUTENTICACIÓN EXITOSA para {email}!");
+                
+                // Intentar enviar un correo de prueba rápido para confirmar
+                var message = new MimeKit.MimeMessage();
+                message.From.Add(new MimeKit.MailboxAddress("InnovaTecPOS Test", email));
+                message.To.Add(new MimeKit.MailboxAddress("Administración", "daren.castillofurioso@gmail.com"));
+                message.Subject = "Test de Conectividad SMTP";
+                message.Body = new MimeKit.TextPart("plain") { Text = "Este es un correo de prueba de autenticación exitosa." };
+                
+                await client.SendAsync(message);
+                logs.AppendLine("  [✓] Correo de prueba enviado exitosamente.");
+                
+                await client.DisconnectAsync(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            logs.AppendLine($"  [✗] Error de autenticación para {email}: {ex.Message}");
+        }
+    }
+    
+    var result = logs.ToString();
+    Console.WriteLine(result);
+    return Results.Text(result, "text/plain; charset=utf-8");
+});
+
+app.MapGet("/show-config", async (ConfiguracionService configService) => {
+    try {
+        var settings = await configService.GetAllSettingsAsync();
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("--- CONFIGURACIONES EN BASE DE DATOS ---");
+        foreach (var kvp in settings)
+        {
+            sb.AppendLine($"{kvp.Key}: {kvp.Value}");
+        }
+        return Results.Text(sb.ToString(), "text/plain; charset=utf-8");
+    } catch (Exception ex) {
+        return Results.Problem(ex.ToString());
+    }
+});
+
 app.Run();
