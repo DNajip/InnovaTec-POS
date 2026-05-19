@@ -19,7 +19,7 @@ public interface IReportService
     Task<List<ClientInsightDTO>> GetClientInsightsAsync(DateTime start, DateTime end);
     Task<List<CashierAuditDTO>> GetCashierAuditAsync(DateTime start, DateTime end);
     Task<List<ArqueoInsightDTO>> GetArqueoInsightsAsync(DateTime start, DateTime end);
-    Task<List<VentaTurnoDTO>> GetVentasPorTurnoAsync(int idTurno);
+    Task<List<MovimientoTurnoDTO>> GetMovimientosPorTurnoAsync(int idTurno);
     Task<GarantiaInsightDTO> GetGarantiaStatsAsync();
     Task<List<CategoryStatDTO>> GetCategorySalesAsync(DateTime start, DateTime end);
     Task<List<SystemAlertDTO>> GetSystemAlertsAsync();
@@ -341,11 +341,62 @@ public class ReportService : IReportService
         }).ToList();
     }
 
-    public async Task<List<VentaTurnoDTO>> GetVentasPorTurnoAsync(int idTurno)
+    public async Task<List<MovimientoTurnoDTO>> GetMovimientosPorTurnoAsync(int idTurno)
     {
-        return await _context.Database.SqlQuery<VentaTurnoDTO>(
-            $"SELECT * FROM VEN.V_VENTAS_POR_TURNO WHERE ID_TURNO = {idTurno}"
-        ).ToListAsync();
+        var ventas = await _context.Ventas
+            .Include(v => v.IdPersonaNavigation)
+            .Include(v => v.Pagos)
+                .ThenInclude(p => p.IdMetodoPagoNavigation)
+            .Where(v => v.IdTurno == idTurno)
+            .ToListAsync();
+
+        var movimientos = await _context.MovimientosVarios
+            .Where(m => m.IdTurno == idTurno)
+            .ToListAsync();
+
+        var result = new List<MovimientoTurnoDTO>();
+
+        foreach (var v in ventas)
+        {
+            var pagoPrincipal = v.Pagos.OrderByDescending(p => p.MontoEnNio).FirstOrDefault();
+            var metodoPago = pagoPrincipal?.IdMetodoPagoNavigation?.Nombre ?? "N/A";
+            if (v.Pagos.Count > 1)
+            {
+                var metodos = v.Pagos.Select(p => p.IdMetodoPagoNavigation.Nombre).Distinct();
+                metodoPago = string.Join(", ", metodos);
+            }
+
+            var totalVuelto = v.Pagos.Sum(p => p.VueltoNio ?? 0);
+
+            result.Add(new MovimientoTurnoDTO
+            {
+                TipoMovimiento = "Venta",
+                Referencia = v.NumeroFactura ?? $"FAC-{v.IdVenta}",
+                Fecha = v.FechaVenta,
+                Cliente = v.IdPersonaNavigation?.NombreCompleto ?? "Cliente de Contado",
+                Monto = v.TotalNio,
+                Vuelto = totalVuelto,
+                MetodoPago = metodoPago,
+                Estado = v.Anulada ? "ANULADA" : "EFECTUADA"
+            });
+        }
+
+        foreach (var m in movimientos)
+        {
+            result.Add(new MovimientoTurnoDTO
+            {
+                TipoMovimiento = m.Tipo == "INGRESO" ? "Ingreso" : "Egreso",
+                Referencia = m.Concepto,
+                Fecha = m.Fecha,
+                Cliente = "N/A",
+                Monto = m.Monto,
+                Vuelto = 0,
+                MetodoPago = "EFECTIVO",
+                Estado = "COMPLETADO"
+            });
+        }
+
+        return result.OrderByDescending(x => x.Fecha).ToList();
     }
 
     public async Task<GarantiaInsightDTO> GetGarantiaStatsAsync()
