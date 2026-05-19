@@ -10,6 +10,7 @@
 @inject UserSession UserSession
 @inject ToastService ToastService
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Ventas - InnovaTec</PageTitle>
 
@@ -103,6 +104,7 @@
     private List<InnovaTecPOS.Backend.Models.Producto>? SearchResults;
     private System.Timers.Timer debounceTimer = new System.Timers.Timer(300);
     private bool showCheckoutModal = false;
+    private DotNetObjectReference<Home>? objRef;
 
     protected override void OnInitialized()
     {
@@ -117,6 +119,24 @@
         
         SaleService.PropertyChanged += OnServicePropertyChanged;
         SaleService.OnCheckoutRequested += HandleCheckoutRequest;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            objRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("registerBarcodeScanner", objRef);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnBarcodeScanned(string barcode)
+    {
+        SearchTerm = barcode;
+        await ScannerLookup();
+        SearchTerm = "";
+        StateHasChanged();
     }
 
     private async void HandleCheckoutRequest()
@@ -250,5 +270,11 @@
         SaleService.OnCheckoutRequested -= HandleCheckoutRequest;
         debounceTimer?.Stop();
         debounceTimer?.Dispose();
+        
+        if (objRef != null)
+        {
+            try { JSRuntime.InvokeVoidAsync("unregisterBarcodeScanner"); } catch { }
+            objRef.Dispose();
+        }
     }
 }
