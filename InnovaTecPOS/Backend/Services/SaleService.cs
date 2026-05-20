@@ -32,12 +32,17 @@ namespace InnovaTecPOS.Backend.Services
 
         public void AddItem(CartItem item)
         {
+            item.PropertyChanged += OnItemPropertyChanged;
             Items.Add(item);
             NotifyAll();
         }
 
         public void Clear()
         {
+            foreach (var item in Items)
+            {
+                item.PropertyChanged -= OnItemPropertyChanged;
+            }
             Items.Clear();
             Discount = 0;
             NotifyAll();
@@ -51,6 +56,7 @@ namespace InnovaTecPOS.Backend.Services
 
         public void RemoveItem(CartItem item)
         {
+            item.PropertyChanged -= OnItemPropertyChanged;
             Items.Remove(item);
             NotifyAll();
         }
@@ -61,6 +67,14 @@ namespace InnovaTecPOS.Backend.Services
             OnPropertyChanged(nameof(TotalUnits));
             OnPropertyChanged(nameof(SubTotal));
             OnPropertyChanged(nameof(Total));
+        }
+
+        private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(CartItem.Quantity) || e.PropertyName == nameof(CartItem.SubTotal))
+            {
+                NotifyAll();
+            }
         }
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
@@ -79,6 +93,8 @@ namespace InnovaTecPOS.Backend.Services
         public decimal UnitPrice { get; set; }
         public int? IdCategoria { get; set; }
         
+        public int StockMax { get; set; } = int.MaxValue;
+        
         // Properties for IMEI handling
         public bool RequiresImei { get; set; }
         
@@ -91,6 +107,14 @@ namespace InnovaTecPOS.Backend.Services
             get => _quantity;
             set
             {
+                if (StockMax > 0 && value > StockMax)
+                {
+                    value = StockMax;
+                }
+                if (value < 1)
+                {
+                    value = 1;
+                }
                 if (_quantity != value)
                 {
                     _quantity = value;
