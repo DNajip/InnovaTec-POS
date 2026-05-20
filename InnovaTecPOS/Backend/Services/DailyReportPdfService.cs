@@ -51,7 +51,7 @@ public class DailyReportPdfService
             .Include(t => t.Venta)
                 .ThenInclude(v => v.Pagos)
                     .ThenInclude(p => p.IdMetodoPagoNavigation)
-            .Where(t => t.FechaApertura >= dateStart && t.FechaApertura <= dateEnd)
+            .Where(t => t.FechaApertura <= dateEnd && (t.FechaCierre == null || t.FechaCierre >= dateStart))
             .OrderBy(t => t.FechaApertura)
             .ToListAsync();
 
