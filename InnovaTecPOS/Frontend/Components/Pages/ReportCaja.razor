@@ -17,23 +17,27 @@ else
             </span>
         </div>
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0" style="font-size: 0.82rem;">
                 <thead style="background: #f8f9fa;">
                     <tr>
-                        <th class="ps-4 py-3 text-uppercase small fw-bold text-muted">Turno</th>
-                        <th class="py-3 text-uppercase small fw-bold text-muted">Cajero</th>
-                        <th class="py-3 text-uppercase small fw-bold text-muted">Apertura</th>
-                        <th class="py-3 text-uppercase small fw-bold text-muted">Cierre</th>
-                        <th class="py-3 text-uppercase small fw-bold text-muted text-end">Téórico</th>
-                        <th class="py-3 text-uppercase small fw-bold text-muted text-end">Real</th>
-                        <th class="py-3 text-uppercase small fw-bold text-muted text-end pe-4">Diferencia</th>
+                        <th class="ps-3 py-2 text-uppercase small fw-bold text-muted text-nowrap">Turno</th>
+                        <th class="px-2 py-2 text-uppercase small fw-bold text-muted text-nowrap">Cajero</th>
+                        <th class="px-2 py-2 text-uppercase small fw-bold text-muted text-nowrap">Apertura</th>
+                        <th class="px-2 py-2 text-uppercase small fw-bold text-muted text-nowrap">Cierre</th>
+                        <th class="px-2 py-2 text-uppercase small fw-bold text-muted text-end text-nowrap">Inicial</th>
+                        <th class="px-2 py-2 text-uppercase small fw-bold text-muted text-end text-nowrap">Efectivo</th>
+                        <th class="px-2 py-2 text-uppercase small fw-bold text-muted text-end text-nowrap">Transf.</th>
+                        <th class="px-2 py-2 text-uppercase small fw-bold text-muted text-end text-nowrap">Tarj.</th>
+                        <th class="px-2 py-2 text-uppercase small fw-bold text-muted text-end text-nowrap">Teórico</th>
+                        <th class="px-2 py-2 text-uppercase small fw-bold text-muted text-end text-nowrap">Real</th>
+                        <th class="pe-3 py-2 text-uppercase small fw-bold text-muted text-end text-nowrap">Diferencia</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (!arqueos.Any())
                     {
                         <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
+                            <td colspan="11" class="text-center py-5 text-muted">
                                 <i class="fas fa-receipt fa-2x mb-2 opacity-50"></i>
                                 <p class="mb-0">No hay registros para este período</p>
                             </td>
@@ -46,13 +50,13 @@ else
                             <tr style="transition: all 0.2s; cursor: pointer;" 
                                 class="@(selectedTurnoId == a.IdTurno ? "table-primary" : "")"
                                 @onclick="() => SelectTurno(a.IdTurno)">
-                                <td class="ps-4 py-3 fw-bold text-primary">#@a.IdTurno</td>
-                                <td class="py-3 fw-semibold">@a.Usuario</td>
-                                <td class="py-3 text-muted">@a.Apertura.ToString("dd/MM HH:mm")</td>
-                                <td class="py-3">
+                                <td class="ps-3 py-2 fw-bold text-primary text-nowrap">#@a.IdTurno</td>
+                                <td class="px-2 py-2 fw-semibold text-nowrap">@a.Usuario</td>
+                                <td class="px-2 py-2 text-muted text-nowrap">@a.Apertura.ToString("dd/MM HH:mm")</td>
+                                <td class="px-2 py-2 text-nowrap">
                                     @if (a.Cierre == null)
                                     {
-                                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-bold" style="font-size: 0.7rem;">
+                                        <span class="badge bg-primary bg-opacity-10 text-primary px-2 py-1 rounded-pill fw-bold" style="font-size: 0.65rem;">
                                             <i class="fas fa-spinner fa-spin me-1"></i> EN CURSO
                                         </span>
                                     }
@@ -61,10 +65,18 @@ else
                                         <span class="text-muted">@a.Cierre?.ToString("dd/MM HH:mm")</span>
                                     }
                                 </td>
-                                <td class="py-3 text-end fw-semibold">C$ @a.SaldoTeorico.ToString("N2")</td>
-                                <td class="py-3 text-end fw-semibold">C$ @a.SaldoReal.ToString("N2")</td>
-                                <td class="py-3 text-end pe-4 fw-bold @(a.Diferencia < 0 ? "text-danger" : a.Diferencia > 0 ? "text-warning" : "text-success")">
-                                    C$ @a.Diferencia.ToString("N2")
+                                <td class="px-2 py-2 text-end fw-semibold text-nowrap">C$&nbsp;@a.MontoInicial.ToString("N2")</td>
+                                <td class="px-2 py-2 text-end fw-semibold text-nowrap">C$&nbsp;@a.VentasEfectivo.ToString("N2")</td>
+                                <td class="px-2 py-2 text-end fw-semibold text-nowrap @(a.VentasTransferencia > 0 ? "text-info" : "")">
+                                    @(a.VentasTransferencia > 0 ? $"C$ {a.VentasTransferencia:N2}".Replace(" ", "\u00A0") : "--")
+                                </td>
+                                <td class="px-2 py-2 text-end fw-semibold text-nowrap @(a.VentasTarjeta > 0 ? "text-info" : "")">
+                                    @(a.VentasTarjeta > 0 ? $"C$ {a.VentasTarjeta:N2}".Replace(" ", "\u00A0") : "--")
+                                </td>
+                                <td class="px-2 py-2 text-end fw-bold text-nowrap">C$&nbsp;@a.SaldoTeorico.ToString("N2")</td>
+                                <td class="px-2 py-2 text-end fw-semibold text-nowrap">C$&nbsp;@a.SaldoReal.ToString("N2")</td>
+                                <td class="pe-3 py-2 text-end fw-bold text-nowrap @(a.Diferencia < 0 ? "text-danger" : a.Diferencia > 0 ? "text-warning" : "text-success")">
+                                    C$&nbsp;@a.Diferencia.ToString("N2")
                                 </td>
                             </tr>
                         }

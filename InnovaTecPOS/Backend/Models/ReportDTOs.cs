@@ -115,6 +115,10 @@ public class ArqueoInsightDTO
     public string Usuario { get; set; } = "";
     public DateTime Apertura { get; set; }
     public DateTime? Cierre { get; set; }
+    public decimal MontoInicial { get; set; }
+    public decimal VentasEfectivo { get; set; }
+    public decimal VentasTransferencia { get; set; }
+    public decimal VentasTarjeta { get; set; }
     public decimal SaldoTeorico { get; set; }
     public decimal SaldoReal { get; set; }
     public decimal Diferencia => SaldoReal - SaldoTeorico;

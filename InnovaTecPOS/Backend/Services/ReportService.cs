@@ -334,7 +334,11 @@ public class ReportService : IReportService
                 Usuario = t.IdUsuarioNavigation?.Username ?? "Sistema",
                 Apertura = t.FechaApertura,
                 Cierre = t.FechaCierre,
-                SaldoTeorico = t.MontoInicialNio + t.TotalVentasNio + ingresosVarios - salidasVarias,
+                MontoInicial = t.MontoInicialNio,
+                VentasEfectivo = t.TotalEfectivoNio,
+                VentasTransferencia = t.TotalTransferencia,
+                VentasTarjeta = t.TotalTarjeta,
+                SaldoTeorico = t.MontoInicialNio + t.TotalEfectivoNio + ingresosVarios - salidasVarias,
                 SaldoReal = t.MontoContadoNio ?? 0,
                 DesglosePagos = desglose
             };
