@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.EntityFrameworkCore;
+using InnovaTecPOS.Backend.Models;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,13 +68,28 @@ public class DailyReportScheduler : BackgroundService
         {
             try
             {
+                var dateToReport = DateTime.Today;
+                var dateStart = dateToReport.Date;
+                var dateEnd = dateToReport.Date.AddDays(1).AddTicks(-1);
+
+                // Validar si hubo actividad en caja (turnos abiertos o cerrados hoy)
+                var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<InnovaTecDbContext>>();
+                using (var context = await contextFactory.CreateDbContextAsync())
+                {
+                    bool hasActiveShifts = await context.Turnos.AnyAsync(t =>
+                        t.FechaApertura <= dateEnd && (t.FechaCierre == null || t.FechaCierre >= dateStart));
+
+                    if (!hasActiveShifts)
+                    {
+                        Console.WriteLine($"DAILY REPORT SCHEDULER: No se detectaron turnos activos o cajas abiertas hoy ({dateToReport:dd/MM/yyyy}). Se omite el envío del reporte diario para evitar un correo vacío.");
+                        return;
+                    }
+                }
+
                 var pdfService = scope.ServiceProvider.GetRequiredService<DailyReportPdfService>();
                 var emailService = scope.ServiceProvider.GetRequiredService<EmailService>();
 
-                // Generar reporte diario para la fecha actual (hoy)
-                var dateToReport = DateTime.Today;
                 Console.WriteLine($"DAILY REPORT SCHEDULER: Generando PDF diario para {dateToReport:dd/MM/yyyy}...");
-                
                 byte[] pdfBytes = await pdfService.GenerateDailyReportPdfAsync(dateToReport);
 
                 Console.WriteLine("DAILY REPORT SCHEDULER: Enviando reporte por correo...");
