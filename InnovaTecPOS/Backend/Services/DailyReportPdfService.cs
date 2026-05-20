@@ -326,19 +326,20 @@ public class DailyReportPdfService
                     var ventasCaja = t.Venta.Where(v => !v.Anulada).ToList();
                     document.Add(new Paragraph("• Detalle de Ventas y Salidas de Inventario").SetFontSize(8.5f).SetFont(boldFont).SetFontColor(secondaryColor).SetMarginBottom(3));
 
-                    // Tabla columnas: Factura, Producto, Cantidad, Método Pago, Pago Con, Vuelto, Subtotal
-                    Table itemsTable = new Table(UnitValue.CreatePercentArray(new float[] { 12, 34, 8, 14, 11, 10, 11 })).UseAllAvailableWidth();
+                    // Tabla columnas: Factura, Producto, Cantidad, Método Pago, Pago Con, Vuelto, Descuento, Subtotal
+                    Table itemsTable = new Table(UnitValue.CreatePercentArray(new float[] { 12, 28, 8, 13, 10, 9, 10, 10 })).UseAllAvailableWidth();
                     itemsTable.AddHeaderCell(CreateHeaderCell("Factura", primaryColor, boldFont));
                     itemsTable.AddHeaderCell(CreateHeaderCell("Producto / Artículo", primaryColor, boldFont));
                     itemsTable.AddHeaderCell(CreateHeaderCell("Cant.", primaryColor, boldFont).SetTextAlignment(TextAlignment.CENTER));
                     itemsTable.AddHeaderCell(CreateHeaderCell("Método", primaryColor, boldFont));
                     itemsTable.AddHeaderCell(CreateHeaderCell("Pago Con", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
                     itemsTable.AddHeaderCell(CreateHeaderCell("Vuelto", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
+                    itemsTable.AddHeaderCell(CreateHeaderCell("Descuento", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
                     itemsTable.AddHeaderCell(CreateHeaderCell("Subtotal", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
 
                     if (!ventasCaja.Any())
                     {
-                        itemsTable.AddCell(new Cell(1, 7).Add(new Paragraph("No se registraron ventas en esta caja.").SetFontSize(8f).SetFont(italicFont).SetTextAlignment(TextAlignment.CENTER)).SetPadding(6));
+                        itemsTable.AddCell(new Cell(1, 8).Add(new Paragraph("No se registraron ventas en esta caja.").SetFontSize(8f).SetFont(italicFont).SetTextAlignment(TextAlignment.CENTER)).SetPadding(6));
                     }
                     else
                     {
@@ -354,7 +355,7 @@ public class DailyReportPdfService
                                 metodoStr = string.Join("+", v.Pagos.Select(p => p.IdMetodoPagoNavigation.Nombre).Distinct());
                             }
 
-                            decimal totalPagoCon = v.Pagos.Sum(p => p.MontoRecibido ?? 0);
+                            decimal totalPagoCon = v.Pagos.Sum(p => p.MontoRecibido == null || p.MontoRecibido == 0 ? p.MontoEnNio : p.MontoRecibido.Value);
                             decimal totalVuelto = v.Pagos.Sum(p => p.VueltoNio ?? 0);
 
                             // Si la venta tiene múltiples detalles, agrupamos la información para que sea legible
@@ -376,12 +377,17 @@ public class DailyReportPdfService
                                 // Cantidad
                                 itemsTable.AddCell(new Cell().Add(new Paragraph(det.Cantidad.ToString()).SetFontSize(8f)).SetBackgroundColor(bg).SetPadding(3).SetTextAlignment(TextAlignment.CENTER));
 
-                                // Método Pago, Pago con, Vuelto (Una sola celda por Venta)
+                                // Método Pago, Pago con, Vuelto, Descuento (Una sola celda por Venta)
                                 if (firstLineOfSale)
                                 {
                                     itemsTable.AddCell(new Cell(listDetalles.Count, 1).Add(new Paragraph(metodoStr).SetFontSize(7.5f)).SetBackgroundColor(bg).SetPadding(3).SetVerticalAlignment(VerticalAlignment.MIDDLE));
                                     itemsTable.AddCell(new Cell(listDetalles.Count, 1).Add(new Paragraph($"C$ {totalPagoCon:N2}").SetFontSize(8f)).SetBackgroundColor(bg).SetPadding(3).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
                                     itemsTable.AddCell(new Cell(listDetalles.Count, 1).Add(new Paragraph(totalVuelto > 0 ? $"C$ {totalVuelto:N2}" : "--").SetFontSize(8f)).SetBackgroundColor(bg).SetPadding(3).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+
+                                    var descText = v.DescuentoNio > 0 ? $"C$ {v.DescuentoNio:N2}" : "--";
+                                    var descColor = v.DescuentoNio > 0 ? new DeviceRgb(220, 38, 38) : textDark;
+                                    var descFont = v.DescuentoNio > 0 ? boldFont : regularFont;
+                                    itemsTable.AddCell(new Cell(listDetalles.Count, 1).Add(new Paragraph(descText).SetFontSize(8f).SetFont(descFont).SetFontColor(descColor)).SetBackgroundColor(bg).SetPadding(3).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
                                 }
 
                                 // Subtotal del artículo
