@@ -4,10 +4,7 @@
 @inject IReportService ReportService
 @inject AppState AppState
 @inject UserSession Session
-@inject IJSRuntime JS
-@inject ExcelExportService ExcelService
-@inject ToastService Toast
-
+@inject UserSession Session
 <div class="report-main-container">
     <InnovaReportSidebar ActiveSection="@activeSection" OnSectionChanged="HandleSectionChange" />
     
@@ -27,23 +24,6 @@
                     <input type="date" class="form-control form-control-sm" @bind="endDate" />
                     <button class="btn btn-primary btn-sm rounded-pill ms-1" @onclick="RefreshData">
                         <i class="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-                
-                <div class="export-actions">
-                    <button class="btn btn-outline-success btn-sm rounded-pill" @onclick="ExportToExcel" disabled="@isExporting">
-                        @if (isExporting)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                            <span>Procesando...</span>
-                        }
-                        else
-                        {
-                            <i class="fas fa-file-excel me-1"></i> <span>Exportar Excel</span>
-                        }
-                    </button>
-                    <button class="btn btn-outline-danger btn-sm rounded-pill">
-                        <i class="fas fa-file-pdf"></i> PDF
                     </button>
                 </div>
             </div>
@@ -81,7 +61,6 @@
 
 @code {
     private string activeSection = "dashboard";
-    private bool isExporting = false;
     private DateTime startDate { get => AppState.ReportStartDate; set => AppState.ReportStartDate = value; }
     private DateTime endDate { get => AppState.ReportEndDate; set => AppState.ReportEndDate = value; }
 
@@ -106,36 +85,5 @@
     private async Task RefreshData()
     {
         StateHasChanged();
-    }
-
-    private async Task ExportToExcel()
-    {
-        if (isExporting) return;
-        
-        try 
-        {
-            isExporting = true;
-            StateHasChanged();
-
-            string fileName = $"InnovaTec_Reporte_Ejecutivo_{DateTime.Now:yyyyMMdd}.xlsx";
-            var fileBytes = await ExcelService.ExportFullReportAsync(startDate, endDate);
-
-            // Método robusto usando Stream para preservar nombre y extensión
-            using var stream = new MemoryStream(fileBytes);
-            using var dotnetStreamRef = new DotNetStreamReference(stream);
-            
-            await JS.InvokeVoidAsync("downloadFileFromStream", fileName, dotnetStreamRef);
-            
-            Toast.ShowSuccess("Excel generado", "El reporte ejecutivo se ha descargado correctamente.");
-        }
-        catch (Exception ex)
-        {
-            Toast.ShowError("Error de Exportación", "No se pudo generar el archivo Excel: " + ex.Message);
-        }
-        finally
-        {
-            isExporting = false;
-            StateHasChanged();
-        }
     }
 }
