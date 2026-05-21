@@ -24,6 +24,7 @@ public interface IReportService
     Task<List<CategoryStatDTO>> GetCategorySalesAsync(DateTime start, DateTime end);
     Task<List<SystemAlertDTO>> GetSystemAlertsAsync();
     Task<VClienteDashboardStat> GetClienteDashboardStatsAsync();
+    Task<List<Movimiento>> GetKardexGlobalAsync(DateTime start, DateTime end);
 }
 
 public class ReportService : IReportService
@@ -477,5 +478,16 @@ public class ReportService : IReportService
     {
         if (anterior == 0) return actual > 0 ? 100 : 0;
         return ((actual - anterior) / anterior) * 100;
+    }
+
+    public async Task<List<Movimiento>> GetKardexGlobalAsync(DateTime start, DateTime end)
+    {
+        end = end.Date.AddDays(1).AddTicks(-1);
+        return await _context.Movimientos
+            .Include(m => m.IdProductoNavigation)
+            .Include(m => m.IdTipoMovNavigation)
+            .Where(m => m.FechaMov >= start && m.FechaMov <= end)
+            .OrderByDescending(m => m.FechaMov)
+            .ToListAsync();
     }
 }

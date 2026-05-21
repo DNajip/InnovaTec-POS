@@ -96,7 +96,7 @@ function resizeImage(url, maxWidth, maxHeight) {
 window.qzPrintInvoice = async (invoice, printerName) => {
     try {
         if (!qz.websocket.isActive()) {
-            await qz.websocket.connect();
+            await qz.websocket.connect({ retries: 1, delay: 1 });
         }
 
         let printer = printerName;
@@ -219,7 +219,6 @@ window.qzPrintInvoice = async (invoice, printerName) => {
         
     } catch (err) {
         console.error("Error en QZ Tray:", err);
-        alert("Error al imprimir: " + err.message);
         throw err;
     }
 };
@@ -227,7 +226,7 @@ window.qzPrintInvoice = async (invoice, printerName) => {
 window.qzListPrinters = async () => {
     try {
         if (!qz.websocket.isActive()) {
-            await qz.websocket.connect();
+            await qz.websocket.connect({ retries: 1, delay: 1 });
         }
         return await qz.printers.find();
     } catch (err) {
@@ -239,7 +238,7 @@ window.qzListPrinters = async () => {
 window.qzTestPrint = async (printerName, businessName) => {
     try {
         if (!qz.websocket.isActive()) {
-            await qz.websocket.connect();
+            await qz.websocket.connect({ retries: 1, delay: 1 });
         }
         
         const config = qz.configs.create(printerName);
@@ -270,7 +269,7 @@ window.qzTestPrint = async (printerName, businessName) => {
 window.qzOpenDrawer = async (printerName) => {
     try {
         if (!qz.websocket.isActive()) {
-            await qz.websocket.connect();
+            await qz.websocket.connect({ retries: 1, delay: 1 });
         }
         
         let printer = printerName;
@@ -293,7 +292,7 @@ window.qzOpenDrawer = async (printerName) => {
 window.qzPrintShiftClosing = async (shift, config_negocio) => {
     try {
         if (!qz.websocket.isActive()) {
-            await qz.websocket.connect();
+            await qz.websocket.connect({ retries: 1, delay: 1 });
         }
         
         let printer = config_negocio.printerName;
@@ -368,7 +367,7 @@ window.qzPrintShiftClosing = async (shift, config_negocio) => {
 window.qzPrintLabelPixel = async (base64Data, printerName, widthMm, heightMm) => {
     try {
         if (!qz.websocket.isActive()) {
-            await qz.websocket.connect();
+            await qz.websocket.connect({ retries: 1, delay: 1 });
         }
 
         const config = qz.configs.create(printerName, {
@@ -398,7 +397,7 @@ window.qzPrintLabelPixel = async (base64Data, printerName, widthMm, heightMm) =>
 window.qzPrintPdf = async (base64Pdf, printerName) => {
     try {
         if (!qz.websocket.isActive()) {
-            await qz.websocket.connect();
+            await qz.websocket.connect({ retries: 1, delay: 1 });
         }
 
         const config = qz.configs.create(printerName);
@@ -421,7 +420,7 @@ window.qzPrintPdf = async (base64Pdf, printerName) => {
 window.qzPrintLabelPdf = async (base64Pdf, printerName, templateType) => {
     try {
         if (!qz.websocket.isActive()) {
-            await qz.websocket.connect();
+            await qz.websocket.connect({ retries: 1, delay: 1 });
         }
 
         // Definir altura según la plantilla seleccionada
