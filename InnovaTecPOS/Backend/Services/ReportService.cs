@@ -212,9 +212,9 @@ public class ReportService : IReportService
             {
                 IdProducto = p.IdProducto,
                 Nombre = p.Nombre,
-                Categoria = p.IdCategoriaNavigation.Nombre,
-                Marca = p.Marca,
-                Modelo = p.Modelo,
+                Categoria = p.IdCategoriaNavigation != null ? p.IdCategoriaNavigation.Nombre : "Sin categoría",
+                Marca = p.Marca ?? "",
+                Modelo = p.Modelo ?? "",
                 StockActual = p.StockActual,
                 StockMinimo = p.StockMinimo,
                 EstadoStock = p.EstadoStock,
@@ -439,7 +439,7 @@ public class ReportService : IReportService
             .Include(d => d.IdProductoNavigation)
                 .ThenInclude(p => p.IdCategoriaNavigation)
             .Where(d => d.IdVentaNavigation.FechaVenta >= start && d.IdVentaNavigation.FechaVenta <= end && !d.IdVentaNavigation.Anulada)
-            .GroupBy(d => d.IdProductoNavigation.IdCategoriaNavigation.Nombre)
+            .GroupBy(d => d.IdProductoNavigation.IdCategoriaNavigation != null ? d.IdProductoNavigation.IdCategoriaNavigation.Nombre : "Sin categoría")
             .Select(g => new CategoryStatDTO
             {
                 Categoria = g.Key ?? "Otros",

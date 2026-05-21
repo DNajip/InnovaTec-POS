@@ -25,40 +25,77 @@ public class DailyReportScheduler : BackgroundService
         {
             try
             {
-                // Calcular tiempo de retraso hasta las 7:00 PM del día actual o siguiente
                 var now = DateTime.Now;
                 var targetTime = new DateTime(now.Year, now.Month, now.Day, 19, 0, 0); // 7:00 PM (19:00)
+                bool isDelayed = false;
 
-                // Si ya pasaron las 7:00 PM hoy, programar para mañana a las 7:00 PM
+                // Si ya pasaron las 7:00 PM hoy, revisamos si ya se mandó el de hoy
                 if (now >= targetTime)
                 {
-                    targetTime = targetTime.AddDays(1);
+                    bool sentToday = await CheckIfReportSentTodayAsync();
+                    if (!sentToday)
+                    {
+                        Console.WriteLine("DAILY REPORT SCHEDULER: Se detectó que el reporte de hoy a las 19:00 no fue enviado. Forzando envío retrasado...");
+                        isDelayed = true;
+                    }
+                    else
+                    {
+                        // Ya se envió hoy, programar para mañana a las 7:00 PM
+                        targetTime = targetTime.AddDays(1);
+                    }
                 }
 
-                var delay = targetTime - now;
-                Console.WriteLine($"DAILY REPORT SCHEDULER: Próxima ejecución programada para {targetTime:dd/MM/yyyy hh:mm tt} (Faltan: {delay.TotalHours:N2} horas).");
+                if (!isDelayed)
+                {
+                    var delay = targetTime - now;
+                    Console.WriteLine($"DAILY REPORT SCHEDULER: Próxima ejecución programada para {targetTime:dd/MM/yyyy hh:mm tt} (Faltan: {delay.TotalHours:N2} horas).");
 
-                // Esperar hasta la hora objetivo
-                await Task.Delay(delay, stoppingToken);
+                    // Esperar hasta la hora objetivo
+                    await Task.Delay(delay, stoppingToken);
+                }
 
                 // Ejecutar proceso de generación y envío
                 Console.WriteLine("DAILY REPORT SCHEDULER: Es hora de enviar el reporte consolidado diario. Ejecutando...");
                 await ExecuteReportAndSendAsync();
 
-                // Esperar un minuto adicional antes de la siguiente iteración para evitar disparos duplicados inmediatos
+                // Esperar 2 minutos adicionales antes de la siguiente iteración para evitar disparos duplicados rápidos
                 await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
             }
             catch (TaskCanceledException)
             {
-                // El servicio se está deteniendo
                 Console.WriteLine("DAILY REPORT SCHEDULER: Planificador cancelado debido al apagado del servicio.");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"DAILY REPORT SCHEDULER ERROR: Error en el ciclo del planificador: {ex.Message}");
-                // Esperar 15 minutos en caso de error crítico antes de reintentar para evitar bucles rápidos
+                // Esperar 15 minutos en caso de error crítico antes de reintentar
                 await Task.Delay(TimeSpan.FromMinutes(15), stoppingToken);
             }
+        }
+    }
+
+    private async Task<bool> CheckIfReportSentTodayAsync()
+    {
+        try
+        {
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<InnovaTecDbContext>>();
+                using (var context = await contextFactory.CreateDbContextAsync())
+                {
+                    var config = await context.Configuracions.FirstOrDefaultAsync(c => c.Clave == "LastDailyReportSentDate");
+                    if (config != null && config.Valor == DateTime.Today.ToString("yyyy-MM-dd"))
+                    {
+                        return true;
+                    }
+                    return false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"DAILY REPORT SCHEDULER: Error revisando estado de envío: {ex.Message}");
+            return false;
         }
     }
 
@@ -71,37 +108,41 @@ public class DailyReportScheduler : BackgroundService
                 var dateToReport = DateTime.Today;
                 var dateStart = dateToReport.Date;
                 var dateEnd = dateToReport.Date.AddDays(1).AddTicks(-1);
-
-                // Validar si hubo actividad en caja (turnos abiertos o cerrados hoy)
+                
                 var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<InnovaTecDbContext>>();
                 using (var context = await contextFactory.CreateDbContextAsync())
                 {
+                    // Validar si hubo actividad en caja (turnos abiertos o cerrados hoy)
                     bool hasActiveShifts = await context.Turnos.AnyAsync(t =>
                         t.FechaApertura <= dateEnd && (t.FechaCierre == null || t.FechaCierre >= dateStart));
 
                     if (!hasActiveShifts)
                     {
-                        Console.WriteLine($"DAILY REPORT SCHEDULER: No se detectaron turnos activos o cajas abiertas hoy ({dateToReport:dd/MM/yyyy}). Se omite el envío del reporte diario para evitar un correo vacío.");
+                        Console.WriteLine($"DAILY REPORT SCHEDULER: No se detectaron turnos activos o cajas abiertas hoy ({dateToReport:dd/MM/yyyy}). Se omite el envío del reporte.");
+                        
+                        // Actualizar registro en BD para no intentar enviarlo múltiples veces hoy
+                        await MarkReportAsSentAsync(context, dateToReport);
                         return;
                     }
-                }
 
-                var pdfService = scope.ServiceProvider.GetRequiredService<DailyReportPdfService>();
-                var emailService = scope.ServiceProvider.GetRequiredService<EmailService>();
+                    var pdfService = scope.ServiceProvider.GetRequiredService<DailyReportPdfService>();
+                    var emailService = scope.ServiceProvider.GetRequiredService<EmailService>();
 
-                Console.WriteLine($"DAILY REPORT SCHEDULER: Generando PDF diario para {dateToReport:dd/MM/yyyy}...");
-                byte[] pdfBytes = await pdfService.GenerateDailyReportPdfAsync(dateToReport);
+                    Console.WriteLine($"DAILY REPORT SCHEDULER: Generando PDF diario para {dateToReport:dd/MM/yyyy}...");
+                    byte[] pdfBytes = await pdfService.GenerateDailyReportPdfAsync(dateToReport);
 
-                Console.WriteLine("DAILY REPORT SCHEDULER: Enviando reporte por correo...");
-                bool sent = await emailService.SendDailyReportEmailAsync(pdfBytes, dateToReport);
+                    Console.WriteLine("DAILY REPORT SCHEDULER: Enviando reporte por correo...");
+                    bool sent = await emailService.SendDailyReportEmailAsync(pdfBytes, dateToReport);
 
-                if (sent)
-                {
-                    Console.WriteLine("DAILY REPORT SCHEDULER: Reporte diario procesado y enviado con éxito.");
-                }
-                else
-                {
-                    Console.WriteLine("DAILY REPORT SCHEDULER: No se pudo enviar el reporte por correo. Verifique logs y configuración.");
+                    if (sent)
+                    {
+                        Console.WriteLine("DAILY REPORT SCHEDULER: Reporte diario procesado y enviado con éxito.");
+                        await MarkReportAsSentAsync(context, dateToReport);
+                    }
+                    else
+                    {
+                        Console.WriteLine("DAILY REPORT SCHEDULER: No se pudo enviar el reporte por correo. Verifique logs y configuración.");
+                    }
                 }
             }
             catch (Exception ex)
@@ -113,5 +154,27 @@ public class DailyReportScheduler : BackgroundService
                 }
             }
         }
+    }
+
+    private async Task MarkReportAsSentAsync(InnovaTecDbContext context, DateTime dateToReport)
+    {
+        var config = await context.Configuracions.FirstOrDefaultAsync(c => c.Clave == "LastDailyReportSentDate");
+        if (config == null)
+        {
+            config = new Configuracion 
+            { 
+                Clave = "LastDailyReportSentDate", 
+                Valor = dateToReport.ToString("yyyy-MM-dd"), 
+                SoloAdmin = true, 
+                UltimaModificacion = DateTime.Now 
+            };
+            context.Configuracions.Add(config);
+        }
+        else
+        {
+            config.Valor = dateToReport.ToString("yyyy-MM-dd");
+            config.UltimaModificacion = DateTime.Now;
+        }
+        await context.SaveChangesAsync();
     }
 }

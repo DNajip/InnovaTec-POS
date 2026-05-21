@@ -102,7 +102,7 @@ public class DailyReportPdfService
             headerTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
 
             // Renderizado del Logo
-            Image img = null;
+            Image? img = null;
             if (!string.IsNullOrEmpty(logoSetting))
             {
                 try

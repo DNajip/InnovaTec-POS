@@ -150,7 +150,7 @@ public class ExportService : IExportService
                 Table headerTable = new Table(UnitValue.CreatePercentArray(new float[] { 10, 90 })).UseAllAvailableWidth();
                 headerTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
 
-                Image img = null;
+                Image? img = null;
                 if (!string.IsNullOrEmpty(logoSetting))
                 {
                     try

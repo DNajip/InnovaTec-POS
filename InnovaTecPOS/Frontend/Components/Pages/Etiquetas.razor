@@ -185,7 +185,7 @@
                                 @foreach (var prod in printSearchResults)
                                 {
                                     <div class="print-search-item p-2 border-bottom @(printSelectedProduct?.IdProducto == prod.IdProducto ? "bg-primary-subtle" : "")" 
-                                         @onclick="() => SelectPrintProduct(prod)">
+                                         @onclick="async () => await SelectPrintProduct(prod)">
                                         <div class="small fw-bold">@prod.Nombre</div>
                                         <div class="smaller text-muted">@(prod.CodigoBarras ?? "Sin Código") | C$ @prod.PrecioVenta:N2</div>
                                     </div>
@@ -709,12 +709,12 @@
         printSearchResults = await ProductService.SearchProductsAsync(printSearchTerm);
     }
 
-    private void SelectPrintProduct(Producto prod)
+    private async Task SelectPrintProduct(Producto prod)
     {
         printSelectedProduct = prod;
         printSearchResults.Clear();
         printSearchTerm = prod.Nombre;
-        UpdatePrintPreview();
+        await UpdatePrintPreview();
     }
 
     private void SetPage(int page)
