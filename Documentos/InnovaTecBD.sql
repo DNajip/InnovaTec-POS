@@ -151,7 +151,8 @@ INSERT INTO CAT.MODULOS (NOMBRE, ICONO, CONTROLLER, ORDEN) VALUES
     ('Caja',        'fa-vault',         'Caja',         3),
     ('Reportes',    'fa-chart-bar',     'Reportes',     4),
     ('Usuarios',    'fa-users-cog',     'Usuarios',     5),
-    ('Configuracion','fa-cog',          'Configuracion',6);
+    ('Configuracion','fa-cog',          'Configuracion',6),
+    ('Etiquetas',   'fa-barcode',       'Etiquetas',    7);
 GO
 
 -- Tipos de movimiento de inventario
@@ -211,7 +212,7 @@ CREATE TABLE ADM.PERSONAS (
     PRIMER_APELLIDO     VARCHAR(40) NOT NULL,
     SEGUNDO_APELLIDO    VARCHAR(40) NULL,
     ID_TIPO_ID          INT NOT NULL,
-    NUM_IDENTIFICACION  VARCHAR(25) NOT NULL,
+    NUM_IDENTIFICACION  VARCHAR(25) NOT NULL CONSTRAINT UQ_PERSONA_IDENTIFICACION UNIQUE,
     ID_GENERO           INT NULL,
     TELEFONO            VARCHAR(20) NULL,
     EMAIL               VARCHAR(100) NULL,
@@ -220,7 +221,6 @@ CREATE TABLE ADM.PERSONAS (
     ES_EMPLEADO         BIT NOT NULL DEFAULT 0,
     FECHA_CREACION      DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     ID_ESTADO           INT NOT NULL DEFAULT 1,
-    CONSTRAINT UQ_PERSONA_IDENTIFICACION UNIQUE (ID_TIPO_ID, NUM_IDENTIFICACION),
     FOREIGN KEY (ID_TIPO_ID)  REFERENCES CAT.TIPO_IDENTIFICACION(ID_TIPO),
     FOREIGN KEY (ID_GENERO)   REFERENCES CAT.GENEROS(ID_GENERO),
     FOREIGN KEY (ID_ESTADO)   REFERENCES CAT.ESTADOS(ID_ESTADO)

@@ -69,14 +69,13 @@ public class DailyReportPdfService
         decimal descuentos = ventasActivas.Sum(v => v.DescuentoNio);
         decimal ventasNetas = ventasActivas.Sum(v => v.TotalNio); // Neto con descuento aplicado
 
-        // Desglose de formas de pago
         var desglosePagos = ventasActivas
             .SelectMany(v => v.Pagos)
             .GroupBy(p => p.IdMetodoPagoNavigation.Nombre)
             .Select(g => new
             {
                 Metodo = g.Key,
-                Total = g.Sum(p => p.MontoEnNio)
+                Total = g.Sum(p => p.MontoEnNio - (p.VueltoNio ?? 0))
             })
             .ToList();
 
@@ -186,7 +185,7 @@ public class DailyReportPdfService
                     var bg = rowIdx % 2 == 0 ? ColorConstants.WHITE : lightGray;
                     decimal ingresosVarios = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO").Sum(m => m.Monto);
                     decimal egresosVarios = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO").Sum(m => m.Monto);
-                    decimal saldoTeorico = t.MontoInicialNio + t.TotalVentasNio + ingresosVarios - egresosVarios;
+                    decimal saldoTeorico = t.MontoInicialNio + t.TotalEfectivoNio + ingresosVarios - egresosVarios;
                     decimal saldoReal = t.MontoContadoNio ?? 0;
                     decimal diferencia = saldoReal - saldoTeorico;
 

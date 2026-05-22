@@ -68,6 +68,10 @@ public class ClienteService : IClienteService
             persona.NumIdentificacion = persona.NumIdentificacion.Replace("-", "").Replace(" ", "").ToUpper();
         }
 
+        var exists = await context.Personas.AnyAsync(p => p.NumIdentificacion == persona.NumIdentificacion);
+        if (exists)
+            throw new Exception($"Ya existe una persona registrada con la identificación {persona.NumIdentificacion}.");
+
         persona.EsCliente = true;
         persona.EsEmpleado = false;
         persona.FechaCreacion = DateTime.Now;
@@ -99,6 +103,11 @@ public class ClienteService : IClienteService
         {
             existing.NumIdentificacion = persona.NumIdentificacion;
         }
+
+        var exists = await context.Personas.AnyAsync(p => p.NumIdentificacion == existing.NumIdentificacion && p.IdPersona != existing.IdPersona);
+        if (exists)
+            throw new Exception($"Ya existe otra persona registrada con la identificación {existing.NumIdentificacion}.");
+
         existing.IdGenero = persona.IdGenero;
         existing.Telefono = persona.Telefono;
         existing.Email = persona.Email;

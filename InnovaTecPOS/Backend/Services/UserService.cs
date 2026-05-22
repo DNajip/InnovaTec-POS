@@ -90,7 +90,7 @@ public class UserService
 
         // 2. Buscar o Crear Persona
         var persona = await context.Personas
-            .FirstOrDefaultAsync(p => p.IdTipoId == dto.IdTipoId && p.NumIdentificacion == dto.NumIdentificacion);
+            .FirstOrDefaultAsync(p => p.NumIdentificacion == dto.NumIdentificacion);
 
         if (persona == null)
         {

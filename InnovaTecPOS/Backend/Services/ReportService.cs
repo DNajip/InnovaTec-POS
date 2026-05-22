@@ -119,8 +119,8 @@ public class ReportService : IReportService
             .Select(g => new PaymentMethodStatDTO
             {
                 Metodo = g.Key,
-                Total = g.Sum(p => p.MontoEnNio),
-                Porcentaje = (double)(g.Sum(p => p.MontoEnNio) / (total > 0 ? total : 1) * 100)
+                Total = g.Sum(p => p.MontoEnNio - (p.VueltoNio ?? 0)),
+                Porcentaje = (double)(g.Sum(p => p.MontoEnNio - (p.VueltoNio ?? 0)) / (total > 0 ? total : 1) * 100)
             })
             .ToList();
     }
@@ -326,7 +326,7 @@ public class ReportService : IReportService
                 .Select(g => new PaymentMethodStatDTO
                 {
                     Metodo = g.Key,
-                    Total = g.Sum(p => p.MontoEnNio)
+                    Total = g.Sum(p => p.MontoEnNio - (p.VueltoNio ?? 0))
                 }).ToList();
 
             return new ArqueoInsightDTO
