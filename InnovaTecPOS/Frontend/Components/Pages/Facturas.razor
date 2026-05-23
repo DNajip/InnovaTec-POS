@@ -385,7 +385,7 @@
             telefono = AppState.BusinessPhone,
             logoPath = AppState.BusinessLogo,
             mensajeTicket = AppState.TicketMessage,
-            abrirCajon = AppState.OpenCashDrawer,
+            abrirCajon = false, // Nunca abrir caja al reimprimir
             simboloMoneda = "C$ ",
             cliente = selectedVenta.IdPersonaNavigation?.NombreCompleto ?? "Cliente General",
             vendedor = selectedVenta.IdUsuarioNavigation?.Username ?? "N/A",

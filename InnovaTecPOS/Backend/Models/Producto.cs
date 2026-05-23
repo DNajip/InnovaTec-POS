@@ -35,6 +35,10 @@ public partial class Producto
 
     public bool Activo { get; set; }
 
+    public DateTime? FechaDesactivacion { get; set; }
+
+    public bool Archivado { get; set; }
+
     public DateTime FechaCreacion { get; set; }
 
     public int? CreadoPor { get; set; }

@@ -319,6 +319,8 @@ CREATE TABLE INV.PRODUCTOS (
     STOCK_ACTUAL    INT  NOT NULL DEFAULT 0,
     STOCK_MINIMO    INT  NOT NULL DEFAULT 0, --Es editable por el usuario
     ACTIVO          BIT  NOT NULL DEFAULT 1,
+    FECHA_DESACTIVACION DATETIME2 NULL,
+    ARCHIVADO       BIT  NOT NULL DEFAULT 0,
     FECHA_CREACION  DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     CREADO_POR      INT NULL,
     CONSTRAINT CHK_INV_STOCK_POSITIVO CHECK (STOCK_ACTUAL >= 0),
@@ -843,7 +845,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SELECT * FROM INV.V_PRODUCTOS_DETALLE
-    WHERE (@IncluirInactivos = 1 OR ACTIVO = 1)
+    WHERE (@IncluirInactivos = 1 OR ACTIVO = 1) AND ARCHIVADO = 0
       AND (@IdCategoria IS NULL OR ID_CATEGORIA = @IdCategoria OR @IdCategoria = 0)
       AND (@Busqueda IS NULL OR @Busqueda = '' OR
            NOMBRE LIKE '%' + @Busqueda + '%' OR 
@@ -893,13 +895,13 @@ BEGIN
 
     IF @IdProducto IS NULL OR @IdProducto = 0
     BEGIN
-        INSERT INTO INV.PRODUCTOS (CODIGO_BARRAS, NOMBRE, MARCA, MODELO, ALMACENAMIENTO, COLOR, ID_CATEGORIA, TIPO_PRODUCTO, PRECIO_COMPRA, PRECIO_VENTA, STOCK_ACTUAL, STOCK_MINIMO, ACTIVO, CREADO_POR)
-        VALUES (@CodigoBarras, @Nombre, @Marca, @Modelo, @Almacenamiento, @Color, @IdCategoria, @TipoProducto, @PrecioCompra, @PrecioVenta, @StockActual, @StockMinimo, @Activo, @UsuarioId);
+        INSERT INTO INV.PRODUCTOS (CODIGO_BARRAS, NOMBRE, MARCA, MODELO, ALMACENAMIENTO, COLOR, ID_CATEGORIA, TIPO_PRODUCTO, PRECIO_COMPRA, PRECIO_VENTA, STOCK_ACTUAL, STOCK_MINIMO, ACTIVO, CREADO_POR, FECHA_DESACTIVACION)
+        VALUES (@CodigoBarras, @Nombre, @Marca, @Modelo, @Almacenamiento, @Color, @IdCategoria, @TipoProducto, @PrecioCompra, @PrecioVenta, @StockActual, @StockMinimo, @Activo, @UsuarioId, CASE WHEN @Activo = 0 THEN SYSDATETIME() ELSE NULL END);
         SET @IdProducto = SCOPE_IDENTITY();
     END
     ELSE
     BEGIN
-        UPDATE INV.PRODUCTOS SET CODIGO_BARRAS = @CodigoBarras, NOMBRE = @Nombre, MARCA = @Marca, MODELO = @Modelo, ALMACENAMIENTO = @Almacenamiento, COLOR = @Color, ID_CATEGORIA = @IdCategoria, TIPO_PRODUCTO = @TipoProducto, PRECIO_COMPRA = @PrecioCompra, PRECIO_VENTA = @PrecioVenta, STOCK_ACTUAL = @StockActual, STOCK_MINIMO = @StockMinimo, ACTIVO = @Activo
+        UPDATE INV.PRODUCTOS SET CODIGO_BARRAS = @CodigoBarras, NOMBRE = @Nombre, MARCA = @Marca, MODELO = @Modelo, ALMACENAMIENTO = @Almacenamiento, COLOR = @Color, ID_CATEGORIA = @IdCategoria, TIPO_PRODUCTO = @TipoProducto, PRECIO_COMPRA = @PrecioCompra, PRECIO_VENTA = @PrecioVenta, STOCK_ACTUAL = @StockActual, STOCK_MINIMO = @StockMinimo, ACTIVO = @Activo, FECHA_DESACTIVACION = CASE WHEN ACTIVO = 1 AND @Activo = 0 THEN SYSDATETIME() WHEN @Activo = 1 THEN NULL ELSE FECHA_DESACTIVACION END
         WHERE ID_PRODUCTO = @IdProducto;
     END
     COMMIT TRANSACTION;

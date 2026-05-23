@@ -58,6 +58,10 @@ public class DailyReportScheduler : BackgroundService
                 Console.WriteLine("DAILY REPORT SCHEDULER: Es hora de enviar el reporte consolidado diario. Ejecutando...");
                 await ExecuteReportAndSendAsync();
 
+                // Ejecutar limpieza de productos (Archivado)
+                Console.WriteLine("DAILY REPORT SCHEDULER: Ejecutando limpieza de productos desactivados (Archivado automático)...");
+                await ExecuteProductCleanupAsync();
+
                 // Esperar 2 minutos adicionales antes de la siguiente iteración para evitar disparos duplicados rápidos
                 await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
             }
@@ -176,5 +180,40 @@ public class DailyReportScheduler : BackgroundService
             config.UltimaModificacion = DateTime.Now;
         }
         await context.SaveChangesAsync();
+    }
+
+    private async Task ExecuteProductCleanupAsync()
+    {
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            try
+            {
+                var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<InnovaTecDbContext>>();
+                using (var context = await contextFactory.CreateDbContextAsync())
+                {
+                    var thresholdDate = DateTime.Now.AddMonths(-6);
+                    
+                    var productosAArchivar = await context.Productos
+                        .Where(p => !p.Activo && !p.Archivado && p.FechaDesactivacion != null && p.FechaDesactivacion <= thresholdDate)
+                        .ToListAsync();
+
+                    if (productosAArchivar.Any())
+                    {
+                        Console.WriteLine($"DAILY REPORT SCHEDULER: Se encontraron {productosAArchivar.Count} productos inactivos por más de 6 meses. Procediendo a archivar...");
+                        foreach (var prod in productosAArchivar)
+                        {
+                            prod.Archivado = true;
+                        }
+                        
+                        await context.SaveChangesAsync();
+                        Console.WriteLine($"DAILY REPORT SCHEDULER: {productosAArchivar.Count} productos han sido archivados exitosamente.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"DAILY REPORT SCHEDULER CLEANUP ERROR: {ex.Message}");
+            }
+        }
     }
 }

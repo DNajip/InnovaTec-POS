@@ -166,7 +166,7 @@
                                 <div class="col-5">
                                     <label class="small text-muted mb-1">Monto a Pagar</label>
                                     <div class="input-group">
-                                        <span class="input-group-text bg-light border-0">C$</span>
+                                        <span class="input-group-text bg-light border-0 fw-bold">@(metodosPago.FirstOrDefault(m => m.IdMetodo == currentPayment.IdMetodoPago)?.IdMonedaNavigation?.Simbolo ?? "C$")</span>
                                         <input type="number" step="0.01" class="form-control bg-light border-0 fw-bold" @bind="currentPayment.Monto" />
                                     </div>
                                 </div>
@@ -371,11 +371,8 @@
 
             ToastService.ShowSuccess("Venta procesada con éxito.");
             
-            // Imprimir Ticket automáticamente si hay una impresora configurada
-            if (!string.IsNullOrEmpty(AppState.PrinterName))
-            {
-                await ImprimirTicketVenta(result);
-            }
+            // Imprimir Ticket automáticamente (el JS tiene fallback a impresora por defecto si PrinterName está vacío)
+            await ImprimirTicketVenta(result);
 
             await OnSuccess.InvokeAsync();
         }
@@ -393,6 +390,12 @@
     {
         try
         {
+            // Determinar si debemos abrir la caja
+            // Se abre si está configurado globalmente Y (pagaron con efectivo O hay vuelto que dar)
+            bool pagoConEfectivo = selectedPayments.Any(p => p.MetodoNombre.Contains("Efectivo", StringComparison.OrdinalIgnoreCase));
+            bool hayVuelto = SaldoRestante < 0;
+            bool debeAbrirCajon = AppState.OpenCashDrawer && (pagoConEfectivo || hayVuelto);
+
             var invoiceData = new
             {
                 numeroFactura = venta.NumeroFactura,
@@ -403,7 +406,7 @@
                 telefono = AppState.BusinessPhone,
                 logoPath = AppState.BusinessLogo,
                 mensajeTicket = AppState.TicketMessage,
-                abrirCajon = AppState.OpenCashDrawer,
+                abrirCajon = debeAbrirCajon,
                 simboloMoneda = "C$ ",
                 cliente = selectedClient?.NombreCompleto ?? "Cliente General",
                 vendedor = UserSession.Username ?? "N/A",

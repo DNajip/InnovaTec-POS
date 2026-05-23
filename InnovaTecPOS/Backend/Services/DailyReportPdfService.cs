@@ -169,7 +169,7 @@ public class DailyReportPdfService
             turnosTable.AddHeaderCell(CreateHeaderCell("Apertura", primaryColor, boldFont));
             turnosTable.AddHeaderCell(CreateHeaderCell("Cierre", primaryColor, boldFont));
             turnosTable.AddHeaderCell(CreateHeaderCell("Inicial", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
-            turnosTable.AddHeaderCell(CreateHeaderCell("Ventas", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
+            turnosTable.AddHeaderCell(CreateHeaderCell("Efectivo", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
             turnosTable.AddHeaderCell(CreateHeaderCell("Contado", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
             turnosTable.AddHeaderCell(CreateHeaderCell("Diferencia", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
 
@@ -194,7 +194,7 @@ public class DailyReportPdfService
                     turnosTable.AddCell(new Cell().Add(new Paragraph(t.FechaApertura.ToString("dd/MM HH:mm")).SetFontSize(8f)).SetBackgroundColor(bg).SetPadding(4));
                     turnosTable.AddCell(new Cell().Add(new Paragraph(t.FechaCierre?.ToString("dd/MM HH:mm") ?? "EN CURSO").SetFontSize(8f).SetFont(t.FechaCierre == null ? boldFont : regularFont).SetFontColor(t.FechaCierre == null ? secondaryColor : textDark)).SetBackgroundColor(bg).SetPadding(4));
                     turnosTable.AddCell(new Cell().Add(new Paragraph($"C$ {t.MontoInicialNio:N2}").SetFontSize(8.5f)).SetBackgroundColor(bg).SetPadding(4).SetTextAlignment(TextAlignment.RIGHT));
-                    turnosTable.AddCell(new Cell().Add(new Paragraph($"C$ {t.TotalVentasNio:N2}").SetFontSize(8.5f)).SetBackgroundColor(bg).SetPadding(4).SetTextAlignment(TextAlignment.RIGHT));
+                    turnosTable.AddCell(new Cell().Add(new Paragraph($"C$ {t.TotalEfectivoNio:N2}").SetFontSize(8.5f)).SetBackgroundColor(bg).SetPadding(4).SetTextAlignment(TextAlignment.RIGHT));
                     turnosTable.AddCell(new Cell().Add(new Paragraph(t.FechaCierre != null ? $"C$ {saldoReal:N2}" : "--").SetFontSize(8.5f)).SetBackgroundColor(bg).SetPadding(4).SetTextAlignment(TextAlignment.RIGHT));
 
                     var diffColor = diferencia < 0 ? new DeviceRgb(220, 38, 38) : (diferencia > 0 ? new DeviceRgb(217, 119, 6) : new DeviceRgb(22, 163, 74));

@@ -675,6 +675,11 @@ public partial class InnovaTecDbContext : DbContext
             entity.Property(e => e.FechaCreacion)
                 .HasDefaultValueSql("(sysdatetime())")
                 .HasColumnName("FECHA_CREACION");
+            entity.Property(e => e.FechaDesactivacion)
+                .HasColumnName("FECHA_DESACTIVACION");
+            entity.Property(e => e.Archivado)
+                .HasDefaultValue(false)
+                .HasColumnName("ARCHIVADO");
             entity.Property(e => e.IdCategoria).HasColumnName("ID_CATEGORIA");
             entity.Property(e => e.Marca)
                 .HasMaxLength(100)

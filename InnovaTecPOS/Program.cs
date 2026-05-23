@@ -10,7 +10,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents(options => options.DetailedErrors = true);
+    .AddInteractiveServerComponents(options =>
+    {
+        options.DetailedErrors = builder.Environment.IsDevelopment();
+    });
 
 // Registramos la Factoría de Contexto para evitar errores de concurrencia en Blazor Server
 builder.Services.AddDbContextFactory<InnovaTecDbContext>(options =>
@@ -36,6 +39,12 @@ builder.Services.AddScoped<DailyReportPdfService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddHostedService<DailyReportScheduler>();
 
+// Configurar Kestrel para producción
+if (!builder.Environment.IsDevelopment())
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:5000");
+}
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -46,7 +55,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-// app.UseHttpsRedirection();
+app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.UseStaticFiles();

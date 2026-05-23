@@ -163,6 +163,12 @@
             return;
         }
 
+        if (newProduct.PrecioVenta <= 0)
+        {
+            Toast.ShowWarning("Debe ingresar un precio de venta al crear un producto.");
+            return;
+        }
+
         if (newProduct.IdCategoria == null || newProduct.IdCategoria == 0)
         {
             Toast.ShowWarning("Debe seleccionar una categoría.");

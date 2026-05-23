@@ -417,7 +417,7 @@ window.qzPrintPdf = async (base64Pdf, printerName) => {
     }
 };
 
-window.qzPrintLabelPdf = async (base64Pdf, printerName, templateType) => {
+window.qzPrintLabelPdf = async (base64Pdf, printerName, templateType, quantity = 1) => {
     try {
         if (!qz.websocket.isActive()) {
             await qz.websocket.connect({ retries: 1, delay: 1 });
@@ -446,7 +446,10 @@ window.qzPrintLabelPdf = async (base64Pdf, printerName, templateType) => {
             }
         ];
 
-        await qz.print(config, data);
+        // Enviar trabajos por separado para que la impresora corte entre cada etiqueta
+        for (let i = 0; i < quantity; i++) {
+            await qz.print(config, data);
+        }
     } catch (err) {
         console.error("Error al imprimir Etiqueta PDF vía QZ:", err);
         throw err;

@@ -16,14 +16,13 @@
     <ImportMap />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.460.0"></script>
     
     @{
         var logoSetting = "default_favicon.png";
         try
         {
             var logoFromDb = Task.Run(async () => await ConfigService.GetSettingAsync("Empresa_Logo")).GetAwaiter().GetResult();
-            Console.WriteLine($"[DEBUG APP.RAZOR] Empresa_Logo in DB: '{logoFromDb}'");
             if (!string.IsNullOrEmpty(logoFromDb))
             {
                 logoSetting = logoFromDb;
@@ -31,7 +30,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error al precargar favicon en App.razor: {ex.Message}");
+            // Console error o logger aquí
         }
 
         string normalizedFavicon = "";
@@ -54,7 +53,6 @@
             normalizedFavicon = "/default_favicon.png?v=" + DateTime.Now.Ticks;
         }
         
-        Console.WriteLine($"[DEBUG APP.RAZOR] Final favicon loaded as base64: {normalizedFavicon.StartsWith("data:")}");
     }
     <link rel="icon" type="image/png" href="@normalizedFavicon" id="dynamic-favicon" />
     <link rel="shortcut icon" type="image/png" href="@normalizedFavicon" id="dynamic-favicon-shortcut" />

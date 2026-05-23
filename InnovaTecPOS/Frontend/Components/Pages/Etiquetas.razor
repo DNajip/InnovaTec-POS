@@ -774,19 +774,19 @@
 
         try 
         {
-            byte[] pdfBytes = LabelService.GenerateLabelPdf(printSelectedProduct, selectedTemplate, printQuantity);
-            
             if (selectedPrinter == "pdf")
             {
-                // Descargar PDF
+                // Descargar PDF con todas las etiquetas en un solo archivo
+                byte[] pdfBytes = LabelService.GenerateLabelPdf(printSelectedProduct, selectedTemplate, printQuantity);
                 await JS.InvokeVoidAsync("downloadFile", $"Etiquetas_{printSelectedProduct.Nombre.Replace(" ", "_")}.pdf", "application/pdf", pdfBytes);
                 Toast.ShowSuccess("Descarga Iniciada", "El PDF con las etiquetas se ha generado correctamente.");
             }
             else
             {
-                // Imprimir vía QZ
+                // Imprimir vía QZ: generar 1 sola etiqueta y enviarla N veces como trabajos separados para que corte entre cada una
+                byte[] pdfBytes = LabelService.GenerateLabelPdf(printSelectedProduct, selectedTemplate, 1);
                 string base64Pdf = Convert.ToBase64String(pdfBytes);
-                await JS.InvokeVoidAsync("qzPrintLabelPdf", base64Pdf, selectedPrinter, selectedTemplate);
+                await JS.InvokeVoidAsync("qzPrintLabelPdf", base64Pdf, selectedPrinter, selectedTemplate, printQuantity);
                 Toast.ShowSuccess("Impresión Enviada", $"Se han enviado {printQuantity} etiquetas a la impresora {selectedPrinter}.");
             }
         }
