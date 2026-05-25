@@ -39,5 +39,5 @@ jobs:
         username: ${{ secrets.VPS_USERNAME }}
         password: ${{ secrets.VPS_PASSWORD }}
         script: |
-          systemctl restart innovatecpos
-          systemctl status innovatecpos --no-pager
+          systemctl restart innovatec
+          systemctl status innovatec --no-pager
