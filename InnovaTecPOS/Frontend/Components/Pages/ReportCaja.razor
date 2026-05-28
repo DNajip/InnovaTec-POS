@@ -157,7 +157,7 @@ else
                     <tr>
                         <th class="ps-4 py-3 text-uppercase small fw-bold text-muted">Tipo</th>
                         <th class="py-3 text-uppercase small fw-bold text-muted">Referencia</th>
-                        <th class="py-3 text-uppercase small fw-bold text-muted">Fecha</th>
+                        <th class="py-3 text-uppercase small fw-bold text-muted">Hora</th>
                         <th class="py-3 text-uppercase small fw-bold text-muted">Cliente</th>
                         <th class="py-3 text-uppercase small fw-bold text-muted text-end">Monto</th>
                         <th class="py-3 text-uppercase small fw-bold text-muted text-end">Vuelto</th>
@@ -213,7 +213,7 @@ else
                                     }
                                 </td>
                                 <td class="py-3 fw-bold">@v.Referencia</td>
-                                <td class="py-3 text-muted">@v.Fecha.ToString("HH:mm")</td>
+                                <td class="py-3 text-muted">@v.Fecha.ToString("hh:mm tt")</td>
                                 <td class="py-3">
                                     @if(v.Cliente == "N/A")
                                     {

@@ -219,8 +219,8 @@
                 montoInicialUsd = lastShift.MontoInicialUsd,
                 montoContadoNio = lastShift.MontoContadoNio,
                 montoContadoUsd = lastShift.MontoContadoUsd,
-                montoManualNio = lastShift.MovimientosVarios.Where(m => m.IdMoneda == 1).Sum(m => m.Monto),
-                montoManualUsd = lastShift.MovimientosVarios.Where(m => m.IdMoneda == 2).Sum(m => m.Monto),
+                montoManualNio = await ShiftService.GetTotalCashEntriesAsync(lastShift.IdTurno, 1),
+                montoManualUsd = await ShiftService.GetTotalCashEntriesAsync(lastShift.IdTurno, 2),
                 diferenciaNio = lastShift.DiferenciaNio,
                 diferenciaUsd = lastShift.DiferenciaUsd,
                 observaciones = lastShift.Observaciones
