@@ -9,6 +9,7 @@ public interface ICheckoutService
     Task<List<PeriodosGarantium>> GetPeriodosGarantiaAsync();
     Task<List<MetodosPago>> GetMetodosPagoAsync();
     Task<EquiposImei?> ValidateImeiAsync(int idProducto, string imei);
+    Task ReversarTransaccionAsync(int idVenta, int idUsuario, string motivo, string? detalleJson);
 }
 
 public class CheckoutService : ICheckoutService
@@ -51,7 +52,20 @@ public class CheckoutService : ICheckoutService
     {
         using var context = await _factory.CreateDbContextAsync();
         // 1. Serializar colecciones a JSON para enviarlas al SP
-        var itemsJson = System.Text.Json.JsonSerializer.Serialize(items);
+        var mappedItems = items.Select(i => new {
+            i.IdProducto,
+            i.Code,
+            i.Description,
+            UnitPrice = i.IsRegalia ? 0 : i.UnitPrice,
+            i.IdCategoria,
+            i.StockMax,
+            i.RequiresImei,
+            i.IsRegalia,
+            i.Quantity,
+            SubTotal = i.IsRegalia ? 0 : (i.UnitPrice * i.Quantity),
+            i.Details
+        });
+        var itemsJson = System.Text.Json.JsonSerializer.Serialize(mappedItems);
         
         // Mapeamos pagos para asegurar que las propiedades coincidan con el SP
         var paymentsMapped = payments.Select(p => new {
@@ -85,6 +99,30 @@ public class CheckoutService : ICheckoutService
         catch (Exception ex)
         {
             throw new Exception($"Error en Checkout (DB): {ex.Message}");
+        }
+    }
+
+    public async Task ReversarTransaccionAsync(int idVenta, int idUsuario, string motivo, string? detalleJson)
+    {
+        using var context = await _factory.CreateDbContextAsync();
+
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                "EXEC VEN.sp_ReversoTransaccion @p0, @p1, @p2, @p3",
+                idVenta, 
+                idUsuario, 
+                motivo, 
+                string.IsNullOrWhiteSpace(detalleJson) ? (object)DBNull.Value : detalleJson);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex)
+        {
+            // The SP uses THROW with errors > 50000, which SqlException captures nicely
+            throw new Exception(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error interno al reversar: {ex.Message}");
         }
     }
 }

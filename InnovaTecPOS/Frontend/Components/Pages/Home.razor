@@ -67,11 +67,16 @@
             }
             @foreach (var item in SaleService.Items)
             {
-                <tr>
+                <tr style="@(item.IsRegalia ? "background-color: #f0fdf4;" : "")">
                     <td><i class="fas fa-chevron-right text-muted" style="font-size: 0.8rem;"></i></td>
                     <td><span class="item-code">@item.Code</span></td>
-                    <td><strong>@item.Description</strong></td>
-                    <td class="text-end font-monospace">C$ @item.UnitPrice.ToString("N2")</td>
+                    <td>
+                        <strong>@item.Description</strong>
+                        @if (item.IsRegalia) { <span class="badge bg-success ms-1">Regalía</span> }
+                    </td>
+                    <td class="text-end font-monospace">
+                        @if (item.IsRegalia) { <span class="badge bg-success">GRATIS</span> } else { <span>C$ @item.UnitPrice.ToString("N2")</span> }
+                    </td>
                     <td class="text-center">
                         <div class="d-flex align-items-center justify-content-center gap-2">
                              <button class="btn btn-sm btn-outline-secondary px-2 py-0" @onclick="() => DecrementQuantity(item)">-</button>
@@ -79,8 +84,11 @@
                              <button class="btn btn-sm btn-outline-secondary px-2 py-0" @onclick="() => IncrementQuantity(item)">+</button>
                         </div>
                     </td>
-                    <td class="text-end fw-bold">C$ @item.SubTotal.ToString("N2")</td>
+                    <td class="text-end fw-bold">
+                        @if (item.IsRegalia) { <span class="badge bg-success">GRATIS</span> } else { <span>C$ @item.SubTotal.ToString("N2")</span> }
+                    </td>
                     <td class="text-center">
+                        <button class="btn btn-sm @(item.IsRegalia ? "text-success" : "text-muted") me-1" @onclick="() => SaleService.ToggleRegalia(item)" title="Marcar como Regalía"><i class="fas fa-gift"></i></button>
                         <button class="btn btn-sm text-danger" @onclick="() => SaleService.RemoveItem(item)"><i class="fas fa-trash"></i></button>
                     </td>
                 </tr>

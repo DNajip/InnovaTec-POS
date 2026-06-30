@@ -1213,6 +1213,8 @@ public partial class InnovaTecDbContext : DbContext
             entity.Property(e => e.SubtotalNio)
                 .HasColumnType("decimal(12, 2)")
                 .HasColumnName("SUBTOTAL_NIO");
+            entity.Property(e => e.EsRegalia).HasColumnName("ES_REGALIA");
+            entity.Property(e => e.Devuelto).HasColumnName("DEVUELTO");
 
             entity.HasOne(d => d.IdPeriodoGarantiaNavigation).WithMany(p => p.VentaDetalles)
                 .HasForeignKey(d => d.IdPeriodoGarantia)

@@ -61,6 +61,12 @@ namespace InnovaTecPOS.Backend.Services
             NotifyAll();
         }
 
+        public void ToggleRegalia(CartItem item)
+        {
+            item.IsRegalia = !item.IsRegalia;
+            NotifyAll();
+        }
+
         public void NotifyAll()
         {
             OnPropertyChanged(nameof(Items));
@@ -98,6 +104,8 @@ namespace InnovaTecPOS.Backend.Services
         // Properties for IMEI handling
         public bool RequiresImei { get; set; }
         
+        public bool IsRegalia { get; set; }
+        
         // Data for each unit during checkout
         public List<CheckoutDetailItem> Details { get; set; } = new();
 
@@ -125,7 +133,7 @@ namespace InnovaTecPOS.Backend.Services
             }
         }
 
-        public decimal SubTotal => UnitPrice * Quantity;
+        public decimal SubTotal => IsRegalia ? 0 : UnitPrice * Quantity;
 
         private void UpdateDetails()
         {

@@ -1,0 +1,210 @@
+@using InnovaTecPOS.Backend.Services
+@using InnovaTecPOS.Backend.Models
+@inject ICheckoutService CheckoutService
+@inject UserSession UserSession
+
+<div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); z-index: 1060;">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 24px;">
+            <div class="modal-header border-0 p-4 pb-0">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="kpi-icon bg-danger text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 48px; height: 48px;">
+                        <i class="fas fa-undo"></i>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold m-0 text-danger">Reversar Factura @Factura.NumeroFactura</h4>
+                        <p class="text-muted small m-0">Seleccione el tipo de reverso y justifique la acción.</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close shadow-none" @onclick="CloseModal"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger d-flex align-items-center gap-2 rounded-4 border-0 mb-4 shadow-sm" role="alert">
+                        <i class="fas fa-exclamation-circle fs-5"></i>
+                        <div>@errorMessage</div>
+                    </div>
+                }
+
+                <!-- Opciones de Reverso -->
+                <div class="d-flex gap-3 mb-4">
+                    <div class="flex-fill border rounded-4 p-3 cursor-pointer transition-all @(esReversoTotal ? "border-danger bg-danger bg-opacity-10" : "bg-light border-light hover-bg-white")"
+                         @onclick="() => esReversoTotal = true">
+                        <div class="form-check cursor-pointer m-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input mt-0 cursor-pointer" type="radio" name="reversoType" id="rtotal" checked="@esReversoTotal" style="pointer-events: none;">
+                            <label class="form-check-label fw-bold cursor-pointer" for="rtotal" style="pointer-events: none;">
+                                Reverso Total
+                            </label>
+                        </div>
+                        <div class="small text-muted mt-2 ps-4">
+                            Anula toda la factura, retorna todo al inventario y devuelve el total del dinero.
+                        </div>
+                    </div>
+                    <div class="flex-fill border rounded-4 p-3 cursor-pointer transition-all @(!esReversoTotal ? "border-primary bg-primary bg-opacity-10" : "bg-light border-light hover-bg-white")"
+                         @onclick="() => esReversoTotal = false">
+                        <div class="form-check cursor-pointer m-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input mt-0 cursor-pointer" type="radio" name="reversoType" id="rparcial" checked="@(!esReversoTotal)" style="pointer-events: none;">
+                            <label class="form-check-label fw-bold cursor-pointer" for="rparcial" style="pointer-events: none;">
+                                Devolución Parcial
+                            </label>
+                        </div>
+                        <div class="small text-muted mt-2 ps-4">
+                            Permite seleccionar artículos específicos para retornar al inventario.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selección de Productos (Solo si es Parcial) -->
+                @if (!esReversoTotal)
+                {
+                    <h6 class="fw-bold text-dark mb-3">Seleccione los artículos a devolver:</h6>
+                    <div class="border rounded-4 overflow-hidden mb-4">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40px;" class="text-center"></th>
+                                    <th>Descripción</th>
+                                    <th class="text-center">Cant.</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in Factura.VentaDetalles)
+                                {
+                                    bool isDevuelto = item.Devuelto;
+                                    <tr class="@(isDevuelto ? "bg-light opacity-50" : "")">
+                                        <td class="text-center">
+                                            @if (isDevuelto)
+                                            {
+                                                <i class="fas fa-check text-success"></i>
+                                            }
+                                            else
+                                            {
+                                                <input class="form-check-input" type="checkbox" 
+                                                       checked="@selectedItems.Contains(item.IdDetalle)"
+                                                       @onchange="(e) => ToggleItem(item.IdDetalle, e.Value)" />
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="fw-bold @(item.EsRegalia ? "text-success" : "")">
+                                                @item.DescripcionSnap
+                                                @if(item.EsRegalia){ <span class="badge bg-success ms-1">REGALIA</span> }
+                                            </div>
+                                            @if (item.VentaDetalleImeis != null && item.VentaDetalleImeis.Any())
+                                            {
+                                                <div class="x-small text-muted">IMEI: @string.Join(", ", item.VentaDetalleImeis.Select(i => i.ImeiSnap))</div>
+                                            }
+                                        </td>
+                                        <td class="text-center">@item.Cantidad</td>
+                                        <td class="text-end fw-bold">C$ @item.SubtotalNio.ToString("N2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                <!-- Motivo -->
+                <div>
+                    <label class="form-label fw-bold">Justificación (Obligatorio)</label>
+                    <textarea class="form-control rounded-4 shadow-sm" rows="3" placeholder="Escriba el motivo detallado del reverso..." @bind="motivo" @bind:event="oninput"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-light rounded-pill px-4 fw-bold" @onclick="CloseModal" disabled="@isProcessing">Cancelar</button>
+                <button type="button" class="btn @(esReversoTotal ? "btn-danger" : "btn-primary") rounded-pill px-4 fw-bold d-flex align-items-center gap-2" 
+                        @onclick="SubmitReverso" disabled="@(isProcessing || !CanSubmit)">
+                    @if (isProcessing)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        <span>Procesando...</span>
+                    }
+                    else
+                    {
+                        <i class="fas @(esReversoTotal ? "fa-trash-alt" : "fa-undo")"></i>
+                        <span>Confirmar Reverso</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Venta Factura { get; set; } = null!;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<bool> OnSuccess { get; set; }
+
+    private bool esReversoTotal = true;
+    private string motivo = "";
+    private List<int> selectedItems = new();
+    private bool isProcessing = false;
+    private string errorMessage = "";
+
+    private bool CanSubmit => !string.IsNullOrWhiteSpace(motivo) && motivo.Length > 5 && (esReversoTotal || selectedItems.Count > 0);
+
+    private void ToggleItem(int idDetalle, object? checkedValue)
+    {
+        bool isChecked = checkedValue != null && (bool)checkedValue;
+        if (isChecked && !selectedItems.Contains(idDetalle))
+        {
+            selectedItems.Add(idDetalle);
+        }
+        else if (!isChecked && selectedItems.Contains(idDetalle))
+        {
+            selectedItems.Remove(idDetalle);
+        }
+    }
+
+    private async Task CloseModal()
+    {
+        if (!isProcessing)
+        {
+            await OnClose.InvokeAsync();
+        }
+    }
+
+    private async Task SubmitReverso()
+    {
+        if (!CanSubmit) return;
+
+        isProcessing = true;
+        errorMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            int? userId = UserSession.UserId;
+            if (userId == null) throw new Exception("Sesión inválida.");
+
+            string? detalleJson = null;
+            if (!esReversoTotal)
+            {
+                detalleJson = System.Text.Json.JsonSerializer.Serialize(selectedItems);
+            }
+
+            if (CheckoutService is CheckoutService concreteService)
+            {
+                await concreteService.ReversarTransaccionAsync(Factura.IdVenta, userId.Value, motivo, detalleJson);
+            }
+            else
+            {
+                throw new Exception("El servicio CheckoutService no tiene el método implementado.");
+            }
+            
+            await OnSuccess.InvokeAsync(true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+}

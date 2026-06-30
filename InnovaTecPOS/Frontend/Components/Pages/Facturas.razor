@@ -79,6 +79,19 @@
                             <td>@(v.IdUsuarioNavigation != null ? v.IdUsuarioNavigation.Username : "N/A")</td>
                             <td class="fw-bold">C$ @v.TotalNio.ToString("N2")</td>
                             <td class="text-end">
+                                @if (v.Anulada)
+                                {
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-3 py-1 me-2" title="Factura Anulada">
+                                        <i class="fas fa-ban me-1"></i> ANULADA
+                                    </span>
+                                }
+                                else if (v.FechaVenta.Date == DateTime.Today)
+                                {
+                                    <button class="btn btn-outline-danger btn-sm rounded-pill px-3 me-2" @onclick="() => OpenReversoModal(v)">
+                                        <i class="fas fa-undo me-1"></i> Reverso
+                                    </button>
+                                }
+                                
                                 <button class="btn btn-outline-primary btn-sm rounded-pill px-3" @onclick="() => ShowInvoiceDetails(v)">
                                     <i class="fas fa-print me-1"></i> Reimprimir Factura
                                 </button>
@@ -148,7 +161,16 @@
     </div>
 </div>
 
-<!-- Modal: Vista Previa de Factura -->
+<!-- Modal Reverso -->
+@if (showReversoModal && selectedVenta != null)
+{
+    <InnovaTecPOS.Frontend.Components.UI.ReversoModal 
+        Factura="selectedVenta" 
+        OnClose="CloseReversoModal" 
+        OnSuccess="HandleReversoSuccess" />
+}
+
+<!-- Sidebar Detalle Factura -->
 @if (showPreviewModal && selectedVenta != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 1050;">
@@ -303,6 +325,9 @@
     private int currentPage = 1;
     private int pageSize = 10;
 
+    // Modales
+    private bool showReversoModal = false;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
@@ -369,6 +394,25 @@
         {
             await LoadData();
         }
+    }
+
+    private void OpenReversoModal(Venta venta)
+    {
+        selectedVenta = venta;
+        showReversoModal = true;
+    }
+
+    private void CloseReversoModal()
+    {
+        showReversoModal = false;
+        selectedVenta = null;
+    }
+
+    private async Task HandleReversoSuccess(bool success)
+    {
+        showReversoModal = false;
+        ToastService.ShowSuccess("Reverso procesado exitosamente.");
+        await LoadData(); // Refresh the list
     }
 
     private async Task PrintInvoice()

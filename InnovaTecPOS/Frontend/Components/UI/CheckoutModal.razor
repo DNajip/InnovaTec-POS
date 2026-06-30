@@ -109,7 +109,9 @@
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td class="text-end fw-bold align-top py-3 pe-4 text-dark border-bottom">C$ @item.UnitPrice.ToString("N2")</td>
+                                                        <td class="text-end fw-bold align-top py-3 pe-4 text-dark border-bottom">
+                                                            @if (item.IsRegalia) { <span class="badge bg-success">GRATIS</span> } else { <span>C$ @item.UnitPrice.ToString("N2")</span> }
+                                                        </td>
                                                     </tr>
                                                 }
                                             }
@@ -137,7 +139,9 @@
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td class="text-end fw-bold align-top py-3 pe-4 text-dark border-bottom">C$ @((item.UnitPrice * item.Quantity).ToString("N2"))</td>
+                                                    <td class="text-end fw-bold align-top py-3 pe-4 text-dark border-bottom">
+                                                        @if (item.IsRegalia) { <span class="badge bg-success">GRATIS</span> } else { <span>C$ @((item.UnitPrice * item.Quantity).ToString("N2"))</span> }
+                                                    </td>
                                                 </tr>
                                             }
                                         }
