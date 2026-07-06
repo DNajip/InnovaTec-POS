@@ -113,16 +113,34 @@ public class ArqueoInsightDTO
 {
     public int IdTurno { get; set; }
     public string Usuario { get; set; } = "";
+    public string Moneda { get; set; } = ""; // "C$ CORDOBAS" o "$ DOLARES"
     public DateTime Apertura { get; set; }
     public DateTime? Cierre { get; set; }
     public decimal MontoInicial { get; set; }
-    public decimal VentasEfectivo { get; set; }
-    public decimal VentasTransferencia { get; set; }
-    public decimal VentasTarjeta { get; set; }
+    
+    // VENTAS
+    public int VentasEfectuadas { get; set; }
+    public int VentasAnuladas { get; set; }
+    public decimal VentasNetas { get; set; }
+    
+    // COBROS VENTAS
+    public decimal CobrosEfectivo { get; set; }
+    public decimal CobrosTransferencia { get; set; }
+    public decimal CobrosTarjeta { get; set; }
+    
+    // OTROS MOVIMIENTOS
+    public decimal OtrosIngresos { get; set; }
+    public decimal OtrosRetiros { get; set; }
+    public decimal Reversos { get; set; }
+    public decimal VueltoEntregado { get; set; }
+    
+    // CAJA
     public decimal SaldoTeorico { get; set; }
     public decimal SaldoReal { get; set; }
     public decimal Diferencia => SaldoReal - SaldoTeorico;
-    public List<PaymentMethodStatDTO> DesglosePagos { get; set; } = new();
+    public string Estado { get; set; } = ""; // EN CURSO, CUADRADO, DESCUADRE
+    
+    public bool EsFilaPrincipal { get; set; }
 }
 
 public class GarantiaInsightDTO
@@ -168,13 +186,22 @@ public class CategoryStatDTO
 
 public class MovimientoTurnoDTO
 {
-    public string TipoMovimiento { get; set; } = ""; // "Venta", "Ingreso", "Egreso"
+    public string TipoMovimiento { get; set; } = ""; // "Venta", "Regalía", "Ingreso", "Egreso", "Reverso"
     public string Referencia { get; set; } = ""; // Factura # o Concepto
     public DateTime Fecha { get; set; }
     public string Cliente { get; set; } = ""; 
-    public decimal Monto { get; set; }
-    public decimal Vuelto { get; set; } 
     public string MetodoPago { get; set; } = "";
+    public decimal Descuento { get; set; }
+    public decimal Monto { get; set; }
+    public decimal MontoPagado { get; set; }
+    public decimal Vuelto { get; set; } 
+    public decimal MontoReverso { get; set; }
+    public decimal MontoTotal { get; set; }
+    
+    public string SimboloMonedaMonto { get; set; } = "C$"; 
+    public string SimboloMonedaPago { get; set; } = "C$";
+    public string SimboloMonedaVuelto { get; set; } = "C$";
+    
     public string Estado { get; set; } = ""; // EFECTUADA, ANULADA, COMPLETADO
 }
 

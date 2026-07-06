@@ -316,34 +316,97 @@ public class ReportService : IReportService
             .OrderByDescending(t => t.FechaApertura)
             .ToListAsync();
 
-        return turnos.Select(t => {
-            decimal ingresosVarios = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO").Sum(m => m.Monto);
-            decimal salidasVarias = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO").Sum(m => m.Monto);
-            
-            var desglose = t.Venta.Where(v => !v.Anulada)
-                .SelectMany(v => v.Pagos)
-                .GroupBy(p => p.IdMetodoPagoNavigation.Nombre)
-                .Select(g => new PaymentMethodStatDTO
-                {
-                    Metodo = g.Key,
-                    Total = g.Sum(p => p.MontoEnNio - (p.VueltoNio ?? 0))
-                }).ToList();
+        var result = new List<ArqueoInsightDTO>();
 
-            return new ArqueoInsightDTO
+        foreach (var t in turnos)
+        {
+            var ventasValidas = t.Venta.Where(v => !v.Anulada).ToList();
+            var ventasAnuladas = t.Venta.Where(v => v.Anulada).ToList();
+            
+            var pagos = ventasValidas.SelectMany(v => v.Pagos).ToList();
+            
+            // Movimientos manuales
+            decimal ingresosNio = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO" && m.IdMoneda == 1).Sum(m => m.Monto);
+            decimal retirosNio = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 1 && !m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal reversosNio = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 1 && m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            
+            decimal ingresosUsd = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO" && m.IdMoneda == 2).Sum(m => m.Monto);
+            decimal retirosUsd = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 2 && !m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal reversosUsd = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 2 && m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+
+            // Vueltos entregados desde pagos (normalmente en NIO)
+            decimal vueltoEntregadoNio = pagos.Sum(p => p.VueltoNio ?? 0);
+            decimal vueltoEntregadoUsd = 0; // Asumimos vuelto en dolares es 0, a menos que haya registro de vuelto en dolares en el sistema
+            
+            // Cobros (ingresos fisicos por ventas)
+            decimal cobroEfectivoNio = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("EFECTIVO_NIO")).Sum(p => p.MontoRecibido ?? 0m); // Suma todo lo recibido en efectivo NIO. El vuelto se descuenta luego en VueltoEntregado.
+            decimal cobroEfectivoUsd = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("EFECTIVO_USD")).Sum(p => p.MontoRecibido ?? 0m); // Suma todo lo recibido en USD fisicamente
+            decimal cobroTarjeta = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("TARJETA")).Sum(p => p.MontoEnNio);
+            decimal cobroTransferencia = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("TRANSFERENCIA")).Sum(p => p.MontoEnNio);
+
+            string estadoStr = t.FechaCierre == null ? "EN CURSO" : (t.EstadoCuadre ?? "CERRADO");
+
+            // Fila CÓRDOBAS (Fila Principal)
+            result.Add(new ArqueoInsightDTO
             {
                 IdTurno = t.IdTurno,
                 Usuario = t.IdUsuarioNavigation?.Username ?? "Sistema",
+                Moneda = "C$ CORDOBAS",
                 Apertura = t.FechaApertura,
                 Cierre = t.FechaCierre,
                 MontoInicial = t.MontoInicialNio,
-                VentasEfectivo = t.TotalEfectivoNio,
-                VentasTransferencia = t.TotalTransferencia,
-                VentasTarjeta = t.TotalTarjeta,
-                SaldoTeorico = t.MontoInicialNio + t.TotalEfectivoNio + ingresosVarios - salidasVarias,
+                
+                // Las métricas de ventas se agrupan en la moneda local
+                VentasEfectuadas = ventasValidas.Count,
+                VentasAnuladas = ventasAnuladas.Count,
+                VentasNetas = ventasValidas.Sum(v => v.TotalNio),
+                
+                CobrosEfectivo = cobroEfectivoNio,
+                CobrosTransferencia = cobroTransferencia,
+                CobrosTarjeta = cobroTarjeta,
+                
+                OtrosIngresos = ingresosNio,
+                OtrosRetiros = retirosNio,
+                Reversos = reversosNio,
+                VueltoEntregado = vueltoEntregadoNio,
+                
+                SaldoTeorico = t.MontoInicialNio + cobroEfectivoNio + cobroTransferencia + cobroTarjeta + ingresosNio - retirosNio - reversosNio - vueltoEntregadoNio,
                 SaldoReal = t.MontoContadoNio ?? 0,
-                DesglosePagos = desglose
-            };
-        }).ToList();
+                Estado = estadoStr,
+                EsFilaPrincipal = true
+            });
+
+            // Fila DÓLARES
+            result.Add(new ArqueoInsightDTO
+            {
+                IdTurno = t.IdTurno,
+                Usuario = t.IdUsuarioNavigation?.Username ?? "Sistema",
+                Moneda = "$ DOLARES",
+                Apertura = t.FechaApertura,
+                Cierre = t.FechaCierre,
+                MontoInicial = t.MontoInicialUsd,
+                
+                VentasEfectuadas = 0,
+                VentasAnuladas = 0,
+                VentasNetas = 0,
+                
+                CobrosEfectivo = cobroEfectivoUsd,
+                CobrosTransferencia = 0,
+                CobrosTarjeta = 0,
+                
+                OtrosIngresos = ingresosUsd,
+                OtrosRetiros = retirosUsd,
+                Reversos = reversosUsd,
+                VueltoEntregado = vueltoEntregadoUsd,
+                
+                SaldoTeorico = t.MontoInicialUsd + cobroEfectivoUsd + ingresosUsd - retirosUsd - reversosUsd - vueltoEntregadoUsd,
+                SaldoReal = t.MontoContadoUsd ?? 0,
+                Estado = estadoStr,
+                EsFilaPrincipal = false
+            });
+        }
+
+        return result;
     }
 
     public async Task<List<MovimientoTurnoDTO>> GetMovimientosPorTurnoAsync(int idTurno)
@@ -371,33 +434,57 @@ public class ReportService : IReportService
                 metodoPago = string.Join(", ", metodos);
             }
 
+            bool pagoPrincipalUsd = pagoPrincipal?.IdMetodoPagoNavigation?.Nombre.Contains("USD") ?? false;
+            string simPago = pagoPrincipalUsd ? "$" : "C$";
+            decimal pagadoFisico = pagoPrincipalUsd ? v.Pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).Sum(p => p.MontoRecibido ?? 0m) : v.Pagos.Sum(p => (p.MontoRecibido ?? 0m) > 0 ? (p.MontoRecibido ?? 0m) : p.MontoEnNio);
+
             var totalVuelto = v.Pagos.Sum(p => p.VueltoNio ?? 0);
+            
+            bool esRegalia = v.TotalNio == 0;
 
             result.Add(new MovimientoTurnoDTO
             {
-                TipoMovimiento = "Venta",
+                TipoMovimiento = esRegalia ? "Regalía" : "Venta",
                 Referencia = v.NumeroFactura ?? $"FAC-{v.IdVenta}",
                 Fecha = v.FechaVenta,
                 Cliente = v.IdPersonaNavigation?.NombreCompleto ?? "Cliente de Contado",
-                Monto = v.TotalNio,
+                Monto = v.SubtotalNio > 0 ? v.SubtotalNio : v.TotalNio, // El monto base
+                Descuento = v.DescuentoNio,
+                MontoPagado = pagadoFisico,
                 Vuelto = totalVuelto,
+                MontoReverso = 0,
+                MontoTotal = v.TotalNio,
                 MetodoPago = metodoPago,
-                Estado = v.Anulada ? "ANULADA" : "EFECTUADA"
+                Estado = v.Anulada ? "ANULADA" : "EFECTUADA",
+                SimboloMonedaMonto = "C$",
+                SimboloMonedaPago = simPago,
+                SimboloMonedaVuelto = "C$"
             });
         }
 
         foreach (var m in movimientos)
         {
+            bool isReverso = m.Concepto.StartsWith("Reverso");
+            string tipo = isReverso ? "Reverso" : (m.Tipo == "INGRESO" ? "Ingreso" : "Egreso");
+            string simMoneda = m.IdMoneda == 2 ? "$" : "C$";
+
             result.Add(new MovimientoTurnoDTO
             {
-                TipoMovimiento = m.Tipo == "INGRESO" ? "Ingreso" : "Egreso",
+                TipoMovimiento = tipo,
                 Referencia = m.Concepto,
                 Fecha = m.Fecha,
-                Cliente = "N/A",
-                Monto = m.Monto,
+                Cliente = "--",
+                Monto = 0,
+                Descuento = 0,
+                MontoPagado = m.Tipo == "INGRESO" ? m.Monto : 0,
                 Vuelto = 0,
+                MontoReverso = isReverso ? m.Monto : 0,
+                MontoTotal = m.Monto,
                 MetodoPago = "EFECTIVO",
-                Estado = "COMPLETADO"
+                Estado = "COMPLETADO",
+                SimboloMonedaMonto = simMoneda,
+                SimboloMonedaPago = simMoneda,
+                SimboloMonedaVuelto = "C$"
             });
         }
 
