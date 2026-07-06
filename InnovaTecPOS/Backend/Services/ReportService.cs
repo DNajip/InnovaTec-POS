@@ -111,8 +111,47 @@ public class ReportService : IReportService
             dNio += v.DescuentoNio * porcentajeNio;
         }
 
+        // Calcular Montos Reversados
+        decimal montoReversadoNio = 0, montoReversadoUsd = 0;
+        foreach (var v in reversedVentas)
+        {
+            decimal tasa = v.TasaCambioUsd > 0 ? v.TasaCambioUsd : 36.5m;
+            decimal pagoTotalNio = v.Pagos.Sum(p => p.MontoEnNio);
+            decimal pagoUsdNio = v.Pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).Sum(p => p.MontoEnNio);
+            decimal porcentajeUsd = pagoTotalNio > 0 ? pagoUsdNio / pagoTotalNio : 0;
+            decimal porcentajeNio = pagoTotalNio > 0 ? (pagoTotalNio - pagoUsdNio) / pagoTotalNio : (pagoTotalNio == 0 ? 1 : 0);
+            
+            montoReversadoUsd += (v.TotalNio * porcentajeUsd) / tasa;
+            montoReversadoNio += v.TotalNio * porcentajeNio;
+        }
+
+        foreach (var v in validVentas)
+        {
+            var devueltos = v.VentaDetalles.Where(d => d.Devuelto).ToList();
+            if (devueltos.Any())
+            {
+                decimal totalDevueltoNio = devueltos.Sum(d => d.SubtotalNio);
+                decimal tasa = v.TasaCambioUsd > 0 ? v.TasaCambioUsd : 36.5m;
+                decimal pagoTotalNio = v.Pagos.Sum(p => p.MontoEnNio);
+                decimal pagoUsdNio = v.Pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).Sum(p => p.MontoEnNio);
+                decimal porcentajeUsd = pagoTotalNio > 0 ? pagoUsdNio / pagoTotalNio : 0;
+                decimal porcentajeNio = pagoTotalNio > 0 ? (pagoTotalNio - pagoUsdNio) / pagoTotalNio : (pagoTotalNio == 0 ? 1 : 0);
+                
+                montoReversadoUsd += (totalDevueltoNio * porcentajeUsd) / tasa;
+                montoReversadoNio += totalDevueltoNio * porcentajeNio;
+            }
+        }
+
         var stats = new DashboardStatsDTO
         {
+            // Entradas por Método de Pago
+            TotalEfectivoNio = nioPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO")).Sum(p => p.MontoRecibido ?? 0m),
+            TotalEfectivoUsd = usdPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO")).Sum(p => p.MontoRecibido ?? 0m),
+            TotalTarjetaNio = nioPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TARJETA")).Sum(p => p.MontoRecibido ?? 0m),
+            TotalTarjetaUsd = usdPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TARJETA")).Sum(p => p.MontoRecibido ?? 0m),
+            TotalTransferenciaNio = nioPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA")).Sum(p => p.MontoRecibido ?? 0m),
+            TotalTransferenciaUsd = usdPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA")).Sum(p => p.MontoRecibido ?? 0m),
+            
             // NIO
             VentasBrutasNio = vBrutasNio,
             UtilidadNetaNio = uNetaNio,
@@ -124,12 +163,16 @@ public class ReportService : IReportService
             UtilidadNetaUsd = uNetaUsd,
             DescuentosUsd = dUsd,
             ValorRegaliasUsd = valorRegaliasUsd,
+            
+            MontoReversadoNio = montoReversadoNio,
+            MontoReversadoUsd = montoReversadoUsd,
 
             // Conteos
             TotalFacturas = validVentas.Count,
             FacturasReversadas = reversedVentas.Count,
-            ArticulosReversados = reversedVentas.SelectMany(v => v.VentaDetalles).Sum(d => d.Cantidad),
+            ArticulosReversados = reversedVentas.Sum(v => v.VentaDetalles.Sum(d => d.Cantidad)),
             FacturasRegalia = facturasRegalia,
+            FacturasConDescuento = validVentas.Count(v => v.DescuentoNio > 0),
             
             ProductosVendidos = validVentas.SelectMany(v => v.VentaDetalles).Sum(d => d.Cantidad),
             Anulaciones = reversedVentas.Count,

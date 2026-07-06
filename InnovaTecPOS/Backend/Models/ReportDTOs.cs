@@ -10,18 +10,28 @@ public class DashboardStatsDTO
     public decimal UtilidadNetaNio { get; set; }
     public decimal DescuentosNio { get; set; }
     public decimal ValorRegaliasNio { get; set; }
+    public decimal MontoReversadoNio { get; set; }
 
     // Dólares
     public decimal VentasBrutasUsd { get; set; }
     public decimal UtilidadNetaUsd { get; set; }
     public decimal DescuentosUsd { get; set; }
     public decimal ValorRegaliasUsd { get; set; }
+    public decimal MontoReversadoUsd { get; set; }
+    // Entradas por Método de Pago
+    public decimal TotalEfectivoNio { get; set; }
+    public decimal TotalEfectivoUsd { get; set; }
+    public decimal TotalTarjetaNio { get; set; }
+    public decimal TotalTarjetaUsd { get; set; }
+    public decimal TotalTransferenciaNio { get; set; }
+    public decimal TotalTransferenciaUsd { get; set; }
 
     // Conteos y Métricas de Operaciones
     public int TotalFacturas { get; set; }
     public int FacturasReversadas { get; set; }
     public int ArticulosReversados { get; set; }
     public int FacturasRegalia { get; set; }
+    public int FacturasConDescuento { get; set; }
 
     public int ClientesNuevos { get; set; }
     public int ProductosVendidos { get; set; }
