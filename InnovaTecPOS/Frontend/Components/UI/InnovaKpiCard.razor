@@ -25,16 +25,8 @@ else
                 @SecondaryPrefix @SecondaryValue.Value.ToString(SecondaryFormat)
             </div>
         }
-        <div class="kpi-card-footer mt-2">
-            <span class="@(Trend >= 0 ? "trend-up" : "trend-down")">
-                <i class="fas @(Trend >= 0 ? "fa-arrow-up" : "fa-arrow-down")"></i>
-                @Math.Abs(Trend).ToString("N1")%
-            </span>
-            <span class="text-muted">vs anterior</span>
-        </div>
     </div>
 }
-
 @code {
     [Parameter] public string Title { get; set; } = "";
     [Parameter] public decimal Value { get; set; }
@@ -48,6 +40,5 @@ else
     [Parameter] public string IconClass { get; set; } = "";
     [Parameter] public string IconBg { get; set; } = "#eff6ff";
     [Parameter] public string IconColor { get; set; } = "#3b82f6";
-    [Parameter] public decimal Trend { get; set; }
     [Parameter] public bool Loading { get; set; }
 }
