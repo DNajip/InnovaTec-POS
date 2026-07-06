@@ -11,10 +11,15 @@
 else
 {
     <div class="report-card mb-4 shadow-sm" style="border-radius: 16px; border: none; overflow: hidden;">
-        <div class="report-card-title px-4 py-3 bg-white fw-bold" style="font-size: 1.1rem; color: var(--text-dark); border-bottom: 1px solid #f1f3f5;">
+        <div class="report-card-title px-4 py-3 bg-white fw-bold d-flex justify-content-between align-items-center" style="font-size: 1.1rem; color: var(--text-dark); border-bottom: 1px solid #f1f3f5;">
             <span>
                 <i class="fas fa-audit me-2 text-primary"></i>Auditoría de Arqueos y Turnos
             </span>
+            <div class="d-flex align-items-center text-muted" style="font-size: 0.85rem; font-weight: 500;">
+                <span class="me-3"><i class="fas fa-circle text-success me-1" style="font-size: 0.7em;"></i>Cuadrado</span>
+                <span class="me-3"><i class="fas fa-circle text-warning me-1" style="font-size: 0.7em;"></i>Sobrante (+)</span>
+                <span><i class="fas fa-circle text-danger me-1" style="font-size: 0.7em;"></i>Faltante (-)</span>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table table-hover mb-0" style="font-size: 0.82rem;">
@@ -107,12 +112,14 @@ else
                                 <td class="px-2 py-2 text-end fw-bold text-dark text-nowrap">@a.SaldoTeorico.ToString("N2")</td>
                                 <td class="px-2 py-2 text-end fw-bold text-nowrap">@(a.Estado == "EN CURSO" ? "--" : a.SaldoReal.ToString("N2"))</td>
                                 <td class="px-2 py-2 text-end fw-bold text-nowrap @(a.Diferencia < 0 ? "text-danger" : a.Diferencia > 0 ? "text-warning" : "text-success")">
-                                    @(a.Estado == "EN CURSO" ? "--" : a.Diferencia.ToString("N2"))
+                                    @(a.Estado == "EN CURSO" ? "--" : (a.Diferencia > 0 ? "+" + a.Diferencia.ToString("N2") : a.Diferencia.ToString("N2")))
                                 </td>
                                 <td class="px-2 py-2 text-center text-nowrap">
-                                    @if(a.Estado == "CUADRADO" || a.Estado == "EXACTO") { <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2">CUADRADO</span> }
-                                    else if(a.Estado == "EN CURSO") { <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2">ABIERTO</span> }
-                                    else { <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2">@a.Estado</span> }
+                                    @if(a.EstadoCalculado == "CUADRADO") { <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2">CUADRADO</span> }
+                                    else if(a.EstadoCalculado == "EN CURSO") { <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2">ABIERTO</span> }
+                                    else if(a.EstadoCalculado == "SOBRANTE") { <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2">SOBRANTE</span> }
+                                    else if(a.EstadoCalculado == "FALTANTE") { <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2">FALTANTE</span> }
+                                    else { <span class="badge bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25 px-2">@a.EstadoCalculado</span> }
                                 </td>
                             </tr>
                         }

@@ -35,6 +35,14 @@ else
         <InnovaKpiCard Title="Fact. de Regalía" Value="stats?.FacturasRegalia ?? 0" Format="N0" IconClass="fas fa-hand-holding-heart" IconBg="#f3e8ff" IconColor="#9333ea" Loading="loading" />
     </div>
 
+    <!-- Fila 4: Diferencias de Caja -->
+    <div class="kpi-grid mt-4">
+        <InnovaKpiCard Title="Faltantes en Caja" Value="stats?.FaltantesCajaNio ?? 0" Prefix="-C$ " SecondaryValue="stats?.FaltantesCajaUsd" SecondaryPrefix="-U$ " IconClass="fas fa-exclamation-circle" IconBg="#fee2e2" IconColor="#ef4444" Loading="loading" />
+        <InnovaKpiCard Title="Sobrantes en Caja" Value="stats?.SobrantesCajaNio ?? 0" Prefix="+C$ " SecondaryValue="stats?.SobrantesCajaUsd" SecondaryPrefix="+U$ " IconClass="fas fa-coins" IconBg="#fef9c3" IconColor="#ca8a04" Loading="loading" />
+        <div class="kpi-card-placeholder" style="visibility: hidden;"></div>
+        <div class="kpi-card-placeholder" style="visibility: hidden;"></div>
+    </div>
+
     <div class="report-row">
         <!-- Tendencia de Ventas -->
         <div class="report-card">

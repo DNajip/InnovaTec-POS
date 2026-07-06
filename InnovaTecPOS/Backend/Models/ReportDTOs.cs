@@ -18,6 +18,13 @@ public class DashboardStatsDTO
     public decimal DescuentosUsd { get; set; }
     public decimal ValorRegaliasUsd { get; set; }
     public decimal MontoReversadoUsd { get; set; }
+
+    // Diferencias de Caja
+    public decimal FaltantesCajaNio { get; set; }
+    public decimal FaltantesCajaUsd { get; set; }
+    public decimal SobrantesCajaNio { get; set; }
+    public decimal SobrantesCajaUsd { get; set; }
+
     // Entradas por Método de Pago
     public decimal TotalEfectivoNio { get; set; }
     public decimal TotalEfectivoUsd { get; set; }
@@ -164,6 +171,17 @@ public class ArqueoInsightDTO
     public decimal SaldoReal { get; set; }
     public decimal Diferencia => SaldoReal - SaldoTeorico;
     public string Estado { get; set; } = ""; // EN CURSO, CUADRADO, DESCUADRE
+    
+    public string EstadoCalculado 
+    {
+        get 
+        {
+            if (Estado == "EN CURSO") return "EN CURSO";
+            if (Diferencia > 0) return "SOBRANTE";
+            if (Diferencia < 0) return "FALTANTE";
+            return "CUADRADO";
+        }
+    }
     
     public bool EsFilaPrincipal { get; set; }
 }

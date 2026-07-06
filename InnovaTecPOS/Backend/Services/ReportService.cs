@@ -58,6 +58,14 @@ public class ReportService : IReportService
             .Where(v => v.FechaVenta >= prevStart && v.FechaVenta <= prevEnd && !v.Anulada)
             .ToListAsync();
 
+        var turnos = await _context.Turnos
+            .Include(t => t.MovimientosVarios)
+            .Include(t => t.Venta)
+                .ThenInclude(v => v.Pagos)
+                .ThenInclude(p => p.IdMetodoPagoNavigation)
+            .Where(t => t.FechaApertura <= end && t.FechaCierre != null && t.FechaCierre >= start)
+            .ToListAsync();
+
         // Filtrar validas y reversadas (anuladas)
         var validVentas = currentVentas.Where(v => !v.Anulada).ToList();
         var reversedVentas = currentVentas.Where(v => v.Anulada).ToList();
@@ -142,6 +150,41 @@ public class ReportService : IReportService
             }
         }
 
+        decimal faltantesNio = 0, sobrantesNio = 0;
+        decimal faltantesUsd = 0, sobrantesUsd = 0;
+
+        foreach (var t in turnos)
+        {
+            var pagos = t.Venta.Where(v => !v.Anulada).SelectMany(v => v.Pagos).ToList();
+            
+            // NIO
+            decimal ingresosNio = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO" && m.IdMoneda == 1).Sum(m => m.Monto);
+            decimal retirosNio = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 1 && !m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal reversosNio = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 1 && m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal vueltoEntregadoNio = pagos.Sum(p => p.VueltoNio ?? 0);
+            decimal cobroEfectivoNio = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("EFECTIVO_NIO")).Sum(p => p.MontoRecibido ?? 0m);
+            decimal cobroTarjeta = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("TARJETA")).Sum(p => p.MontoEnNio);
+            decimal cobroTransferencia = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("TRANSFERENCIA")).Sum(p => p.MontoEnNio);
+
+            decimal saldoTeoricoNio = t.MontoInicialNio + cobroEfectivoNio + cobroTransferencia + cobroTarjeta + ingresosNio - retirosNio - reversosNio - vueltoEntregadoNio;
+            decimal difNio = (t.MontoContadoNio ?? 0) - saldoTeoricoNio;
+
+            if (difNio > 0) sobrantesNio += difNio;
+            if (difNio < 0) faltantesNio += Math.Abs(difNio);
+
+            // USD
+            decimal ingresosUsd = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO" && m.IdMoneda == 2).Sum(m => m.Monto);
+            decimal retirosUsd = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 2 && !m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal reversosUsd = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 2 && m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal cobroEfectivoUsd = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("EFECTIVO_USD")).Sum(p => p.MontoRecibido ?? 0m);
+            
+            decimal saldoTeoricoUsd = t.MontoInicialUsd + cobroEfectivoUsd + ingresosUsd - retirosUsd - reversosUsd;
+            decimal difUsd = (t.MontoContadoUsd ?? 0) - saldoTeoricoUsd;
+
+            if (difUsd > 0) sobrantesUsd += difUsd;
+            if (difUsd < 0) faltantesUsd += Math.Abs(difUsd);
+        }
+
         var stats = new DashboardStatsDTO
         {
             // Entradas por Método de Pago
@@ -152,6 +195,12 @@ public class ReportService : IReportService
             TotalTransferenciaNio = nioPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA")).Sum(p => p.MontoRecibido ?? 0m),
             TotalTransferenciaUsd = usdPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA")).Sum(p => p.MontoRecibido ?? 0m),
             
+            // Diferencias de Caja
+            FaltantesCajaNio = faltantesNio,
+            FaltantesCajaUsd = faltantesUsd,
+            SobrantesCajaNio = sobrantesNio,
+            SobrantesCajaUsd = sobrantesUsd,
+
             // NIO
             VentasBrutasNio = vBrutasNio,
             UtilidadNetaNio = uNetaNio,
