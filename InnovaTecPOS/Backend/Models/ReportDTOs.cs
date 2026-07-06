@@ -5,22 +5,37 @@ namespace InnovaTecPOS.Backend.Models;
 
 public class DashboardStatsDTO
 {
-    public decimal VentasBrutas { get; set; }
-    public decimal UtilidadNeta { get; set; }
+    // Córdobas
+    public decimal VentasBrutasNio { get; set; }
+    public decimal UtilidadNetaNio { get; set; }
+    public decimal DescuentosNio { get; set; }
+    public decimal ValorRegaliasNio { get; set; }
+
+    // Dólares
+    public decimal VentasBrutasUsd { get; set; }
+    public decimal UtilidadNetaUsd { get; set; }
+    public decimal DescuentosUsd { get; set; }
+    public decimal ValorRegaliasUsd { get; set; }
+
+    // Conteos y Métricas de Operaciones
     public int TotalFacturas { get; set; }
-    public decimal TicketPromedio { get; set; }
+    public int FacturasReversadas { get; set; }
+    public int ArticulosReversados { get; set; }
+    public int FacturasRegalia { get; set; }
+
     public int ClientesNuevos { get; set; }
     public int ProductosVendidos { get; set; }
     public int Anulaciones { get; set; }
     
-    // Comparativas con periodo anterior
+    // Comparativas con periodo anterior (generalizadas para no complicar en exceso)
     public decimal PorcentajeVentas { get; set; }
     public decimal PorcentajeUtilidad { get; set; }
     public decimal PorcentajeFacturas { get; set; }
-    public decimal PorcentajeTicket { get; set; }
-    public decimal PorcentajeClientes { get; set; }
-    public decimal PorcentajeProductos { get; set; }
-    public decimal MargenUtilidadPorcentaje => VentasBrutas > 0 ? (UtilidadNeta / VentasBrutas) * 100 : 0;
+    public decimal PorcentajeDescuentos { get; set; }
+    public decimal PorcentajeRegalias { get; set; }
+    
+    // Opcional para gráficas combinadas (Total Globalizado)
+    public decimal VentasTotalesCalculadasNio => VentasBrutasNio + (VentasBrutasUsd * 36.5m); // Para propósitos de ordenamiento general
 }
 
 public class TrendPointDTO

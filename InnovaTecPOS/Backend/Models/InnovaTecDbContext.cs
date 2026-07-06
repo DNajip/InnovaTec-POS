@@ -881,11 +881,21 @@ public partial class InnovaTecDbContext : DbContext
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("TOTAL_EFECTIVO_USD");
             entity.Property(e => e.TotalTarjeta)
+                .HasDefaultValue(0m)
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("TOTAL_TARJETA");
+            entity.Property(e => e.TotalTarjetaUsd)
+                .HasDefaultValue(0m)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("TOTAL_TARJETA_USD");
             entity.Property(e => e.TotalTransferencia)
+                .HasDefaultValue(0m)
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("TOTAL_TRANSFERENCIA");
+            entity.Property(e => e.TotalTransferenciaUsd)
+                .HasDefaultValue(0m)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("TOTAL_TRANSFERENCIA_USD");
             entity.Property(e => e.TotalVentasNio)
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("TOTAL_VENTAS_NIO");

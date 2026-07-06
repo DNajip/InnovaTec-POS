@@ -80,9 +80,9 @@ public class ExcelExportService
         ws.Cell(3, 2).Style.Font.FontColor = XLColor.Gray;
 
         // --- KPI CARDS (Row 5 to 9) ---
-        string[] kpiTitles = { "Ventas Totales", "Utilidad Neta", "Margen Bruto", "Ticket Prom.", "Items Vendidos" };
-        object[] kpiValues = { stats.VentasBrutas, stats.UtilidadNeta, stats.MargenUtilidadPorcentaje / 100, stats.TicketPromedio, stats.ProductosVendidos };
-        string[] kpiFormats = { "C$ #,##0.00", "C$ #,##0.00", "0.0%", "C$ #,##0.00", "#,##0" };
+        string[] kpiTitles = { "Ventas (C$)", "Ventas (US$)", "Utilidad (C$)", "Descuentos (C$)", "Items Vendidos" };
+        object[] kpiValues = { stats.VentasBrutasNio, stats.VentasBrutasUsd, stats.UtilidadNetaNio, stats.DescuentosNio, stats.ProductosVendidos };
+        string[] kpiFormats = { "C$ #,##0.00", "US$ #,##0.00", "C$ #,##0.00", "C$ #,##0.00", "#,##0" };
         string[] kpiColors = { "#2563EB", "#059669", "#7C3AED", "#EA580C", "#0891B2" };
 
         for (int i = 0; i < kpiTitles.Length; i++)

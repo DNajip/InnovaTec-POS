@@ -102,8 +102,10 @@ CREATE TABLE CAT.METODOS_PAGO (
 INSERT INTO CAT.METODOS_PAGO (NOMBRE, AFECTA_CAJA, ID_MONEDA) VALUES
     ('EFECTIVO_NIO',    1, 1),   -- Efectivo en cordobas
     ('EFECTIVO_USD',    1, 2),   -- Efectivo en dolares (vuelto en NIO)
-    ('TARJETA',         0, NULL),
-    ('TRANSFERENCIA',   0, NULL);
+    ('TARJETA',         0, 1),   -- Tarjeta en NIO
+    ('TRANSFERENCIA',   0, 1),   -- Transferencia en NIO
+    ('TARJETA_USD',     0, 2),   -- Tarjeta en USD
+    ('TRANSFERENCIA_USD', 0, 2); -- Transferencia en USD
 GO
 
 -- Periodos de garantia (1-12 meses, mas opciones especiales)
@@ -455,7 +457,9 @@ CREATE TABLE CAJA.TURNOS (
     TOTAL_EFECTIVO_NIO      DECIMAL(18,2) NOT NULL DEFAULT 0,   -- solo pagos en efectivo NIO
     TOTAL_EFECTIVO_USD      DECIMAL(18,2) NOT NULL DEFAULT 0,   -- solo pagos en efectivo USD
     TOTAL_TARJETA           DECIMAL(18,2) NOT NULL DEFAULT 0,
+    TOTAL_TARJETA_USD       DECIMAL(18,2) NOT NULL DEFAULT 0,
     TOTAL_TRANSFERENCIA     DECIMAL(18,2) NOT NULL DEFAULT 0,
+    TOTAL_TRANSFERENCIA_USD DECIMAL(18,2) NOT NULL DEFAULT 0,
     -- Conteo fisico al cierre
     MONTO_CONTADO_NIO       DECIMAL(18,2) NULL,
     MONTO_CONTADO_USD       DECIMAL(18,2) NULL,
@@ -1036,8 +1040,10 @@ BEGIN
     UPDATE T SET 
         T.TOTAL_EFECTIVO_NIO += (ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) JOIN CAT.MONEDAS m ON m.ID_MONEDA = mp.ID_MONEDA WHERE mp.NOMBRE LIKE '%EFECTIVO%' AND m.CODIGO = 'NIO'), 0) - @VueltoTotalNio),
         T.TOTAL_EFECTIVO_USD += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.Monto') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) JOIN CAT.MONEDAS m ON m.ID_MONEDA = mp.ID_MONEDA WHERE mp.NOMBRE LIKE '%EFECTIVO%' AND m.CODIGO = 'USD'), 0),
-        T.TOTAL_TARJETA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE LIKE '%TARJETA%'), 0),
-        T.TOTAL_TRANSFERENCIA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE LIKE '%TRANSFERENCIA%'), 0),
+        T.TOTAL_TARJETA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE = 'TARJETA'), 0),
+        T.TOTAL_TARJETA_USD += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.Monto') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE = 'TARJETA_USD'), 0),
+        T.TOTAL_TRANSFERENCIA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE = 'TRANSFERENCIA'), 0),
+        T.TOTAL_TRANSFERENCIA_USD += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.Monto') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE = 'TRANSFERENCIA_USD'), 0),
         T.TOTAL_VENTAS_NIO += @TotalVentaNio,
         T.TOTAL_VENTAS_USD += (@TotalVentaNio / @TasaCambioUsd)
     FROM CAJA.TURNOS T WHERE T.ID_TURNO = @IdTurno;

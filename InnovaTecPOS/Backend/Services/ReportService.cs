@@ -42,7 +42,9 @@ public class ReportService : IReportService
         var currentVentas = await _context.Ventas
             .Include(v => v.VentaDetalles)
                 .ThenInclude(d => d.IdProductoNavigation)
-            .Where(v => v.FechaVenta >= start && v.FechaVenta <= end && !v.Anulada)
+            .Include(v => v.Pagos)
+                .ThenInclude(p => p.IdMetodoPagoNavigation)
+            .Where(v => v.FechaVenta >= start && v.FechaVenta <= end)
             .ToListAsync();
 
         // Calcular periodo anterior equivalente
@@ -56,32 +58,89 @@ public class ReportService : IReportService
             .Where(v => v.FechaVenta >= prevStart && v.FechaVenta <= prevEnd && !v.Anulada)
             .ToListAsync();
 
+        // Filtrar validas y reversadas (anuladas)
+        var validVentas = currentVentas.Where(v => !v.Anulada).ToList();
+        var reversedVentas = currentVentas.Where(v => v.Anulada).ToList();
+        
+        // Ventas por moneda usando Pagos (USD vs NIO)
+        var usdPayments = validVentas.SelectMany(v => v.Pagos).Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).ToList();
+        var nioPayments = validVentas.SelectMany(v => v.Pagos).Where(p => !p.IdMetodoPagoNavigation.Nombre.Contains("USD")).ToList();
+
+        // Desglose de Ventas Brutas y Descuentos
+        decimal ventasUsd = usdPayments.Sum(p => p.MontoRecibido ?? 0m); // Lo cobrado neto en USD
+        decimal descuentoUsd = 0; // Descuentos se aplican gralmente al NIO, pero se puede aproximar
+        decimal utilidadUsd = 0;
+        
+        decimal ventasNio = validVentas.Sum(v => v.TotalNio) - (ventasUsd * validVentas.FirstOrDefault()?.TasaCambioUsd ?? 36.5m);
+        if (ventasNio < 0) ventasNio = 0; // Fallback en caso de redondeos extraños
+        
+        // Forma correcta: Dividimos cada venta proporcionalmente según sus pagos
+        decimal vBrutasNio = 0, vBrutasUsd = 0, uNetaNio = 0, uNetaUsd = 0, dNio = 0, dUsd = 0;
+        int facturasRegalia = 0;
+        decimal valorRegaliasNio = 0, valorRegaliasUsd = 0;
+
+        foreach (var v in validVentas)
+        {
+            decimal tasa = v.TasaCambioUsd > 0 ? v.TasaCambioUsd : 36.5m;
+            decimal utilidadFactura = v.VentaDetalles.Sum(d => d.SubtotalNio - ((d.IdProductoNavigation?.PrecioCompra ?? 0) * d.Cantidad));
+
+            // Si es regalía (Total == 0 pero Subtotal > 0)
+            if (v.TotalNio == 0 && v.SubtotalNio > 0)
+            {
+                facturasRegalia++;
+                // Regalías enteras a NIO por defecto ya que no hay pago
+                valorRegaliasNio += v.SubtotalNio;
+                continue;
+            }
+
+            // Calcular porcentajes en base a MontoEnNio de cada pago
+            decimal pagoTotalNio = v.Pagos.Sum(p => p.MontoEnNio);
+            decimal pagoUsdNio = v.Pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).Sum(p => p.MontoEnNio);
+            decimal pagoNioNio = pagoTotalNio - pagoUsdNio;
+
+            decimal porcentajeUsd = pagoTotalNio > 0 ? pagoUsdNio / pagoTotalNio : 0;
+            decimal porcentajeNio = pagoTotalNio > 0 ? pagoNioNio / pagoTotalNio : (pagoTotalNio == 0 ? 1 : 0);
+
+            vBrutasUsd += (v.TotalNio * porcentajeUsd) / tasa;
+            vBrutasNio += v.TotalNio * porcentajeNio;
+
+            uNetaUsd += (utilidadFactura * porcentajeUsd) / tasa;
+            uNetaNio += utilidadFactura * porcentajeNio;
+
+            dUsd += (v.DescuentoNio * porcentajeUsd) / tasa;
+            dNio += v.DescuentoNio * porcentajeNio;
+        }
+
         var stats = new DashboardStatsDTO
         {
-            VentasBrutas = currentVentas.Sum(v => v.TotalNio),
-            TotalFacturas = currentVentas.Count,
-            ProductosVendidos = currentVentas.SelectMany(v => v.VentaDetalles).Sum(d => d.Cantidad),
-            TicketPromedio = currentVentas.Any() ? currentVentas.Average(v => v.TotalNio) : 0,
-            UtilidadNeta = currentVentas.SelectMany(v => v.VentaDetalles).Sum(d => 
-                d.SubtotalNio - ((d.IdProductoNavigation?.PrecioCompra ?? 0) * d.Cantidad)),
-            ClientesNuevos = await _context.Personas.CountAsync(p => p.FechaCreacion >= start && p.FechaCreacion <= end && p.EsCliente),
-            Anulaciones = await _context.Ventas.CountAsync(v => v.FechaVenta >= start && v.FechaVenta <= end && v.Anulada)
+            // NIO
+            VentasBrutasNio = vBrutasNio,
+            UtilidadNetaNio = uNetaNio,
+            DescuentosNio = dNio,
+            ValorRegaliasNio = valorRegaliasNio,
+            
+            // USD
+            VentasBrutasUsd = vBrutasUsd,
+            UtilidadNetaUsd = uNetaUsd,
+            DescuentosUsd = dUsd,
+            ValorRegaliasUsd = valorRegaliasUsd,
+
+            // Conteos
+            TotalFacturas = validVentas.Count,
+            FacturasReversadas = reversedVentas.Count,
+            ArticulosReversados = reversedVentas.SelectMany(v => v.VentaDetalles).Sum(d => d.Cantidad),
+            FacturasRegalia = facturasRegalia,
+            
+            ProductosVendidos = validVentas.SelectMany(v => v.VentaDetalles).Sum(d => d.Cantidad),
+            Anulaciones = reversedVentas.Count,
+            ClientesNuevos = await _context.Personas.CountAsync(p => p.FechaCreacion >= start && p.FechaCreacion <= end && p.EsCliente)
         };
 
-        // Calcular porcentajes
+        // Porcentajes
         decimal prevVentasTotal = prevVentas.Sum(v => v.TotalNio);
-        stats.PorcentajeVentas = CalcularVariacion(stats.VentasBrutas, prevVentasTotal);
+        stats.PorcentajeVentas = CalcularVariacion(stats.VentasTotalesCalculadasNio, prevVentasTotal);
         stats.PorcentajeFacturas = CalcularVariacion(stats.TotalFacturas, prevVentas.Count);
-        
-        decimal prevUtilidad = prevVentas.SelectMany(v => v.VentaDetalles).Sum(d => 
-            d.SubtotalNio - ((d.IdProductoNavigation?.PrecioCompra ?? 0) * d.Cantidad));
-        stats.PorcentajeUtilidad = CalcularVariacion(stats.UtilidadNeta, prevUtilidad);
-        
-        decimal prevTicket = prevVentas.Any() ? prevVentas.Average(v => v.TotalNio) : 0;
-        stats.PorcentajeTicket = CalcularVariacion(stats.TicketPromedio, prevTicket);
-
-        var prevClientes = await _context.Personas.CountAsync(p => p.FechaCreacion >= prevStart && p.FechaCreacion <= prevEnd && p.EsCliente);
-        stats.PorcentajeClientes = CalcularVariacion(stats.ClientesNuevos, prevClientes);
+        stats.PorcentajeDescuentos = CalcularVariacion(dNio + (dUsd * 36.5m), prevVentas.Sum(v => v.DescuentoNio));
 
         return stats;
     }
@@ -90,18 +149,43 @@ public class ReportService : IReportService
     {
         end = end.Date.AddDays(1).AddTicks(-1);
         var ventas = await _context.Ventas
+            .Include(v => v.Pagos)
+                .ThenInclude(p => p.IdMetodoPagoNavigation)
             .Where(v => v.FechaVenta >= start && v.FechaVenta <= end && !v.Anulada)
             .OrderBy(v => v.FechaVenta)
             .ToListAsync();
 
-        return ventas.GroupBy(v => v.FechaVenta.Date)
-            .Select(g => new TrendPointDTO
+        var result = new List<TrendPointDTO>();
+
+        foreach (var group in ventas.GroupBy(v => v.FechaVenta.Date))
+        {
+            decimal totalNio = 0;
+            decimal totalUsd = 0;
+
+            foreach (var v in group)
             {
-                Label = g.Key.ToString("dd MMM"),
-                ValorNio = g.Sum(v => v.TotalNio),
-                ValorUsd = g.Sum(v => v.TotalNio / 36.5m) // Asumiendo tasa fija por ahora para el gráfico
-            })
-            .ToList();
+                decimal tasa = v.TasaCambioUsd > 0 ? v.TasaCambioUsd : 36.5m;
+
+                decimal pagoTotalNio = v.Pagos.Sum(p => p.MontoEnNio);
+                decimal pagoUsdNio = v.Pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).Sum(p => p.MontoEnNio);
+                decimal pagoNioNio = pagoTotalNio - pagoUsdNio;
+
+                decimal porcentajeUsd = pagoTotalNio > 0 ? pagoUsdNio / pagoTotalNio : 0;
+                decimal porcentajeNio = pagoTotalNio > 0 ? pagoNioNio / pagoTotalNio : (pagoTotalNio == 0 ? 1 : 0);
+
+                totalUsd += (v.TotalNio * porcentajeUsd) / tasa;
+                totalNio += v.TotalNio * porcentajeNio;
+            }
+
+            result.Add(new TrendPointDTO
+            {
+                Label = group.Key.ToString("dd MMM"),
+                ValorNio = totalNio,
+                ValorUsd = totalUsd
+            });
+        }
+
+        return result;
     }
 
     public async Task<List<PaymentMethodStatDTO>> GetPaymentMethodStatsAsync(DateTime start, DateTime end)
