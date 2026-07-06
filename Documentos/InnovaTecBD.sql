@@ -569,11 +569,11 @@ GO
 CREATE TABLE VEN.VENTA_DETALLE_IMEI (
     ID              INT IDENTITY(1,1) CONSTRAINT PK_VEN_DET_IMEI PRIMARY KEY,
     ID_DETALLE      INT         NOT NULL,
-    ID_EQUIPO_IMEI  INT         NOT NULL,   -- FK a INV.EQUIPOS_IMEI
+    ID_EQUIPO_IMEI  INT         NULL,       -- FK a INV.EQUIPOS_IMEI (puede ser NULL si se vendió sin registrar)
     IMEI_SNAP       NVARCHAR(20) NOT NULL,  -- snapshot del IMEI
     FOREIGN KEY (ID_DETALLE)    REFERENCES VEN.VENTA_DETALLE(ID_DETALLE),
-    FOREIGN KEY (ID_EQUIPO_IMEI) REFERENCES INV.EQUIPOS_IMEI(ID_IMEI),
-    CONSTRAINT UQ_VENTA_IMEI UNIQUE (ID_EQUIPO_IMEI)  -- un IMEI no puede venderse dos veces
+    FOREIGN KEY (ID_EQUIPO_IMEI) REFERENCES INV.EQUIPOS_IMEI(ID_IMEI)
+    -- Se elimina UQ_VENTA_IMEI para permitir múltiples NULLs o se usaría un índice filtrado en BD
 );
 GO
 
@@ -1099,13 +1099,14 @@ BEGIN
         SET @IdImei = NULL;
         IF @Imei IS NOT NULL AND @Imei <> ''
         BEGIN
-            SELECT @IdImei = ID_IMEI FROM INV.EQUIPOS_IMEI WHERE IMEI = @Imei AND ID_PRODUCTO = @IdProducto;
+            SELECT TOP 1 @IdImei = ID_IMEI FROM INV.EQUIPOS_IMEI WHERE IMEI = @Imei;
+            
+            -- Siempre insertamos el registro para mantener el IMEI en la factura (incluso si no estaba en inventario)
+            INSERT INTO VEN.VENTA_DETALLE_IMEI (ID_DETALLE, ID_EQUIPO_IMEI, IMEI_SNAP)
+            VALUES (@IdDetalle, @IdImei, @Imei);
             
             IF @IdImei IS NOT NULL
             BEGIN
-                INSERT INTO VEN.VENTA_DETALLE_IMEI (ID_DETALLE, ID_EQUIPO_IMEI, IMEI_SNAP)
-                VALUES (@IdDetalle, @IdImei, @Imei);
-                
                 UPDATE INV.EQUIPOS_IMEI SET ESTADO_IMEI = 'VENDIDO' WHERE ID_IMEI = @IdImei;
             END
         END
@@ -1261,14 +1262,51 @@ BEGIN
             WHERE ID_VENTA = @IdVenta;
         END
 
-        -- 6. Afectación Financiera a CAJA
-        UPDATE CAJA.TURNOS
-        SET TOTAL_VENTAS_NIO = TOTAL_VENTAS_NIO - @MontoReversoBase,
-            TOTAL_EFECTIVO_NIO = TOTAL_EFECTIVO_NIO - @MontoReversoBase
-        WHERE ID_TURNO = @IdTurno;
+        -- 6. Afectación Financiera a CAJA y Multimoneda
+        DECLARE @IdMetodoPago INT, @IdMonedaPago INT, @AfectaCaja BIT, @TasaCambio DECIMAL(18,6);
+        
+        -- Obtener la moneda principal con la que pagó (tomando el pago mayor si hay múltiples)
+        SELECT TOP 1 
+            @IdMetodoPago = P.ID_METODO_PAGO, 
+            @IdMonedaPago = M.ID_MONEDA,
+            @AfectaCaja = M.AFECTA_CAJA
+        FROM VEN.PAGOS P
+        JOIN CAT.METODOS_PAGO M ON P.ID_METODO_PAGO = M.ID_METODO
+        WHERE P.ID_VENTA = @IdVenta
+        ORDER BY P.MONTO_EN_NIO DESC;
 
-        INSERT INTO CAJA.MOVIMIENTOS_VARIOS (ID_TURNO, TIPO, ID_MONEDA, MONTO, CONCEPTO, ID_USUARIO)
-        VALUES (@IdTurno, 'EGRESO', 1, @MontoReversoBase, CONCAT('Reverso de Factura ', @IdVenta, '. Motivo: ', @Motivo), @IdUsuario);
+        -- Obtener la tasa de cambio histórica de la factura
+        SELECT @TasaCambio = TASA_CAMBIO_USD FROM VEN.VENTAS WHERE ID_VENTA = @IdVenta;
+
+        -- Calcular el monto de reverso físico (en la moneda de pago original)
+        DECLARE @MontoReversoFisico DECIMAL(18,2) = @MontoReversoBase;
+        IF @IdMonedaPago = 2 AND @TasaCambio > 0
+        BEGIN
+            SET @MontoReversoFisico = @MontoReversoBase / @TasaCambio;
+        END
+
+        -- Rebajar las métricas globales del turno
+        IF @IdMonedaPago = 2
+        BEGIN
+            UPDATE CAJA.TURNOS
+            SET TOTAL_VENTAS_USD = TOTAL_VENTAS_USD - @MontoReversoFisico,
+                TOTAL_EFECTIVO_USD = TOTAL_EFECTIVO_USD - @MontoReversoFisico
+            WHERE ID_TURNO = @IdTurno;
+        END
+        ELSE
+        BEGIN
+            UPDATE CAJA.TURNOS
+            SET TOTAL_VENTAS_NIO = TOTAL_VENTAS_NIO - @MontoReversoBase,
+                TOTAL_EFECTIVO_NIO = TOTAL_EFECTIVO_NIO - @MontoReversoBase
+            WHERE ID_TURNO = @IdTurno;
+        END
+
+        -- Registrar la salida del dinero físico como un EGRESO (si afecta caja)
+        IF @AfectaCaja = 1
+        BEGIN
+            INSERT INTO CAJA.MOVIMIENTOS_VARIOS (ID_TURNO, TIPO, ID_MONEDA, MONTO, CONCEPTO, ID_USUARIO)
+            VALUES (@IdTurno, 'EGRESO', @IdMonedaPago, @MontoReversoFisico, CONCAT('Reverso de Factura ', @IdVenta, '. Motivo: ', @Motivo), @IdUsuario);
+        END
 
         COMMIT TRANSACTION;
     END TRY
@@ -1292,8 +1330,8 @@ CREATE VIEW CAJA.V_ESTADO_TURNO_ACTUAL AS
 SELECT 
     T.*,
     U.USERNAME,
-    (T.MONTO_INICIAL_NIO + T.TOTAL_EFECTIVO_NIO + ISNULL((SELECT SUM(MONTO) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = T.ID_TURNO AND ID_MONEDA = 1), 0)) AS SALDO_TEORICO_NIO,
-    (T.MONTO_INICIAL_USD + T.TOTAL_EFECTIVO_USD + ISNULL((SELECT SUM(MONTO) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = T.ID_TURNO AND ID_MONEDA = 2), 0)) AS SALDO_TEORICO_USD
+    (T.MONTO_INICIAL_NIO + T.TOTAL_EFECTIVO_NIO + ISNULL((SELECT SUM(CASE WHEN TIPO = 'INGRESO' THEN MONTO ELSE -MONTO END) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = T.ID_TURNO AND ID_MONEDA = 1), 0)) AS SALDO_TEORICO_NIO,
+    (T.MONTO_INICIAL_USD + T.TOTAL_EFECTIVO_USD + ISNULL((SELECT SUM(CASE WHEN TIPO = 'INGRESO' THEN MONTO ELSE -MONTO END) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = T.ID_TURNO AND ID_MONEDA = 2), 0)) AS SALDO_TEORICO_USD
 FROM CAJA.TURNOS T
 JOIN ADM.USUARIOS U ON T.ID_USUARIO = U.ID_USUARIO
 WHERE T.FECHA_CIERRE IS NULL;
@@ -1346,8 +1384,8 @@ BEGIN
 
         -- Calcular diferencias basándose en el saldo teórico (Apertura + Ventas en Efectivo + Movimientos Manuales)
         DECLARE @TeoricoNio DECIMAL(18,2), @TeoricoUsd DECIMAL(18,2);
-        SELECT @TeoricoNio = (MONTO_INICIAL_NIO + TOTAL_EFECTIVO_NIO + ISNULL((SELECT SUM(MONTO) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = @IdTurno AND ID_MONEDA = 1), 0)),
-               @TeoricoUsd = (MONTO_INICIAL_USD + TOTAL_EFECTIVO_USD + ISNULL((SELECT SUM(MONTO) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = @IdTurno AND ID_MONEDA = 2), 0))
+        SELECT @TeoricoNio = (MONTO_INICIAL_NIO + TOTAL_EFECTIVO_NIO + ISNULL((SELECT SUM(CASE WHEN TIPO = 'INGRESO' THEN MONTO ELSE -MONTO END) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = @IdTurno AND ID_MONEDA = 1), 0)),
+               @TeoricoUsd = (MONTO_INICIAL_USD + TOTAL_EFECTIVO_USD + ISNULL((SELECT SUM(CASE WHEN TIPO = 'INGRESO' THEN MONTO ELSE -MONTO END) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = @IdTurno AND ID_MONEDA = 2), 0))
         FROM CAJA.TURNOS WHERE ID_TURNO = @IdTurno;
 
         UPDATE CAJA.TURNOS SET 

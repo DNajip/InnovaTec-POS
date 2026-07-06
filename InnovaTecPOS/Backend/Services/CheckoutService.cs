@@ -9,6 +9,7 @@ public interface ICheckoutService
     Task<List<PeriodosGarantium>> GetPeriodosGarantiaAsync();
     Task<List<MetodosPago>> GetMetodosPagoAsync();
     Task<EquiposImei?> ValidateImeiAsync(int idProducto, string imei);
+    Task<bool> IsImeiAlreadySoldAsync(string imei);
     Task ReversarTransaccionAsync(int idVenta, int idUsuario, string motivo, string? detalleJson);
 }
 
@@ -46,6 +47,19 @@ public class CheckoutService : ICheckoutService
         using var context = await _factory.CreateDbContextAsync();
         return await context.EquiposImeis
             .FirstOrDefaultAsync(i => i.IdProducto == idProducto && i.Imei == imei && i.EstadoImei == "DISPONIBLE");
+    }
+
+    public async Task<bool> IsImeiAlreadySoldAsync(string imei)
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        
+        // 1. Verificar si está en la tabla de inventario como VENDIDO
+        bool isSoldInInventory = await context.EquiposImeis.AnyAsync(i => i.Imei == imei && i.EstadoImei == "VENDIDO");
+        if (isSoldInInventory) return true;
+        
+        // 2. Verificar si está en la tabla de detalles de venta IMEI (por si se vendió de forma libre)
+        bool isSoldInDetails = await context.VentaDetalleImeis.AnyAsync(i => i.ImeiSnap == imei);
+        return isSoldInDetails;
     }
 
     public async Task<Venta> ProcessCheckoutAsync(int userId, int? idPersona, decimal discount, List<CartItem> items, List<PaymentInput> payments)
@@ -108,12 +122,13 @@ public class CheckoutService : ICheckoutService
 
         try
         {
+            string? p3 = string.IsNullOrWhiteSpace(detalleJson) ? null : detalleJson;
             await context.Database.ExecuteSqlRawAsync(
                 "EXEC VEN.sp_ReversoTransaccion @p0, @p1, @p2, @p3",
                 idVenta, 
                 idUsuario, 
                 motivo, 
-                string.IsNullOrWhiteSpace(detalleJson) ? (object)DBNull.Value : detalleJson);
+                p3);
         }
         catch (Microsoft.Data.SqlClient.SqlException ex)
         {

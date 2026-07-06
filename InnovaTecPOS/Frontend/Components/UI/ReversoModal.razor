@@ -186,14 +186,7 @@
                 detalleJson = System.Text.Json.JsonSerializer.Serialize(selectedItems);
             }
 
-            if (CheckoutService is CheckoutService concreteService)
-            {
-                await concreteService.ReversarTransaccionAsync(Factura.IdVenta, userId.Value, motivo, detalleJson);
-            }
-            else
-            {
-                throw new Exception("El servicio CheckoutService no tiene el método implementado.");
-            }
+            await CheckoutService.ReversarTransaccionAsync(Factura.IdVenta, userId.Value, motivo, detalleJson);
             
             await OnSuccess.InvokeAsync(true);
         }
