@@ -74,11 +74,11 @@
                                 @foreach (var item in Factura.VentaDetalles)
                                 {
                                     bool isDevuelto = item.Devuelto;
-                                    <tr class="@(isDevuelto ? "bg-light opacity-50" : "")">
+                                    <tr class="@(isDevuelto ? "bg-light opacity-50 text-muted text-decoration-line-through" : "")">
                                         <td class="text-center">
                                             @if (isDevuelto)
                                             {
-                                                <i class="fas fa-check text-success"></i>
+                                                <i class="fas fa-undo text-secondary"></i>
                                             }
                                             else
                                             {
@@ -88,13 +88,14 @@
                                             }
                                         </td>
                                         <td>
-                                            <div class="fw-bold @(item.EsRegalia ? "text-success" : "")">
+                                            <div class="fw-bold @(item.EsRegalia && !isDevuelto ? "text-success" : "")">
                                                 @item.DescripcionSnap
                                                 @if(item.EsRegalia){ <span class="badge bg-success ms-1">REGALIA</span> }
+                                                @if(isDevuelto){ <span class="badge bg-secondary ms-1">REVERSADO</span> }
                                             </div>
                                             @if (item.VentaDetalleImeis != null && item.VentaDetalleImeis.Any())
                                             {
-                                                <div class="x-small text-muted">IMEI: @string.Join(", ", item.VentaDetalleImeis.Select(i => i.ImeiSnap))</div>
+                                                <div class="x-small @(isDevuelto ? "text-muted" : "text-secondary")">IMEI: @string.Join(", ", item.VentaDetalleImeis.Select(i => i.ImeiSnap))</div>
                                             }
                                         </td>
                                         <td class="text-center">@item.Cantidad</td>

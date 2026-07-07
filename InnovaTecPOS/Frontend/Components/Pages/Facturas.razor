@@ -367,6 +367,7 @@
             var end = endDate.Date.AddDays(1).AddTicks(-1);
 
             var query = DbContext.Ventas
+                .AsNoTracking()
                 .Include(v => v.IdPersonaNavigation)
                 .Include(v => v.IdUsuarioNavigation)
                 .Include(v => v.VentaDetalles)

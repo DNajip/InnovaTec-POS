@@ -11,6 +11,7 @@ public interface IShiftService
     Task<List<Denominacione>> GetDenominationsAsync();
     Task<MovimientoVario> AddCashEntryAsync(int turnoId, int userId, int monedaId, decimal monto, string concepto);
     Task<decimal> GetTotalCashEntriesAsync(int turnoId, int monedaId);
+    Task<decimal> GetTotalCashExitsAsync(int turnoId, int monedaId);
     Task<Turno?> GetLastClosedShiftAsync(int userId);
 }
 
@@ -102,6 +103,14 @@ public class ShiftService : IShiftService
         using var context = await _factory.CreateDbContextAsync();
         return await context.MovimientosVarios
             .Where(m => m.IdTurno == turnoId && m.IdMoneda == monedaId && m.Tipo == "INGRESO")
+            .SumAsync(m => m.Monto);
+    }
+
+    public async Task<decimal> GetTotalCashExitsAsync(int turnoId, int monedaId)
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        return await context.MovimientosVarios
+            .Where(m => m.IdTurno == turnoId && m.IdMoneda == monedaId && m.Tipo == "EGRESO")
             .SumAsync(m => m.Monto);
     }
 

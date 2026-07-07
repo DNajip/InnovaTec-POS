@@ -346,26 +346,31 @@
                     totalEfectivoNio = closedShift.TotalEfectivoNio,
                     totalEfectivoUsd = closedShift.TotalEfectivoUsd,
                     totalTarjeta = closedShift.TotalTarjeta,
+                    totalTarjetaUsd = closedShift.TotalTarjetaUsd,
                     totalTransferencia = closedShift.TotalTransferencia,
+                    totalTransferenciaUsd = closedShift.TotalTransferenciaUsd,
                     montoInicialNio = closedShift.MontoInicialNio,
                     montoInicialUsd = closedShift.MontoInicialUsd,
                     montoContadoNio = closedShift.MontoContadoNio,
                     montoContadoUsd = closedShift.MontoContadoUsd,
                     montoManualNio = await ShiftService.GetTotalCashEntriesAsync(closedShift.IdTurno, 1),
                     montoManualUsd = await ShiftService.GetTotalCashEntriesAsync(closedShift.IdTurno, 2),
+                    montoReversosNio = await ShiftService.GetTotalCashExitsAsync(closedShift.IdTurno, 1),
+                    montoReversosUsd = await ShiftService.GetTotalCashExitsAsync(closedShift.IdTurno, 2),
                     diferenciaNio = closedShift.DiferenciaNio,
                     diferenciaUsd = closedShift.DiferenciaUsd,
                     observaciones = closedShift.Observaciones
                 };
 
                 await JSRuntime.InvokeVoidAsync("qzPrintShiftClosing", printData, configPrint);
+                ToastService.ShowSuccess("Caja cerrada correctamente.");
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Error al imprimir arqueo: " + ex.Message);
+                ToastService.ShowWarning("Caja cerrada, pero hubo un error de impresora: " + ex.Message);
             }
 
-            ToastService.ShowSuccess("Caja cerrada correctamente");
             UserSession.ActiveShift = null; 
             await OnSuccess.InvokeAsync();
         }
