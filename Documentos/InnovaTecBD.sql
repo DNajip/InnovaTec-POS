@@ -1214,7 +1214,14 @@ BEGIN
         FROM VEN.VENTA_DETALLE VD
         JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
 
-        SELECT @MontoReversoBase = COALESCE(SUM(VD.SUBTOTAL_NIO), 0)
+        DECLARE @SubtotalFactura DECIMAL(18,2), @TotalFactura DECIMAL(18,2), @FactorDescuento DECIMAL(18,6) = 1.0;
+        SELECT @SubtotalFactura = SUBTOTAL_NIO, @TotalFactura = TOTAL_NIO
+        FROM VEN.VENTAS WHERE ID_VENTA = @IdVenta;
+
+        IF @SubtotalFactura > 0
+            SET @FactorDescuento = @TotalFactura / @SubtotalFactura;
+
+        SELECT @MontoReversoBase = COALESCE(SUM(VD.SUBTOTAL_NIO * @FactorDescuento), 0)
         FROM VEN.VENTA_DETALLE VD
         JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
 
@@ -1285,27 +1292,31 @@ BEGIN
             SET @MontoReversoFisico = @MontoReversoBase / @TasaCambio;
         END
 
-        -- Rebajar las métricas globales del turno
-        IF @IdMonedaPago = 2
+        -- Rebajar las métricas globales del turno (Solo si el monto a reversar es mayor a 0)
+        IF @MontoReversoBase > 0
         BEGIN
-            UPDATE CAJA.TURNOS
-            SET TOTAL_VENTAS_USD = TOTAL_VENTAS_USD - @MontoReversoFisico,
-                TOTAL_EFECTIVO_USD = TOTAL_EFECTIVO_USD - @MontoReversoFisico
-            WHERE ID_TURNO = @IdTurno;
-        END
-        ELSE
-        BEGIN
-            UPDATE CAJA.TURNOS
-            SET TOTAL_VENTAS_NIO = TOTAL_VENTAS_NIO - @MontoReversoBase,
-                TOTAL_EFECTIVO_NIO = TOTAL_EFECTIVO_NIO - @MontoReversoBase
-            WHERE ID_TURNO = @IdTurno;
-        END
+            IF @IdMonedaPago = 2
+            BEGIN
+                UPDATE CAJA.TURNOS
+                SET TOTAL_VENTAS_USD = TOTAL_VENTAS_USD - @MontoReversoFisico,
+                    TOTAL_EFECTIVO_USD = TOTAL_EFECTIVO_USD - @MontoReversoFisico
+                WHERE ID_TURNO = @IdTurno;
+            END
+            ELSE
+            BEGIN
+                UPDATE CAJA.TURNOS
+                SET TOTAL_VENTAS_NIO = TOTAL_VENTAS_NIO - @MontoReversoBase,
+                    TOTAL_EFECTIVO_NIO = TOTAL_EFECTIVO_NIO - @MontoReversoBase
+                WHERE ID_TURNO = @IdTurno;
+            END
 
-        -- Registrar la salida del dinero físico como un EGRESO (si afecta caja)
-        IF @AfectaCaja = 1
-        BEGIN
-            INSERT INTO CAJA.MOVIMIENTOS_VARIOS (ID_TURNO, TIPO, ID_MONEDA, MONTO, CONCEPTO, ID_USUARIO)
-            VALUES (@IdTurno, 'EGRESO', @IdMonedaPago, @MontoReversoFisico, CONCAT('Reverso de Factura ', @IdVenta, '. Motivo: ', @Motivo), @IdUsuario);
+            -- Registrar la salida del dinero físico como un EGRESO (si afecta caja)
+            IF @AfectaCaja = 1
+            BEGIN
+                DECLARE @PrefixReverso VARCHAR(30) = CASE WHEN @Faltan = 0 THEN 'Reverso de Factura ' ELSE 'Reverso Parcial de Factura ' END;
+                INSERT INTO CAJA.MOVIMIENTOS_VARIOS (ID_TURNO, TIPO, ID_MONEDA, MONTO, CONCEPTO, ID_USUARIO)
+                VALUES (@IdTurno, 'EGRESO', @IdMonedaPago, @MontoReversoFisico, CONCAT(@PrefixReverso, @IdVenta, '. Motivo: ', @Motivo), @IdUsuario);
+            END
         END
 
         COMMIT TRANSACTION;

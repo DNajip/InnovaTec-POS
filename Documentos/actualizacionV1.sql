@@ -1,4 +1,4 @@
-﻿-- Actualización V1: Soporte de Tarjetas y Transferencias en Dólares
+-- Actualización V1: Soporte de Tarjetas y Transferencias en Dólares
 USE InnovaTecBD;
 GO
 
@@ -489,10 +489,10 @@ BEGIN
             THROW 50002, 'La factura ya ha sido anulada previamente.', 1;
             
         IF @FechaVenta <> CAST(SYSDATETIME() AS DATE)
-            THROW 50003, 'Solo se pueden reversar facturas emitidas el dÃ­a de hoy.', 1;
+            THROW 50003, 'Solo se pueden reversar facturas emitidas el día de hoy.', 1;
             
         IF @IdCajero <> @IdUsuario
-            THROW 50004, 'La factura solo puede ser reversada por el cajero que la emitiÃ³.', 1;
+            THROW 50004, 'La factura solo puede ser reversada por el cajero que la emitió.', 1;
 
         -- Obtener Turno Activo del Cajero
         SELECT @IdTurno = ID_TURNO
@@ -520,19 +520,19 @@ BEGIN
             INSERT INTO @DetallesAReversar (ID_DETALLE)
             SELECT [value] FROM OPENJSON(@DetalleJson);
             
-            -- Validar que pertenecen a la factura y no estÃ¡n devueltos
+            -- Validar que pertenecen a la factura y no están devueltos
             IF EXISTS (
                 SELECT 1 FROM @DetallesAReversar D
                 JOIN VEN.VENTA_DETALLE VD ON D.ID_DETALLE = VD.ID_DETALLE
                 WHERE VD.ID_VENTA <> @IdVenta OR VD.DEVUELTO = 1
             )
             BEGIN
-                THROW 50006, 'Uno o mÃ¡s productos seleccionados ya fueron devueltos o no pertenecen a esta factura.', 1;
+                THROW 50006, 'Uno o más productos seleccionados ya fueron devueltos o no pertenecen a esta factura.', 1;
             END
         END
 
         IF NOT EXISTS (SELECT 1 FROM @DetallesAReversar)
-            THROW 50007, 'No hay artÃ­culos para reversar.', 1;
+            THROW 50007, 'No hay artículos para reversar.', 1;
 
         -- 1. Actualizar DEVUELTO y recuperar Monto
         UPDATE VD
@@ -540,7 +540,14 @@ BEGIN
         FROM VEN.VENTA_DETALLE VD
         JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
 
-        SELECT @MontoReversoBase = COALESCE(SUM(VD.SUBTOTAL_NIO), 0)
+        DECLARE @SubtotalFactura DECIMAL(18,2), @TotalFactura DECIMAL(18,2), @FactorDescuento DECIMAL(18,6) = 1.0;
+        SELECT @SubtotalFactura = SUBTOTAL_NIO, @TotalFactura = TOTAL_NIO
+        FROM VEN.VENTAS WHERE ID_VENTA = @IdVenta;
+
+        IF @SubtotalFactura > 0
+            SET @FactorDescuento = @TotalFactura / @SubtotalFactura;
+
+        SELECT @MontoReversoBase = COALESCE(SUM(VD.SUBTOTAL_NIO * @FactorDescuento), 0)
         FROM VEN.VENTA_DETALLE VD
         JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
 
@@ -588,10 +595,10 @@ BEGIN
             WHERE ID_VENTA = @IdVenta;
         END
 
-        -- 6. AfectaciÃ³n Financiera a CAJA y Multimoneda
+        -- 6. Afectación Financiera a CAJA y Multimoneda
         DECLARE @IdMetodoPago INT, @IdMonedaPago INT, @AfectaCaja BIT, @TasaCambio DECIMAL(18,6);
         
-        -- Obtener la moneda principal con la que pagÃ³ (tomando el pago mayor si hay mÃºltiples)
+        -- Obtener la moneda principal con la que pagó (tomando el pago mayor si hay múltiples)
         SELECT TOP 1 
             @IdMetodoPago = P.ID_METODO_PAGO, 
             @IdMonedaPago = M.ID_MONEDA,
@@ -601,37 +608,41 @@ BEGIN
         WHERE P.ID_VENTA = @IdVenta
         ORDER BY P.MONTO_EN_NIO DESC;
 
-        -- Obtener la tasa de cambio histÃ³rica de la factura
+        -- Obtener la tasa de cambio histórica de la factura
         SELECT @TasaCambio = TASA_CAMBIO_USD FROM VEN.VENTAS WHERE ID_VENTA = @IdVenta;
 
-        -- Calcular el monto de reverso fÃ­sico (en la moneda de pago original)
+        -- Calcular el monto de reverso físico (en la moneda de pago original)
         DECLARE @MontoReversoFisico DECIMAL(18,2) = @MontoReversoBase;
         IF @IdMonedaPago = 2 AND @TasaCambio > 0
         BEGIN
             SET @MontoReversoFisico = @MontoReversoBase / @TasaCambio;
         END
 
-        -- Rebajar las mÃ©tricas globales del turno
-        IF @IdMonedaPago = 2
+        -- Rebajar las métricas globales del turno (Solo si el monto a reversar es mayor a 0)
+        IF @MontoReversoBase > 0
         BEGIN
-            UPDATE CAJA.TURNOS
-            SET TOTAL_VENTAS_USD = TOTAL_VENTAS_USD - @MontoReversoFisico,
-                TOTAL_EFECTIVO_USD = TOTAL_EFECTIVO_USD - @MontoReversoFisico
-            WHERE ID_TURNO = @IdTurno;
-        END
-        ELSE
-        BEGIN
-            UPDATE CAJA.TURNOS
-            SET TOTAL_VENTAS_NIO = TOTAL_VENTAS_NIO - @MontoReversoBase,
-                TOTAL_EFECTIVO_NIO = TOTAL_EFECTIVO_NIO - @MontoReversoBase
-            WHERE ID_TURNO = @IdTurno;
-        END
+            IF @IdMonedaPago = 2
+            BEGIN
+                UPDATE CAJA.TURNOS
+                SET TOTAL_VENTAS_USD = TOTAL_VENTAS_USD - @MontoReversoFisico,
+                    TOTAL_EFECTIVO_USD = TOTAL_EFECTIVO_USD - @MontoReversoFisico
+                WHERE ID_TURNO = @IdTurno;
+            END
+            ELSE
+            BEGIN
+                UPDATE CAJA.TURNOS
+                SET TOTAL_VENTAS_NIO = TOTAL_VENTAS_NIO - @MontoReversoBase,
+                    TOTAL_EFECTIVO_NIO = TOTAL_EFECTIVO_NIO - @MontoReversoBase
+                WHERE ID_TURNO = @IdTurno;
+            END
 
-        -- Registrar la salida del dinero fÃ­sico como un EGRESO (si afecta caja)
-        IF @AfectaCaja = 1
-        BEGIN
-            INSERT INTO CAJA.MOVIMIENTOS_VARIOS (ID_TURNO, TIPO, ID_MONEDA, MONTO, CONCEPTO, ID_USUARIO)
-            VALUES (@IdTurno, 'EGRESO', @IdMonedaPago, @MontoReversoFisico, CONCAT('Reverso de Factura ', @IdVenta, '. Motivo: ', @Motivo), @IdUsuario);
+            -- Registrar la salida del dinero físico como un EGRESO (si afecta caja)
+            IF @AfectaCaja = 1
+            BEGIN
+                DECLARE @PrefixReverso VARCHAR(30) = CASE WHEN @Faltan = 0 THEN 'Reverso de Factura ' ELSE 'Reverso Parcial de Factura ' END;
+                INSERT INTO CAJA.MOVIMIENTOS_VARIOS (ID_TURNO, TIPO, ID_MONEDA, MONTO, CONCEPTO, ID_USUARIO)
+                VALUES (@IdTurno, 'EGRESO', @IdMonedaPago, @MontoReversoFisico, CONCAT(@PrefixReverso, @IdVenta, '. Motivo: ', @Motivo), @IdUsuario);
+            END
         END
 
         COMMIT TRANSACTION;
@@ -643,4 +654,3 @@ BEGIN
     END CATCH
 END;
 GO
-

@@ -162,14 +162,14 @@ public class ReportService : IReportService
 
         foreach (var t in turnos)
         {
-            var pagos = t.Venta.Where(v => !v.Anulada).SelectMany(v => v.Pagos).ToList();
+            var pagosCaja = t.Venta.SelectMany(v => v.Pagos).ToList();
             
             // NIO
             decimal ingresosNio = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO" && m.IdMoneda == 1).Sum(m => m.Monto);
             decimal retirosNio = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 1 && !m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
             decimal reversosNio = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 1 && m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
-            decimal vueltoEntregadoNio = pagos.Sum(p => p.VueltoNio ?? 0);
-            decimal cobroEfectivoNio = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
+            decimal vueltoEntregadoNio = pagosCaja.Sum(p => p.VueltoNio ?? 0);
+            decimal cobroEfectivoNio = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
 
             // Teórico solo incluye efectivo físico e ingresos/retiros manuales
             decimal saldoTeoricoNio = t.MontoInicialNio + cobroEfectivoNio + ingresosNio - retirosNio - reversosNio - vueltoEntregadoNio;
@@ -182,7 +182,7 @@ public class ReportService : IReportService
             decimal ingresosUsd = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO" && m.IdMoneda == 2).Sum(m => m.Monto);
             decimal retirosUsd = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 2 && !m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
             decimal reversosUsd = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 2 && m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
-            decimal cobroEfectivoUsd = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
+            decimal cobroEfectivoUsd = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
             
             // Teórico solo incluye efectivo físico e ingresos/retiros manuales
             decimal saldoTeoricoUsd = t.MontoInicialUsd + cobroEfectivoUsd + ingresosUsd - retirosUsd - reversosUsd;
@@ -507,7 +507,8 @@ public class ReportService : IReportService
             var ventasValidas = t.Venta.Where(v => !v.Anulada).ToList();
             var ventasAnuladas = t.Venta.Where(v => v.Anulada).ToList();
             
-            var pagos = ventasValidas.SelectMany(v => v.Pagos).ToList();
+            var pagosValidos = ventasValidas.SelectMany(v => v.Pagos).ToList();
+            var pagosCaja = t.Venta.SelectMany(v => v.Pagos).ToList();
             
             // Movimientos manuales
             decimal ingresosNio = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO" && m.IdMoneda == 1).Sum(m => m.Monto);
@@ -519,22 +520,22 @@ public class ReportService : IReportService
             decimal reversosUsd = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 2 && m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
 
             // Vueltos entregados desde pagos (normalmente en NIO)
-            decimal vueltoEntregadoNio = pagos.Sum(p => p.VueltoNio ?? 0);
+            decimal vueltoEntregadoNio = pagosCaja.Sum(p => p.VueltoNio ?? 0);
             decimal vueltoEntregadoUsd = 0; // Asumimos vuelto en dolares es 0
             
             // Cobros (ingresos fisicos y electronicos) - Usando MontoPagado en lugar de MontoEnNio
-            decimal cobroEfectivoNio = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
-            decimal cobroEfectivoUsd = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
+            decimal cobroEfectivoNio = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
+            decimal cobroEfectivoUsd = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
             
-            decimal cobroTarjetaNio = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TARJETA") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
-            decimal cobroTarjetaUsd = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TARJETA") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
+            decimal cobroTarjetaNio = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TARJETA") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
+            decimal cobroTarjetaUsd = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TARJETA") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
             
-            decimal cobroTransferenciaNio = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
-            decimal cobroTransferenciaUsd = pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
+            decimal cobroTransferenciaNio = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
+            decimal cobroTransferenciaUsd = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
 
-            // Calcular Ventas Netas restando el vuelto al pago bruto en Córdoba
-            decimal ventasNetasNio = cobroEfectivoNio + cobroTarjetaNio + cobroTransferenciaNio - vueltoEntregadoNio;
-            decimal ventasNetasUsd = cobroEfectivoUsd + cobroTarjetaUsd + cobroTransferenciaUsd;
+            // Calcular Ventas Netas restando el vuelto al pago bruto en Córdoba (solo ventas válidas)
+            decimal ventasNetasNio = pagosValidos.Where(p => p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado) - pagosValidos.Sum(p => p.VueltoNio ?? 0);
+            decimal ventasNetasUsd = pagosValidos.Where(p => p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
 
             string estadoStr = t.FechaCierre == null ? "EN CURSO" : (t.EstadoCuadre ?? "CERRADO");
 
