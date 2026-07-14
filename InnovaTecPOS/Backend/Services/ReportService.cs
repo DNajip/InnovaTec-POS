@@ -40,6 +40,7 @@ public class ReportService : IReportService
     {
         end = end.Date.AddDays(1).AddTicks(-1);
         var currentVentas = await _context.Ventas
+            .AsNoTracking()
             .Include(v => v.VentaDetalles)
                 .ThenInclude(d => d.IdProductoNavigation)
             .Include(v => v.Pagos)
@@ -55,6 +56,7 @@ public class ReportService : IReportService
         var prevEnd = start.AddTicks(-1);
 
         var prevVentas = await _context.Ventas
+            .AsNoTracking()
             .Where(v => v.FechaVenta >= prevStart && v.FechaVenta <= prevEnd && !v.Anulada)
             .ToListAsync();
 

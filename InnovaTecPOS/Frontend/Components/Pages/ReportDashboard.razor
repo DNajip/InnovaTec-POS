@@ -14,8 +14,8 @@ else
     <!-- Fila 1: Resumen Financiero Multimoneda -->
     <div class="kpi-grid">
         <InnovaKpiCard Title="Total Cobrado" Value="(stats?.TotalEfectivoNio ?? 0) + (stats?.TotalTarjetaNio ?? 0) + (stats?.TotalTransferenciaNio ?? 0)" Prefix="C$ " SecondaryValue="(stats?.TotalEfectivoUsd ?? 0) + (stats?.TotalTarjetaUsd ?? 0) + (stats?.TotalTransferenciaUsd ?? 0)" SecondaryPrefix="U$ " IconClass="fas fa-wallet" IconBg="#fef9c3" IconColor="#ca8a04" Loading="loading" />
-        <InnovaKpiCard Title="Descuentos" Value="stats?.DescuentosNio ?? 0" Prefix="-C$ " SecondaryValue="stats?.DescuentosUsd" SecondaryPrefix="-U$ " IconClass="fas fa-tags" IconBg="#fee2e2" IconColor="#ef4444" Loading="loading" />
-        <InnovaKpiCard Title="Regalías" Value="stats?.ValorRegaliasNio ?? 0" Prefix="-C$ " SecondaryValue="stats?.ValorRegaliasUsd" SecondaryPrefix="-U$ " IconClass="fas fa-gift" IconBg="#f3e8ff" IconColor="#9333ea" Loading="loading" />
+        <InnovaKpiCard Title="Descuentos" Value="stats?.DescuentosNio ?? 0" Prefix="-C$ " IconClass="fas fa-tags" IconBg="#fee2e2" IconColor="#ef4444" Loading="loading" />
+        <InnovaKpiCard Title="Regalías" Value="stats?.ValorRegaliasNio ?? 0" Prefix="-C$ " IconClass="fas fa-gift" IconBg="#f3e8ff" IconColor="#9333ea" Loading="loading" />
         <InnovaKpiCard Title="Total Facturas" Value="stats?.TotalFacturas ?? 0" Format="N0" IconClass="fas fa-file-invoice" IconBg="#e0f2fe" IconColor="#0284c7" Loading="loading" />
     </div>
 

@@ -1,0 +1,22 @@
+import paramiko
+
+host = "31.97.147.42"
+port = 22
+username = "root"
+password = "Najippineda2002#"
+
+commands = [
+    "curl -s http://archive.ubuntu.com/ubuntu/pool/main/o/openldap/ | grep libldap-2.5-0"
+]
+
+ssh = paramiko.SSHClient()
+ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+try:
+    ssh.connect(host, port, username, password, timeout=10)
+    for cmd in commands:
+        stdin, stdout, stderr = ssh.exec_command(cmd)
+        print(stdout.read().decode('utf-8'))
+except Exception as e:
+    pass
+finally:
+    ssh.close()

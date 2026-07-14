@@ -1,0 +1,11 @@
+import paramiko
+ssh = paramiko.SSHClient()
+ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+ssh.connect('31.97.147.42', 22, 'root', 'Najippineda2002#', timeout=10)
+stdin, stdout, stderr = ssh.exec_command('systemctl status nginx --no-pager')
+print('NGINX STATUS:\n' + stdout.read().decode())
+stdin, stdout, stderr = ssh.exec_command('systemctl status innovatec --no-pager')
+print('INNOVATEC STATUS:\n' + stdout.read().decode())
+stdin, stdout, stderr = ssh.exec_command('systemctl status mssql-server --no-pager')
+print('MSSQL STATUS:\n' + stdout.read().decode())
+ssh.close()

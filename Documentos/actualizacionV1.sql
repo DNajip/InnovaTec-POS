@@ -462,6 +462,10 @@ BEGIN
 END;
 GO
 
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 ALTER PROCEDURE VEN.sp_ReversoTransaccion
     @IdVenta INT,
     @IdUsuario INT,
@@ -540,16 +544,22 @@ BEGIN
         FROM VEN.VENTA_DETALLE VD
         JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
 
-        DECLARE @SubtotalFactura DECIMAL(18,2), @TotalFactura DECIMAL(18,2), @FactorDescuento DECIMAL(18,6) = 1.0;
+        DECLARE @SubtotalFactura DECIMAL(18,2), @TotalFactura DECIMAL(18,2);
         SELECT @SubtotalFactura = SUBTOTAL_NIO, @TotalFactura = TOTAL_NIO
         FROM VEN.VENTAS WHERE ID_VENTA = @IdVenta;
 
         IF @SubtotalFactura > 0
-            SET @FactorDescuento = @TotalFactura / @SubtotalFactura;
-
-        SELECT @MontoReversoBase = COALESCE(SUM(VD.SUBTOTAL_NIO * @FactorDescuento), 0)
-        FROM VEN.VENTA_DETALLE VD
-        JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
+        BEGIN
+            SELECT @MontoReversoBase = COALESCE(SUM((VD.SUBTOTAL_NIO * @TotalFactura) / @SubtotalFactura), 0)
+            FROM VEN.VENTA_DETALLE VD
+            JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
+        END
+        ELSE
+        BEGIN
+            SELECT @MontoReversoBase = COALESCE(SUM(VD.SUBTOTAL_NIO), 0)
+            FROM VEN.VENTA_DETALLE VD
+            JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
+        END
 
         -- 2. Restaurar Stock
         UPDATE P
