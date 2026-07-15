@@ -618,6 +618,13 @@ BEGIN
         WHERE P.ID_VENTA = @IdVenta
         ORDER BY P.MONTO_EN_NIO DESC;
 
+        -- REGLA DE ORO: Si pagó en Dólares Físicos, el vuelto/reverso se da en Córdobas Físicos
+        IF @IdMetodoPago = 2
+        BEGIN
+            SET @IdMetodoPago = 1;
+            SET @IdMonedaPago = 1;
+        END
+
         -- Obtener la tasa de cambio histórica de la factura
         SELECT @TasaCambio = TASA_CAMBIO_USD FROM VEN.VENTAS WHERE ID_VENTA = @IdVenta;
 

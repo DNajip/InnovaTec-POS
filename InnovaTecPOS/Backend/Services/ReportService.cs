@@ -535,9 +535,26 @@ public class ReportService : IReportService
             decimal cobroTransferenciaNio = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
             decimal cobroTransferenciaUsd = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
 
-            // Calcular Ventas Netas restando el vuelto al pago bruto en Córdoba (solo ventas válidas)
-            decimal ventasNetasNio = pagosValidos.Where(p => p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado) - pagosValidos.Sum(p => p.VueltoNio ?? 0);
-            decimal ventasNetasUsd = pagosValidos.Where(p => p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
+            decimal ventasNetasNio = 0;
+            decimal ventasNetasUsd = 0;
+
+            foreach (var v in ventasValidas)
+            {
+                var pagosFactura = pagosValidos.Where(p => p.IdVenta == v.IdVenta).ToList();
+                decimal pagoUSD = pagosFactura.Where(p => p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoEnNio);
+                decimal pagoNIO = pagosFactura.Where(p => p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoEnNio);
+                decimal totalPago = pagoUSD + pagoNIO;
+
+                if (totalPago > 0)
+                {
+                    decimal propUSD = pagoUSD / totalPago;
+                    decimal propNIO = pagoNIO / totalPago;
+
+                    decimal ventaAtribuidaUsdEnNio = v.TotalNio * propUSD;
+                    ventasNetasNio += (v.TotalNio * propNIO);
+                    ventasNetasUsd += (ventaAtribuidaUsdEnNio / (v.TasaCambioUsd > 0 ? v.TasaCambioUsd : 36.60m));
+                }
+            }
 
             string estadoStr = t.FechaCierre == null ? "EN CURSO" : (t.EstadoCuadre ?? "CERRADO");
 
