@@ -102,8 +102,10 @@ CREATE TABLE CAT.METODOS_PAGO (
 INSERT INTO CAT.METODOS_PAGO (NOMBRE, AFECTA_CAJA, ID_MONEDA) VALUES
     ('EFECTIVO_NIO',    1, 1),   -- Efectivo en cordobas
     ('EFECTIVO_USD',    1, 2),   -- Efectivo en dolares (vuelto en NIO)
-    ('TARJETA',         0, NULL),
-    ('TRANSFERENCIA',   0, NULL);
+    ('TARJETA',         0, 1),   -- Tarjeta en NIO
+    ('TRANSFERENCIA',   0, 1),   -- Transferencia en NIO
+    ('TARJETA_USD',     0, 2),   -- Tarjeta en USD
+    ('TRANSFERENCIA_USD', 0, 2); -- Transferencia en USD
 GO
 
 -- Periodos de garantia (1-12 meses, mas opciones especiales)
@@ -455,7 +457,9 @@ CREATE TABLE CAJA.TURNOS (
     TOTAL_EFECTIVO_NIO      DECIMAL(18,2) NOT NULL DEFAULT 0,   -- solo pagos en efectivo NIO
     TOTAL_EFECTIVO_USD      DECIMAL(18,2) NOT NULL DEFAULT 0,   -- solo pagos en efectivo USD
     TOTAL_TARJETA           DECIMAL(18,2) NOT NULL DEFAULT 0,
+    TOTAL_TARJETA_USD       DECIMAL(18,2) NOT NULL DEFAULT 0,
     TOTAL_TRANSFERENCIA     DECIMAL(18,2) NOT NULL DEFAULT 0,
+    TOTAL_TRANSFERENCIA_USD DECIMAL(18,2) NOT NULL DEFAULT 0,
     -- Conteo fisico al cierre
     MONTO_CONTADO_NIO       DECIMAL(18,2) NULL,
     MONTO_CONTADO_USD       DECIMAL(18,2) NULL,
@@ -500,7 +504,7 @@ CREATE TABLE CAJA.MOVIMIENTOS_VARIOS (
     ID_MOVIMIENTO   INT IDENTITY(1,1) CONSTRAINT PK_CAJA_MOV_VARIOS PRIMARY KEY,
     ID_TURNO        INT NOT NULL,
     TIPO            VARCHAR(10) NOT NULL DEFAULT 'INGRESO'
-        CONSTRAINT CHK_CAJA_MOV_TIPO CHECK (TIPO IN ('INGRESO')), -- Restringido a INGRESO por requerimiento
+        CONSTRAINT CHK_CAJA_MOV_TIPO CHECK (TIPO IN ('INGRESO', 'EGRESO')), -- Modificado para permitir reversos
     ID_MONEDA       INT NOT NULL,
     MONTO           DECIMAL(18,2) NOT NULL,
     CONCEPTO        NVARCHAR(200) NOT NULL,
@@ -553,6 +557,8 @@ CREATE TABLE VEN.VENTA_DETALLE (
     -- Garantia aplicada a este producto en esta venta
     ID_PERIODO_GARANTIA INT NULL,               -- NULL = sin garantia
     FECHA_VENCE_GARANTIA DATE NULL,             -- calculada al cerrar venta
+    ES_REGALIA          BIT NOT NULL DEFAULT 0,
+    DEVUELTO            BIT NOT NULL DEFAULT 0, -- Indica si este item especifico fue devuelto al inventario
     FOREIGN KEY (ID_VENTA)              REFERENCES VEN.VENTAS(ID_VENTA),
     FOREIGN KEY (ID_PRODUCTO)           REFERENCES INV.PRODUCTOS(ID_PRODUCTO),
     FOREIGN KEY (ID_PERIODO_GARANTIA)   REFERENCES CAT.PERIODOS_GARANTIA(ID_PERIODO)
@@ -563,11 +569,11 @@ GO
 CREATE TABLE VEN.VENTA_DETALLE_IMEI (
     ID              INT IDENTITY(1,1) CONSTRAINT PK_VEN_DET_IMEI PRIMARY KEY,
     ID_DETALLE      INT         NOT NULL,
-    ID_EQUIPO_IMEI  INT         NOT NULL,   -- FK a INV.EQUIPOS_IMEI
+    ID_EQUIPO_IMEI  INT         NULL,       -- FK a INV.EQUIPOS_IMEI (puede ser NULL si se vendió sin registrar)
     IMEI_SNAP       NVARCHAR(20) NOT NULL,  -- snapshot del IMEI
     FOREIGN KEY (ID_DETALLE)    REFERENCES VEN.VENTA_DETALLE(ID_DETALLE),
-    FOREIGN KEY (ID_EQUIPO_IMEI) REFERENCES INV.EQUIPOS_IMEI(ID_IMEI),
-    CONSTRAINT UQ_VENTA_IMEI UNIQUE (ID_EQUIPO_IMEI)  -- un IMEI no puede venderse dos veces
+    FOREIGN KEY (ID_EQUIPO_IMEI) REFERENCES INV.EQUIPOS_IMEI(ID_IMEI)
+    -- Se elimina UQ_VENTA_IMEI para permitir múltiples NULLs o se usaría un índice filtrado en BD
 );
 GO
 
@@ -1034,14 +1040,16 @@ BEGIN
     UPDATE T SET 
         T.TOTAL_EFECTIVO_NIO += (ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) JOIN CAT.MONEDAS m ON m.ID_MONEDA = mp.ID_MONEDA WHERE mp.NOMBRE LIKE '%EFECTIVO%' AND m.CODIGO = 'NIO'), 0) - @VueltoTotalNio),
         T.TOTAL_EFECTIVO_USD += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.Monto') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) JOIN CAT.MONEDAS m ON m.ID_MONEDA = mp.ID_MONEDA WHERE mp.NOMBRE LIKE '%EFECTIVO%' AND m.CODIGO = 'USD'), 0),
-        T.TOTAL_TARJETA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE LIKE '%TARJETA%'), 0),
-        T.TOTAL_TRANSFERENCIA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE LIKE '%TRANSFERENCIA%'), 0),
+        T.TOTAL_TARJETA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE = 'TARJETA'), 0),
+        T.TOTAL_TARJETA_USD += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.Monto') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE = 'TARJETA_USD'), 0),
+        T.TOTAL_TRANSFERENCIA += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.MontoEnNio') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE = 'TRANSFERENCIA'), 0),
+        T.TOTAL_TRANSFERENCIA_USD += ISNULL((SELECT SUM(CAST(JSON_VALUE(pj.[value], '$.Monto') AS DECIMAL(12,2))) FROM OPENJSON(@PaymentsJson) pj JOIN CAT.METODOS_PAGO mp ON mp.ID_METODO = CAST(JSON_VALUE(pj.[value], '$.IdMetodoPago') AS INT) WHERE mp.NOMBRE = 'TRANSFERENCIA_USD'), 0),
         T.TOTAL_VENTAS_NIO += @TotalVentaNio,
         T.TOTAL_VENTAS_USD += (@TotalVentaNio / @TasaCambioUsd)
     FROM CAJA.TURNOS T WHERE T.ID_TURNO = @IdTurno;
 
     -- 6. Procesar Items y Garantías (Iteramos por unidad para precisión total)
-    DECLARE @IdProducto INT, @DescSnap NVARCHAR(200), @UnitPrice DECIMAL(12,2), @Imei NVARCHAR(20), @IdPeriodo INT, @Meses INT;
+    DECLARE @IdProducto INT, @DescSnap NVARCHAR(200), @UnitPrice DECIMAL(12,2), @Imei NVARCHAR(20), @IdPeriodo INT, @Meses INT, @IsRegalia BIT;
     DECLARE @IdDetalle INT, @IdImei INT;
 
     DECLARE detail_cursor CURSOR FOR
@@ -1051,13 +1059,14 @@ BEGIN
         CAST(JSON_VALUE(i.[value], '$.UnitPrice') AS DECIMAL(12,2)),
         JSON_VALUE(d.[value], '$.Imei'),
         CAST(JSON_VALUE(d.[value], '$.IdPeriodoGarantia') AS INT),
-        PG.MESES
+        PG.MESES,
+        CAST(ISNULL(JSON_VALUE(i.[value], '$.IsRegalia'), 'false') AS BIT)
     FROM OPENJSON(@ItemsJson) AS i
     CROSS APPLY OPENJSON(i.[value], '$.Details') AS d
     JOIN CAT.PERIODOS_GARANTIA PG ON PG.ID_PERIODO = CAST(JSON_VALUE(d.[value], '$.IdPeriodoGarantia') AS INT);
 
     OPEN detail_cursor;
-    FETCH NEXT FROM detail_cursor INTO @IdProducto, @DescSnap, @UnitPrice, @Imei, @IdPeriodo, @Meses;
+    FETCH NEXT FROM detail_cursor INTO @IdProducto, @DescSnap, @UnitPrice, @Imei, @IdPeriodo, @Meses, @IsRegalia;
 
     WHILE @@FETCH_STATUS = 0
     BEGIN
@@ -1082,21 +1091,22 @@ BEGIN
         IF @Meses > 0 SET @FechaVence = DATEADD(MONTH, @Meses, @FechaActual);
 
         -- D. Insertar VENTA_DETALLE (Cantidad = 1 por fila)
-        INSERT INTO VEN.VENTA_DETALLE (ID_VENTA, ID_PRODUCTO, DESCRIPCION_SNAP, CANTIDAD, PRECIO_UNITARIO_NIO, SUBTOTAL_NIO, ID_PERIODO_GARANTIA, FECHA_VENCE_GARANTIA)
-        VALUES (@IdVenta, @IdProducto, @DescSnap, 1, @UnitPrice, @UnitPrice, @IdPeriodo, @FechaVence);
+        INSERT INTO VEN.VENTA_DETALLE (ID_VENTA, ID_PRODUCTO, DESCRIPCION_SNAP, CANTIDAD, PRECIO_UNITARIO_NIO, SUBTOTAL_NIO, ID_PERIODO_GARANTIA, FECHA_VENCE_GARANTIA, ES_REGALIA)
+        VALUES (@IdVenta, @IdProducto, @DescSnap, 1, @UnitPrice, @UnitPrice, @IdPeriodo, @FechaVence, @IsRegalia);
         SET @IdDetalle = SCOPE_IDENTITY();
 
         -- E. Manejar IMEI si existe
         SET @IdImei = NULL;
         IF @Imei IS NOT NULL AND @Imei <> ''
         BEGIN
-            SELECT @IdImei = ID_IMEI FROM INV.EQUIPOS_IMEI WHERE IMEI = @Imei AND ID_PRODUCTO = @IdProducto;
+            SELECT TOP 1 @IdImei = ID_IMEI FROM INV.EQUIPOS_IMEI WHERE IMEI = @Imei;
+            
+            -- Siempre insertamos el registro para mantener el IMEI en la factura (incluso si no estaba en inventario)
+            INSERT INTO VEN.VENTA_DETALLE_IMEI (ID_DETALLE, ID_EQUIPO_IMEI, IMEI_SNAP)
+            VALUES (@IdDetalle, @IdImei, @Imei);
             
             IF @IdImei IS NOT NULL
             BEGIN
-                INSERT INTO VEN.VENTA_DETALLE_IMEI (ID_DETALLE, ID_EQUIPO_IMEI, IMEI_SNAP)
-                VALUES (@IdDetalle, @IdImei, @Imei);
-                
                 UPDATE INV.EQUIPOS_IMEI SET ESTADO_IMEI = 'VENDIDO' WHERE ID_IMEI = @IdImei;
             END
         END
@@ -1108,7 +1118,7 @@ BEGIN
             VALUES (@IdDetalle, @IdImei, @IdPersona, @IdProducto, @Meses, CAST(@FechaActual AS DATE), @FechaVence, 'ACTIVA');
         END
 
-        FETCH NEXT FROM detail_cursor INTO @IdProducto, @DescSnap, @UnitPrice, @Imei, @IdPeriodo, @Meses;
+        FETCH NEXT FROM detail_cursor INTO @IdProducto, @DescSnap, @UnitPrice, @Imei, @IdPeriodo, @Meses, @IsRegalia;
     END
 
     CLOSE detail_cursor;
@@ -1116,6 +1126,219 @@ BEGIN
 
     COMMIT TRANSACTION;
     SELECT * FROM VEN.VENTAS WHERE ID_VENTA = @IdVenta;
+END;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.procedures WHERE name = 'sp_ReversoTransaccion' AND schema_id = SCHEMA_ID('VEN'))
+    DROP PROCEDURE VEN.sp_ReversoTransaccion;
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [VEN].[sp_ReversoTransaccion]
+    @IdVenta INT,
+    @IdUsuario INT,
+    @Motivo NVARCHAR(MAX),
+    @DetalleJson NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Validaciones
+        DECLARE @Anulada BIT, @FechaVenta DATE, @IdCajero INT, @IdTurno INT;
+        
+        SELECT @Anulada = ANULADA, @FechaVenta = CAST(FECHA_VENTA AS DATE), @IdCajero = ID_USUARIO
+        FROM VEN.VENTAS
+        WHERE ID_VENTA = @IdVenta;
+
+        IF @@ROWCOUNT = 0
+            THROW 50001, 'La factura especificada no existe.', 1;
+            
+        IF @Anulada = 1
+            THROW 50002, 'La factura ya ha sido anulada previamente.', 1;
+            
+        IF @FechaVenta <> CAST(SYSDATETIME() AS DATE)
+            THROW 50003, 'Solo se pueden reversar facturas emitidas el día de hoy.', 1;
+            
+        IF @IdCajero <> @IdUsuario
+            THROW 50004, 'La factura solo puede ser reversada por el cajero que la emitió.', 1;
+
+        -- Obtener Turno Activo del Cajero
+        SELECT @IdTurno = ID_TURNO
+        FROM CAJA.TURNOS
+        WHERE ID_USUARIO = @IdUsuario AND FECHA_CIERRE IS NULL AND ID_ESTADO = 1;
+
+        IF @IdTurno IS NULL
+            THROW 50005, 'El cajero no tiene un turno de caja abierto para procesar el reintegro.', 1;
+
+        -- Identificar si es Total o Parcial
+        DECLARE @EsTotal BIT = 0;
+        IF @DetalleJson IS NULL OR @DetalleJson = '[]' OR LTRIM(RTRIM(@DetalleJson)) = ''
+            SET @EsTotal = 1;
+
+        DECLARE @MontoReversoBase DECIMAL(18,2) = 0;
+        DECLARE @DetallesAReversar TABLE (ID_DETALLE INT);
+        
+        IF @EsTotal = 1
+        BEGIN
+            INSERT INTO @DetallesAReversar (ID_DETALLE)
+            SELECT ID_DETALLE FROM VEN.VENTA_DETALLE WHERE ID_VENTA = @IdVenta AND DEVUELTO = 0;
+        END
+        ELSE
+        BEGIN
+            INSERT INTO @DetallesAReversar (ID_DETALLE)
+            SELECT [value] FROM OPENJSON(@DetalleJson);
+            
+            -- Validar que pertenecen a la factura y no están devueltos
+            IF EXISTS (
+                SELECT 1 FROM @DetallesAReversar D
+                JOIN VEN.VENTA_DETALLE VD ON D.ID_DETALLE = VD.ID_DETALLE
+                WHERE VD.ID_VENTA <> @IdVenta OR VD.DEVUELTO = 1
+            )
+            BEGIN
+                THROW 50006, 'Uno o más productos seleccionados ya fueron devueltos o no pertenecen a esta factura.', 1;
+            END
+        END
+
+        IF NOT EXISTS (SELECT 1 FROM @DetallesAReversar)
+            THROW 50007, 'No hay artículos para reversar.', 1;
+
+        -- 1. Actualizar DEVUELTO y recuperar Monto
+        UPDATE VD
+        SET DEVUELTO = 1
+        FROM VEN.VENTA_DETALLE VD
+        JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
+
+        DECLARE @SubtotalFactura DECIMAL(18,2), @TotalFactura DECIMAL(18,2);
+        SELECT @SubtotalFactura = SUBTOTAL_NIO, @TotalFactura = TOTAL_NIO
+        FROM VEN.VENTAS WHERE ID_VENTA = @IdVenta;
+
+        IF @SubtotalFactura > 0
+        BEGIN
+            SELECT @MontoReversoBase = COALESCE(SUM((VD.SUBTOTAL_NIO * @TotalFactura) / @SubtotalFactura), 0)
+            FROM VEN.VENTA_DETALLE VD
+            JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
+        END
+        ELSE
+        BEGIN
+            SELECT @MontoReversoBase = COALESCE(SUM(VD.SUBTOTAL_NIO), 0)
+            FROM VEN.VENTA_DETALLE VD
+            JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
+        END
+
+        -- 2. Restaurar Stock
+        UPDATE P
+        SET P.STOCK_ACTUAL = P.STOCK_ACTUAL + VD.CANTIDAD
+        FROM INV.PRODUCTOS P
+        JOIN VEN.VENTA_DETALLE VD ON P.ID_PRODUCTO = VD.ID_PRODUCTO
+        JOIN @DetallesAReversar D ON VD.ID_DETALLE = D.ID_DETALLE;
+
+        -- 3. Restaurar IMEIs
+        UPDATE E
+        SET E.ESTADO_IMEI = 'DISPONIBLE'
+        FROM INV.EQUIPOS_IMEI E
+        JOIN VEN.VENTA_DETALLE_IMEI VDI ON E.ID_IMEI = VDI.ID_EQUIPO_IMEI
+        JOIN @DetallesAReversar D ON VDI.ID_DETALLE = D.ID_DETALLE;
+
+        DELETE VDI
+        FROM VEN.VENTA_DETALLE_IMEI VDI
+        JOIN @DetallesAReversar D ON VDI.ID_DETALLE = D.ID_DETALLE;
+
+        -- 4. Cancelar Garantias
+        UPDATE G
+        SET G.ESTADO_GARANTIA = 'CANCELADA'
+        FROM GAR.GARANTIAS G
+        JOIN @DetallesAReversar D ON G.ID_DETALLE_VENTA = D.ID_DETALLE;
+
+        -- 5. Manejar Estado de la Factura
+        DECLARE @Faltan INT;
+        SELECT @Faltan = COUNT(*) FROM VEN.VENTA_DETALLE WHERE ID_VENTA = @IdVenta AND DEVUELTO = 0;
+
+        IF @Faltan = 0
+        BEGIN
+            UPDATE VEN.VENTAS
+            SET ANULADA = 1,
+                ID_USUARIO_ANULA = @IdUsuario,
+                FECHA_ANULACION = SYSDATETIME(),
+                MOTIVO_ANULACION = @Motivo
+            WHERE ID_VENTA = @IdVenta;
+        END
+        ELSE
+        BEGIN
+            UPDATE VEN.VENTAS
+            SET OBSERVACION = CONCAT(OBSERVACION, ' | Reverso Parcial C$', @MontoReversoBase, '. Motivo: ', @Motivo)
+            WHERE ID_VENTA = @IdVenta;
+        END
+
+        -- 6. Afectación Financiera a CAJA y Multimoneda
+        DECLARE @IdMetodoPago INT, @IdMonedaPago INT, @AfectaCaja BIT, @TasaCambio DECIMAL(18,6);
+        
+        -- Obtener la moneda principal con la que pagó (tomando el pago mayor si hay múltiples)
+        SELECT TOP 1 
+            @IdMetodoPago = P.ID_METODO_PAGO, 
+            @IdMonedaPago = M.ID_MONEDA,
+            @AfectaCaja = M.AFECTA_CAJA
+        FROM VEN.PAGOS P
+        JOIN CAT.METODOS_PAGO M ON P.ID_METODO_PAGO = M.ID_METODO
+        WHERE P.ID_VENTA = @IdVenta
+        ORDER BY P.MONTO_EN_NIO DESC;
+
+        -- REGLA DE ORO: Si pagó en Dólares Físicos, el vuelto/reverso se da en Córdobas Físicos
+        IF @IdMetodoPago = 2
+        BEGIN
+            SET @IdMetodoPago = 1;
+            SET @IdMonedaPago = 1;
+        END
+
+        -- Obtener la tasa de cambio histórica de la factura
+        SELECT @TasaCambio = TASA_CAMBIO_USD FROM VEN.VENTAS WHERE ID_VENTA = @IdVenta;
+
+        -- Calcular el monto de reverso físico (en la moneda de pago original)
+        DECLARE @MontoReversoFisico DECIMAL(18,2) = @MontoReversoBase;
+        IF @IdMonedaPago = 2 AND @TasaCambio > 0
+        BEGIN
+            SET @MontoReversoFisico = @MontoReversoBase / @TasaCambio;
+        END
+
+        -- Rebajar las métricas globales del turno (Solo si el monto a reversar es mayor a 0)
+        IF @MontoReversoBase > 0
+        BEGIN
+            IF @IdMonedaPago = 2
+            BEGIN
+                UPDATE CAJA.TURNOS
+                SET TOTAL_VENTAS_USD = TOTAL_VENTAS_USD - @MontoReversoFisico,
+                    TOTAL_EFECTIVO_USD = TOTAL_EFECTIVO_USD - @MontoReversoFisico
+                WHERE ID_TURNO = @IdTurno;
+            END
+            ELSE
+            BEGIN
+                UPDATE CAJA.TURNOS
+                SET TOTAL_VENTAS_NIO = TOTAL_VENTAS_NIO - @MontoReversoBase,
+                    TOTAL_EFECTIVO_NIO = TOTAL_EFECTIVO_NIO - @MontoReversoBase
+                WHERE ID_TURNO = @IdTurno;
+            END
+
+            -- Registrar la salida del dinero físico como un EGRESO (si afecta caja)
+            IF @AfectaCaja = 1
+            BEGIN
+                DECLARE @PrefixReverso VARCHAR(30) = CASE WHEN @Faltan = 0 THEN 'Reverso de Factura ' ELSE 'Reverso Parcial de Factura ' END;
+                INSERT INTO CAJA.MOVIMIENTOS_VARIOS (ID_TURNO, TIPO, ID_MONEDA, MONTO, CONCEPTO, ID_USUARIO)
+                VALUES (@IdTurno, 'EGRESO', @IdMonedaPago, @MontoReversoFisico, CONCAT(@PrefixReverso, @IdVenta, '. Motivo: ', @Motivo), @IdUsuario);
+            END
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END;
 GO
 
@@ -1131,8 +1354,8 @@ CREATE VIEW CAJA.V_ESTADO_TURNO_ACTUAL AS
 SELECT 
     T.*,
     U.USERNAME,
-    (T.MONTO_INICIAL_NIO + T.TOTAL_EFECTIVO_NIO + ISNULL((SELECT SUM(MONTO) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = T.ID_TURNO AND ID_MONEDA = 1), 0)) AS SALDO_TEORICO_NIO,
-    (T.MONTO_INICIAL_USD + T.TOTAL_EFECTIVO_USD + ISNULL((SELECT SUM(MONTO) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = T.ID_TURNO AND ID_MONEDA = 2), 0)) AS SALDO_TEORICO_USD
+    (T.MONTO_INICIAL_NIO + T.TOTAL_EFECTIVO_NIO + ISNULL((SELECT SUM(CASE WHEN TIPO = 'INGRESO' THEN MONTO ELSE -MONTO END) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = T.ID_TURNO AND ID_MONEDA = 1), 0)) AS SALDO_TEORICO_NIO,
+    (T.MONTO_INICIAL_USD + T.TOTAL_EFECTIVO_USD + ISNULL((SELECT SUM(CASE WHEN TIPO = 'INGRESO' THEN MONTO ELSE -MONTO END) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = T.ID_TURNO AND ID_MONEDA = 2), 0)) AS SALDO_TEORICO_USD
 FROM CAJA.TURNOS T
 JOIN ADM.USUARIOS U ON T.ID_USUARIO = U.ID_USUARIO
 WHERE T.FECHA_CIERRE IS NULL;
@@ -1185,8 +1408,8 @@ BEGIN
 
         -- Calcular diferencias basándose en el saldo teórico (Apertura + Ventas en Efectivo + Movimientos Manuales)
         DECLARE @TeoricoNio DECIMAL(18,2), @TeoricoUsd DECIMAL(18,2);
-        SELECT @TeoricoNio = (MONTO_INICIAL_NIO + TOTAL_EFECTIVO_NIO + ISNULL((SELECT SUM(MONTO) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = @IdTurno AND ID_MONEDA = 1), 0)),
-               @TeoricoUsd = (MONTO_INICIAL_USD + TOTAL_EFECTIVO_USD + ISNULL((SELECT SUM(MONTO) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = @IdTurno AND ID_MONEDA = 2), 0))
+        SELECT @TeoricoNio = (MONTO_INICIAL_NIO + TOTAL_EFECTIVO_NIO + ISNULL((SELECT SUM(CASE WHEN TIPO = 'INGRESO' THEN MONTO ELSE -MONTO END) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = @IdTurno AND ID_MONEDA = 1), 0)),
+               @TeoricoUsd = (MONTO_INICIAL_USD + TOTAL_EFECTIVO_USD + ISNULL((SELECT SUM(CASE WHEN TIPO = 'INGRESO' THEN MONTO ELSE -MONTO END) FROM CAJA.MOVIMIENTOS_VARIOS WHERE ID_TURNO = @IdTurno AND ID_MONEDA = 2), 0))
         FROM CAJA.TURNOS WHERE ID_TURNO = @IdTurno;
 
         UPDATE CAJA.TURNOS SET 

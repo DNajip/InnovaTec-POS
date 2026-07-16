@@ -27,7 +27,11 @@ public partial class Turno
 
     public decimal TotalTarjeta { get; set; }
 
+    public decimal TotalTarjetaUsd { get; set; }
+
     public decimal TotalTransferencia { get; set; }
+
+    public decimal TotalTransferenciaUsd { get; set; }
 
     public decimal? MontoContadoNio { get; set; }
 

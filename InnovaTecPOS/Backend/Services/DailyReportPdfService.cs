@@ -32,6 +32,17 @@ public class DailyReportPdfService
     public async Task<byte[]> GenerateDailyReportPdfAsync(DateTime date)
     {
         using var context = await _factory.CreateDbContextAsync();
+        
+        // Usar el servicio de reportes para reutilizar toda la lógica
+        var reportService = new ReportService(context);
+        
+        // Rango de fechas (todo el día)
+        var dateStart = date.Date;
+        var dateEnd = date.Date.AddDays(1).AddTicks(-1);
+
+        // Obtener datos
+        var dashboardStats = await reportService.GetDashboardStatsAsync(dateStart, dateEnd);
+        var arqueos = await reportService.GetArqueoInsightsAsync(dateStart, dateEnd);
 
         // 1. Obtener configuraciones de la empresa
         var settings = await context.Configuracions.AsNoTracking().ToDictionaryAsync(c => c.Clave, c => c.Valor);
@@ -40,11 +51,8 @@ public class DailyReportPdfService
         var telefono = settings.GetValueOrDefault("Empresa_Telefono", "");
         var direccion = settings.GetValueOrDefault("Empresa_Direccion", "");
         var logoSetting = settings.GetValueOrDefault("Empresa_Logo", "images/logo.png");
-
-        // 2. Obtener Turnos del día
-        var dateStart = date.Date;
-        var dateEnd = date.Date.AddDays(1).AddTicks(-1);
-
+        
+        // 2. Obtener Turnos del día para el desglose detallado
         var turnos = await context.Turnos
             .Include(t => t.IdUsuarioNavigation)
             .Include(t => t.MovimientosVarios)
@@ -83,201 +91,173 @@ public class DailyReportPdfService
         {
             var writer = new PdfWriter(stream);
             var pdf = new PdfDocument(writer);
-            var document = new Document(pdf, PageSize.A4);
-            document.SetMargins(30, 30, 30, 30);
+            // Hacer la página Horizontal (Landscape)
+            var document = new Document(pdf, PageSize.A4.Rotate());
+            document.SetMargins(20, 20, 20, 20);
 
             PdfFont boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
             PdfFont regularFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
             PdfFont italicFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
 
             // Paleta de Colores
-            Color primaryColor = new DeviceRgb(15, 23, 42); // Slate 900 (Azul oscuro / grisáceo premium)
+            Color primaryColor = new DeviceRgb(15, 23, 42); // Slate 900
             Color secondaryColor = new DeviceRgb(37, 99, 235); // Blue 600
             Color lightGray = new DeviceRgb(248, 250, 252); // Slate 50
             Color textDark = new DeviceRgb(51, 65, 85); // Slate 700
+            Color cardBorderColor = new DeviceRgb(226, 232, 240); // Slate 200
 
-            // --- CABECERA ---
-            Table headerTable = new Table(UnitValue.CreatePercentArray(new float[] { 15, 85 })).UseAllAvailableWidth();
-            headerTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
+            // --- CABECERA (Reutilizable para las páginas) ---
+            Action<Document> AddHeader = (doc) => {
+                Table headerTable = new Table(UnitValue.CreatePercentArray(new float[] { 10, 90 })).UseAllAvailableWidth();
+                headerTable.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
 
-            // Renderizado del Logo
-            Image? img = null;
-            if (!string.IsNullOrEmpty(logoSetting))
-            {
-                try
+                Image? img = null;
+                if (!string.IsNullOrEmpty(logoSetting))
                 {
-                    if (logoSetting.StartsWith("data:image"))
+                    try
                     {
-                        var commaIndex = logoSetting.IndexOf(',');
-                        if (commaIndex >= 0)
+                        if (logoSetting.StartsWith("data:image"))
                         {
-                            var bytes = Convert.FromBase64String(logoSetting.Substring(commaIndex + 1));
-                            ImageData data = ImageDataFactory.Create(bytes);
-                            img = new Image(data).SetWidth(50).SetHeight(50).SetHorizontalAlignment(HorizontalAlignment.LEFT);
+                            var commaIndex = logoSetting.IndexOf(',');
+                            if (commaIndex >= 0)
+                            {
+                                var bytes = Convert.FromBase64String(logoSetting.Substring(commaIndex + 1));
+                                ImageData data = ImageDataFactory.Create(bytes);
+                                img = new Image(data).SetWidth(40).SetHeight(40).SetHorizontalAlignment(HorizontalAlignment.LEFT);
+                            }
+                        }
+                        else
+                        {
+                            string logoPath = System.IO.Path.Combine(_env.WebRootPath, logoSetting);
+                            if (File.Exists(logoPath))
+                            {
+                                ImageData data = ImageDataFactory.Create(logoPath);
+                                img = new Image(data).SetWidth(40).SetHeight(40).SetHorizontalAlignment(HorizontalAlignment.LEFT);
+                            }
                         }
                     }
-                    else
-                    {
-                        string logoPath = System.IO.Path.Combine(_env.WebRootPath, logoSetting);
-                        if (File.Exists(logoPath))
-                        {
-                            ImageData data = ImageDataFactory.Create(logoPath);
-                            img = new Image(data).SetWidth(50).SetHeight(50).SetHorizontalAlignment(HorizontalAlignment.LEFT);
-                        }
-                    }
+                    catch { }
                 }
-                catch
-                {
-                    // Ignorar error de logo para no romper el PDF
-                }
-            }
 
-            if (img != null)
+                if (img != null) headerTable.AddCell(new Cell().Add(img).SetBorder(iText.Layout.Borders.Border.NO_BORDER));
+                else headerTable.AddCell(new Cell().SetBorder(iText.Layout.Borders.Border.NO_BORDER));
+
+                Cell bizInfoCell = new Cell().SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPaddingLeft(10);
+                bizInfoCell.Add(new Paragraph(nombreEmpresa.ToUpper()).SetFontSize(14).SetFont(boldFont).SetFontColor(primaryColor));
+                
+                string subHeader = "";
+                if (!string.IsNullOrEmpty(ruc)) subHeader += $"RUC: {ruc}";
+                if (!string.IsNullOrEmpty(telefono)) subHeader += (subHeader == "" ? "" : "  |  ") + $"Tel: {telefono}";
+                if (!string.IsNullOrEmpty(direccion)) subHeader += (subHeader == "" ? "" : "  |  ") + direccion;
+
+                if (!string.IsNullOrEmpty(subHeader)) bizInfoCell.Add(new Paragraph(subHeader).SetFontSize(8f).SetFont(regularFont).SetFontColor(textDark));
+                
+                bizInfoCell.Add(new Paragraph($"REPORTE CONSOLIDADO DIARIO DE OPERACIONES").SetFontSize(10).SetFont(boldFont).SetFontColor(secondaryColor).SetMarginTop(2));
+                bizInfoCell.Add(new Paragraph($"Fecha de Reporte: {date:dd/MM/yyyy}  |  Generado: {DateTime.Now:dd/MM/yyyy hh:mm tt}").SetFontSize(7).SetFont(italicFont).SetFontColor(ColorConstants.GRAY));
+
+                headerTable.AddCell(bizInfoCell);
+                doc.Add(headerTable);
+                doc.Add(new Paragraph("\n").SetFontSize(4));
+            };
+
+            // PÁGINA 1: DASHBOARD
+            AddHeader(document);
+            document.Add(new Paragraph("1. Dashboard de Resultados Financieros").SetFontSize(12).SetFont(boldFont).SetFontColor(primaryColor).SetMarginBottom(10));
+
+            // Fila 0: Ventas Netas, Descuentos, Regalías, Total Facturas
+            Table cardsRow0 = new Table(UnitValue.CreatePercentArray(new float[] { 25, 25, 25, 25 })).UseAllAvailableWidth();
+            cardsRow0.AddCell(CreateDashboardCard("VENTAS NETAS", $"C$ {dashboardStats.VentasBrutasNio:N2}", $"U$ {dashboardStats.VentasBrutasUsd:N2}", new DeviceRgb(202, 138, 4), boldFont, regularFont)); // Amarillo
+            cardsRow0.AddCell(CreateDashboardCard("DESCUENTOS", $"-C$ {Math.Abs(dashboardStats.DescuentosNio):N2}", $"-U$ {Math.Abs(dashboardStats.DescuentosUsd):N2}", new DeviceRgb(239, 68, 68), boldFont, regularFont)); // Rojo
+            cardsRow0.AddCell(CreateDashboardCard("REGALÍAS", $"-C$ {Math.Abs(dashboardStats.ValorRegaliasNio):N2}", $"-U$ {Math.Abs(dashboardStats.ValorRegaliasUsd):N2}", new DeviceRgb(168, 85, 247), boldFont, regularFont)); // Purpura
+            cardsRow0.AddCell(CreateDashboardCard("TOTAL FACTURAS", $"{dashboardStats.TotalFacturas}", "", new DeviceRgb(14, 165, 233), boldFont, regularFont)); // Azul claro
+            document.Add(cardsRow0);
+            document.Add(new Paragraph("\n").SetFontSize(2));
+
+            // Fila 1: Total Efectivo, Total Tarjeta, Total Transferencia, Fact. Reversadas
+            Table cardsRow1 = new Table(UnitValue.CreatePercentArray(new float[] { 25, 25, 25, 25 })).UseAllAvailableWidth();
+            cardsRow1.AddCell(CreateDashboardCard("TOTAL EFECTIVO", $"C$ {dashboardStats.TotalEfectivoNio:N2}", $"U$ {dashboardStats.TotalEfectivoUsd:N2}", new DeviceRgb(22, 163, 74), boldFont, regularFont));
+            cardsRow1.AddCell(CreateDashboardCard("TOTAL TARJETA", $"C$ {dashboardStats.TotalTarjetaNio:N2}", $"U$ {dashboardStats.TotalTarjetaUsd:N2}", new DeviceRgb(59, 130, 246), boldFont, regularFont));
+            cardsRow1.AddCell(CreateDashboardCard("TOTAL TRANSFERENCIA", $"C$ {dashboardStats.TotalTransferenciaNio:N2}", $"U$ {dashboardStats.TotalTransferenciaUsd:N2}", new DeviceRgb(168, 85, 247), boldFont, regularFont));
+            cardsRow1.AddCell(CreateDashboardCard("FACT. REVERSADAS", $"{dashboardStats.FacturasReversadas}", "", new DeviceRgb(245, 158, 11), boldFont, regularFont));
+            document.Add(cardsRow1);
+            document.Add(new Paragraph("\n").SetFontSize(2));
+
+            // Fila 2: Monto Reversado, Art. Reversados, Fact. Con Descuento, Fact. de Regalía
+            Table cardsRow2 = new Table(UnitValue.CreatePercentArray(new float[] { 25, 25, 25, 25 })).UseAllAvailableWidth();
+            cardsRow2.AddCell(CreateDashboardCard("MONTO REVERSADO", $"-C$ {dashboardStats.MontoReversadoNio:N2}", $"-U$ {dashboardStats.MontoReversadoUsd:N2}", new DeviceRgb(217, 119, 6), boldFont, regularFont));
+            cardsRow2.AddCell(CreateDashboardCard("ART. REVERSADOS", $"{dashboardStats.ArticulosReversados}", "", new DeviceRgb(234, 88, 12), boldFont, regularFont));
+            cardsRow2.AddCell(CreateDashboardCard("FACT. CON DESCUENTO", $"{dashboardStats.FacturasConDescuento}", "", new DeviceRgb(239, 68, 68), boldFont, regularFont));
+            cardsRow2.AddCell(CreateDashboardCard("FACT. DE REGALÍA", $"{dashboardStats.FacturasRegalia}", "", new DeviceRgb(139, 92, 246), boldFont, regularFont));
+            document.Add(cardsRow2);
+            document.Add(new Paragraph("\n").SetFontSize(2));
+
+            // Fila 3: Faltantes en Caja, Sobrantes en Caja, y 2 vacías
+            Table cardsRow3 = new Table(UnitValue.CreatePercentArray(new float[] { 25, 25, 25, 25 })).UseAllAvailableWidth();
+            cardsRow3.AddCell(CreateDashboardCard("FALTANTES EN CAJA", $"-C$ {Math.Abs(dashboardStats.FaltantesCajaNio):N2}", $"-U$ {Math.Abs(dashboardStats.FaltantesCajaUsd):N2}", new DeviceRgb(220, 38, 38), boldFont, regularFont));
+            cardsRow3.AddCell(CreateDashboardCard("SOBRANTES EN CAJA", $"+C$ {dashboardStats.SobrantesCajaNio:N2}", $"+U$ {dashboardStats.SobrantesCajaUsd:N2}", new DeviceRgb(234, 179, 8), boldFont, regularFont));
+            cardsRow3.AddCell(new Cell().SetBorder(iText.Layout.Borders.Border.NO_BORDER));
+            cardsRow3.AddCell(new Cell().SetBorder(iText.Layout.Borders.Border.NO_BORDER));
+            document.Add(cardsRow3);
+            
+            // Fin Pagina 1
+            document.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
+            
+            // PÁGINA 2: AUDITORÍA DE CAJAS
+            AddHeader(document);
+            document.Add(new Paragraph("2. Auditoría de Cajas y Turnos").SetFontSize(12).SetFont(boldFont).SetFontColor(primaryColor).SetMarginBottom(6));
+
+            if (!arqueos.Any())
             {
-                headerTable.AddCell(new Cell().Add(img).SetBorder(iText.Layout.Borders.Border.NO_BORDER));
+                document.Add(new Paragraph("No se registraron turnos en este periodo.").SetFontSize(9).SetFont(italicFont).SetTextAlignment(TextAlignment.CENTER));
             }
             else
             {
-                headerTable.AddCell(new Cell().SetBorder(iText.Layout.Borders.Border.NO_BORDER));
-            }
+                Table turnosTable = new Table(UnitValue.CreatePercentArray(new float[] { 5, 8, 8, 6, 4, 4, 6, 6, 6, 6, 5, 5, 5, 5, 6, 6, 6, 7 })).UseAllAvailableWidth();
+                turnosTable.AddHeaderCell(CreateHeaderCell("Turno", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Cajero", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Moneda", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Inicial", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Efect.", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Anul.", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Netas", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Efectivo", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Transf.", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Tarj.", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Ingres.", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Retiros", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Reversos", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Vuelto", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Teórico", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Real", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Diferencia", primaryColor, boldFont, 7));
+                turnosTable.AddHeaderCell(CreateHeaderCell("Estado", primaryColor, boldFont, 7));
 
-            Cell bizInfoCell = new Cell().SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPaddingLeft(10);
-            bizInfoCell.Add(new Paragraph(nombreEmpresa.ToUpper()).SetFontSize(16).SetFont(boldFont).SetFontColor(primaryColor));
-            
-            string subHeader = "";
-            if (!string.IsNullOrEmpty(ruc)) subHeader += $"RUC: {ruc}";
-            if (!string.IsNullOrEmpty(telefono)) subHeader += (subHeader == "" ? "" : "  |  ") + $"Tel: {telefono}";
-            if (!string.IsNullOrEmpty(direccion)) subHeader += (subHeader == "" ? "" : "  |  ") + direccion;
-
-            if (!string.IsNullOrEmpty(subHeader))
-            {
-                bizInfoCell.Add(new Paragraph(subHeader).SetFontSize(8.5f).SetFont(regularFont).SetFontColor(textDark));
-            }
-            bizInfoCell.Add(new Paragraph($"REPORTE CONSOLIDADO DIARIO DE OPERACIONES").SetFontSize(11).SetFont(boldFont).SetFontColor(secondaryColor).SetMarginTop(4));
-            bizInfoCell.Add(new Paragraph($"Fecha de Reporte: {date:dd/MM/yyyy}  |  Generado: {DateTime.Now:dd/MM/yyyy hh:mm tt}").SetFontSize(8).SetFont(italicFont).SetFontColor(ColorConstants.GRAY));
-
-            headerTable.AddCell(bizInfoCell);
-            document.Add(headerTable);
-            document.Add(new Paragraph("\n").SetFontSize(4));
-
-            // --- SECCIÓN 1: CAJAS Y TURNOS DEL DÍA ---
-            document.Add(new Paragraph("1. Auditoría de Cajas y Turnos").SetFontSize(12).SetFont(boldFont).SetFontColor(primaryColor).SetMarginBottom(6));
-            
-            Table turnosTable = new Table(UnitValue.CreatePercentArray(new float[] { 10, 18, 14, 14, 11, 11, 11, 11 })).UseAllAvailableWidth();
-            turnosTable.AddHeaderCell(CreateHeaderCell("Turno", primaryColor, boldFont));
-            turnosTable.AddHeaderCell(CreateHeaderCell("Cajero", primaryColor, boldFont));
-            turnosTable.AddHeaderCell(CreateHeaderCell("Apertura", primaryColor, boldFont));
-            turnosTable.AddHeaderCell(CreateHeaderCell("Cierre", primaryColor, boldFont));
-            turnosTable.AddHeaderCell(CreateHeaderCell("Inicial", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
-            turnosTable.AddHeaderCell(CreateHeaderCell("Efectivo", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
-            turnosTable.AddHeaderCell(CreateHeaderCell("Contado", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
-            turnosTable.AddHeaderCell(CreateHeaderCell("Diferencia", primaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
-
-            if (!turnos.Any())
-            {
-                turnosTable.AddCell(new Cell(1, 8).Add(new Paragraph("No se registraron turnos abiertos o cerrados en este día.").SetFontSize(9).SetFont(italicFont).SetTextAlignment(TextAlignment.CENTER)).SetPadding(10));
-            }
-            else
-            {
                 int rowIdx = 0;
-                foreach (var t in turnos)
+                foreach (var a in arqueos)
                 {
                     var bg = rowIdx % 2 == 0 ? ColorConstants.WHITE : lightGray;
-                    decimal ingresosVarios = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO").Sum(m => m.Monto);
-                    decimal egresosVarios = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO").Sum(m => m.Monto);
-                    decimal saldoTeorico = t.MontoInicialNio + t.TotalEfectivoNio + ingresosVarios - egresosVarios;
-                    decimal saldoReal = t.MontoContadoNio ?? 0;
-                    decimal diferencia = saldoReal - saldoTeorico;
 
-                    turnosTable.AddCell(new Cell().Add(new Paragraph($"#{t.IdTurno}").SetFontSize(8.5f).SetFont(boldFont)).SetBackgroundColor(bg).SetPadding(4));
-                    turnosTable.AddCell(new Cell().Add(new Paragraph(t.IdUsuarioNavigation?.Username ?? "N/A").SetFontSize(8.5f)).SetBackgroundColor(bg).SetPadding(4));
-                    turnosTable.AddCell(new Cell().Add(new Paragraph(t.FechaApertura.ToString("dd/MM HH:mm")).SetFontSize(8f)).SetBackgroundColor(bg).SetPadding(4));
-                    turnosTable.AddCell(new Cell().Add(new Paragraph(t.FechaCierre?.ToString("dd/MM HH:mm") ?? "EN CURSO").SetFontSize(8f).SetFont(t.FechaCierre == null ? boldFont : regularFont).SetFontColor(t.FechaCierre == null ? secondaryColor : textDark)).SetBackgroundColor(bg).SetPadding(4));
-                    turnosTable.AddCell(new Cell().Add(new Paragraph($"C$ {t.MontoInicialNio:N2}").SetFontSize(8.5f)).SetBackgroundColor(bg).SetPadding(4).SetTextAlignment(TextAlignment.RIGHT));
-                    turnosTable.AddCell(new Cell().Add(new Paragraph($"C$ {t.TotalEfectivoNio:N2}").SetFontSize(8.5f)).SetBackgroundColor(bg).SetPadding(4).SetTextAlignment(TextAlignment.RIGHT));
-                    turnosTable.AddCell(new Cell().Add(new Paragraph(t.FechaCierre != null ? $"C$ {saldoReal:N2}" : "--").SetFontSize(8.5f)).SetBackgroundColor(bg).SetPadding(4).SetTextAlignment(TextAlignment.RIGHT));
+                    bool isNio = a.Moneda.Contains("CORDOBA");
 
-                    var diffColor = diferencia < 0 ? new DeviceRgb(220, 38, 38) : (diferencia > 0 ? new DeviceRgb(217, 119, 6) : new DeviceRgb(22, 163, 74));
-                    var diffText = t.FechaCierre != null ? $"C$ {diferencia:N2}" : "--";
-                    turnosTable.AddCell(new Cell().Add(new Paragraph(diffText).SetFontSize(8.5f).SetFont(boldFont).SetFontColor(diffColor)).SetBackgroundColor(bg).SetPadding(4).SetTextAlignment(TextAlignment.RIGHT));
-                    
+                    AddArqueoRow(turnosTable, $"#{a.IdTurno}\n{a.Apertura:dd/MM}", a.Usuario, a.Moneda,
+                        a.MontoInicial, a.VentasEfectuadas, a.VentasAnuladas, a.VentasNetas,
+                        a.CobrosEfectivo, a.CobrosTransferencia, a.CobrosTarjeta,
+                        a.OtrosIngresos, a.OtrosRetiros, a.Reversos, a.VueltoEntregado,
+                        a.SaldoTeorico, a.SaldoReal, a.Diferencia, a.EstadoCalculado,
+                        bg, regularFont, boldFont, isNio);
+
                     rowIdx++;
                 }
-            }
-            document.Add(turnosTable);
-            document.Add(new Paragraph("\n").SetFontSize(6));
+                document.Add(turnosTable);
+                document.Add(new Paragraph("\n").SetFontSize(6));
 
-            // --- SECCIÓN 2: VENTAS TOTALES Y MÉTODOS DE PAGO ---
-            document.Add(new Paragraph("2. Resumen Financiero").SetFontSize(12).SetFont(boldFont).SetFontColor(primaryColor).SetMarginBottom(6));
-
-            Table financeContainer = new Table(UnitValue.CreatePercentArray(new float[] { 50, 50 })).UseAllAvailableWidth();
-            financeContainer.SetBorder(iText.Layout.Borders.Border.NO_BORDER);
-
-            // Celda Izquierda: Resumen de Ventas
-            Cell leftCell = new Cell().SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPaddingRight(10);
-            leftCell.Add(new Paragraph("Ventas Totales").SetFontSize(10).SetFont(boldFont).SetFontColor(secondaryColor).SetMarginBottom(4));
-            
-            Table salesSummaryTable = new Table(UnitValue.CreatePercentArray(new float[] { 60, 40 })).UseAllAvailableWidth();
-            salesSummaryTable.AddCell(CreateLabelCell("Ventas Brutas (Sin desc.):", regularFont));
-            salesSummaryTable.AddCell(CreateValueCell($"C$ {ventasBrutas:N2}", boldFont));
-            salesSummaryTable.AddCell(CreateLabelCell("Descuentos Aplicados:", regularFont));
-            salesSummaryTable.AddCell(CreateValueCell($"- C$ {descuentos:N2}", regularFont).SetFontColor(new DeviceRgb(220, 38, 38)));
-            salesSummaryTable.AddCell(CreateLabelCell("Ventas Netas (Con desc.):", boldFont));
-            salesSummaryTable.AddCell(CreateValueCell($"C$ {ventasNetas:N2}", boldFont).SetFontColor(new DeviceRgb(22, 163, 74)));
-            salesSummaryTable.AddCell(CreateLabelCell("Total Transacciones:", regularFont));
-            salesSummaryTable.AddCell(CreateValueCell(ventasActivas.Count.ToString(), regularFont));
-            salesSummaryTable.AddCell(CreateLabelCell("Facturas Anuladas:", regularFont));
-            salesSummaryTable.AddCell(CreateValueCell(ventasAnuladas.Count.ToString(), regularFont).SetFontColor(new DeviceRgb(220, 38, 38)));
-
-            leftCell.Add(salesSummaryTable);
-            financeContainer.AddCell(leftCell);
-
-            // Celda Derecha: Desglose por Formas de Pago
-            Cell rightCell = new Cell().SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPaddingLeft(10);
-            rightCell.Add(new Paragraph("Ingresos por Formas de Pago").SetFontSize(10).SetFont(boldFont).SetFontColor(secondaryColor).SetMarginBottom(4));
-
-            Table paymentsTable = new Table(UnitValue.CreatePercentArray(new float[] { 60, 40 })).UseAllAvailableWidth();
-            paymentsTable.AddHeaderCell(CreateHeaderCell("Método", secondaryColor, boldFont));
-            paymentsTable.AddHeaderCell(CreateHeaderCell("Total Ingresado", secondaryColor, boldFont).SetTextAlignment(TextAlignment.RIGHT));
-
-            if (!desglosePagos.Any())
-            {
-                paymentsTable.AddCell(new Cell(1, 2).Add(new Paragraph("No se registran pagos hoy.").SetFontSize(9).SetFont(italicFont).SetTextAlignment(TextAlignment.CENTER)).SetPadding(8));
-            }
-            else
-            {
-                int r = 0;
-                foreach (var p in desglosePagos)
-                {
-                    var bg = r % 2 == 0 ? ColorConstants.WHITE : lightGray;
-                    paymentsTable.AddCell(new Cell().Add(new Paragraph(p.Metodo).SetFontSize(8.5f)).SetBackgroundColor(bg).SetPadding(4));
-                    paymentsTable.AddCell(new Cell().Add(new Paragraph($"C$ {p.Total:N2}").SetFontSize(8.5f).SetFont(boldFont)).SetBackgroundColor(bg).SetPadding(4).SetTextAlignment(TextAlignment.RIGHT));
-                    r++;
-                }
-                // Fila Total
-                paymentsTable.AddCell(new Cell().Add(new Paragraph("Total Conciliado").SetFontSize(8.5f).SetFont(boldFont)).SetBackgroundColor(lightGray).SetPadding(4));
-                paymentsTable.AddCell(new Cell().Add(new Paragraph($"C$ {ventasNetas:N2}").SetFontSize(8.5f).SetFont(boldFont).SetFontColor(secondaryColor)).SetBackgroundColor(lightGray).SetPadding(4).SetTextAlignment(TextAlignment.RIGHT));
-            }
-
-            rightCell.Add(paymentsTable);
-            financeContainer.AddCell(rightCell);
-
-            document.Add(financeContainer);
-            document.Add(new Paragraph("\n").SetFontSize(8));
-
-            // --- SECCIÓN 3: MOVIMIENTOS DETALLADOS POR CAJA ---
-            document.Add(new Paragraph("3. Desglose Operativo y de Inventario por Caja").SetFontSize(12).SetFont(boldFont).SetFontColor(primaryColor).SetMarginBottom(8));
-
-            if (!turnos.Any())
-            {
-                document.Add(new Paragraph("No hay operaciones detalladas porque no se abrieron cajas hoy.").SetFontSize(9).SetFont(italicFont).SetFontColor(ColorConstants.GRAY));
-            }
-            else
-            {
+                // 3. Desglose Operativo por Caja
+                document.Add(new Paragraph("3. Desglose Operativo y de Inventario por Caja").SetFontSize(12).SetFont(boldFont).SetFontColor(primaryColor).SetMarginBottom(8));
+                
                 foreach (var t in turnos)
                 {
-                    // Subsección por turno
-                    var titleParagraph = new Paragraph($"Caja/Turno #{t.IdTurno}  —  Cajero: {t.IdUsuarioNavigation?.Username ?? "N/A"}  (Apertura: {t.FechaApertura:hh:mm tt})")
+                    // Título del turno
+                    var titleParagraph = new Paragraph($"Historial de movimientos por turno #{t.IdTurno}  —  Cajero: {t.IdUsuarioNavigation?.Username ?? "N/A"}  (Apertura: {t.FechaApertura:hh:mm tt})")
                         .SetFontSize(9.5f)
                         .SetFont(boldFont)
                         .SetFontColor(primaryColor)
@@ -413,18 +393,68 @@ public class DailyReportPdfService
         }
     }
 
-    private Cell CreateHeaderCell(string text, Color bg, PdfFont font)
+    private void AddArqueoRow(Table t, string turnoStr, string cajeroStr, string moneda, 
+        decimal inicial, int efectuadas, int anuladas, decimal netas, 
+        decimal efec, decimal transf, decimal tarj, 
+        decimal ing, decimal ret, decimal rev, decimal vuelto, 
+        decimal teorico, decimal real, decimal diff, string estado, 
+        Color bg, PdfFont regular, PdfFont bold, bool isNio)
     {
-        return new Cell().Add(new Paragraph(text).SetFont(font).SetFontColor(ColorConstants.WHITE).SetFontSize(8.5f)).SetBackgroundColor(bg).SetPadding(4);
+        t.AddCell(new Cell().Add(new Paragraph(turnoStr).SetFontSize(7f).SetFont(bold).SetFontColor(new DeviceRgb(37, 99, 235))).SetBackgroundColor(bg).SetPadding(2).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(cajeroStr).SetFontSize(7f).SetFont(bold)).SetBackgroundColor(bg).SetPadding(2).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(moneda).SetFontSize(7f).SetFont(bold)).SetBackgroundColor(bg).SetPadding(2).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(inicial, false)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph((isNio && efectuadas > 0) ? efectuadas.ToString() : "--").SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.CENTER).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph((isNio && anuladas > 0) ? anuladas.ToString() : "--").SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.CENTER).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(netas, true)).SetFontSize(7f).SetFontColor(new DeviceRgb(37, 99, 235))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(efec, false)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(transf, false)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(tarj, false)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(ing, false)).SetFontSize(7f).SetFontColor(new DeviceRgb(22, 163, 74))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(ret, false)).SetFontSize(7f).SetFontColor(new DeviceRgb(220, 38, 38))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(rev, false)).SetFontSize(7f).SetFontColor(new DeviceRgb(220, 38, 38))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(vuelto, false)).SetFontSize(7f).SetFontColor(new DeviceRgb(220, 38, 38))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        
+        bool isOpen = estado == "EN CURSO" || estado == "ABIERTO";
+        string realStr = isOpen ? "--" : FormatNumber(real, false);
+
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(teorico, false)).SetFontSize(7f).SetFont(bold)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(realStr).SetFontSize(7f).SetFont(bold)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        
+        string diffStr = isOpen ? "--" : (diff > 0 ? $"+{diff:N2}" : (diff < 0 ? $"{diff:N2}" : "0.00"));
+        var diffColor = isOpen ? new DeviceRgb(100, 116, 139) : (diff < 0 ? new DeviceRgb(220, 38, 38) : (diff > 0 ? new DeviceRgb(217, 119, 6) : new DeviceRgb(22, 163, 74)));
+        t.AddCell(new Cell().Add(new Paragraph(diffStr).SetFontSize(7f).SetFont(bold).SetFontColor(diffColor)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+
+        if(isNio)
+        {
+            var stColor = estado == "FALTANTE" ? new DeviceRgb(220, 38, 38) : (estado == "SOBRANTE" ? new DeviceRgb(217, 119, 6) : new DeviceRgb(22, 163, 74));
+            t.AddCell(new Cell(2,1).Add(new Paragraph(estado).SetFontSize(6f).SetFont(bold).SetFontColor(stColor)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.CENTER).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        }
     }
 
-    private Cell CreateLabelCell(string text, PdfFont font)
+    private string FormatNumber(decimal n, bool hideZero = false) => (n == 0 && hideZero) ? "--" : (n == 0 ? "0.00" : $"{n:N2}");
+
+    private Cell CreateDashboardCard(string title, string valueNio, string valueUsd, Color iconColor, PdfFont bold, PdfFont regular)
     {
-        return new Cell().Add(new Paragraph(text).SetFont(font).SetFontSize(9).SetFontColor(new DeviceRgb(51, 65, 85))).SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(3);
+        var container = new Cell().SetPadding(8).SetBorder(new iText.Layout.Borders.SolidBorder(new DeviceRgb(226, 232, 240), 1));
+        
+        container.Add(new Paragraph(title).SetFontSize(8).SetFont(bold).SetFontColor(new DeviceRgb(100, 116, 139)).SetMarginBottom(4));
+        container.Add(new Paragraph(valueNio).SetFontSize(14).SetFont(bold).SetFontColor(new DeviceRgb(15, 23, 42)));
+        
+        if(!string.IsNullOrEmpty(valueUsd))
+        {
+            container.Add(new Paragraph(valueUsd).SetFontSize(8).SetFont(regular).SetFontColor(new DeviceRgb(100, 116, 139)));
+        }
+
+        return container;
     }
 
-    private Cell CreateValueCell(string text, PdfFont font)
+    private Cell CreateHeaderCell(string text, Color bg, PdfFont font, float fontSize = 8.5f)
     {
-        return new Cell().Add(new Paragraph(text).SetFont(font).SetFontSize(9).SetTextAlignment(TextAlignment.RIGHT)).SetBorder(iText.Layout.Borders.Border.NO_BORDER).SetPadding(3);
+        return new Cell().Add(new Paragraph(text).SetFont(font).SetFontColor(ColorConstants.WHITE).SetFontSize(fontSize)).SetBackgroundColor(bg).SetPadding(4);
     }
 }

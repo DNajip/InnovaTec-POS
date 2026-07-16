@@ -40,9 +40,12 @@ public class ReportService : IReportService
     {
         end = end.Date.AddDays(1).AddTicks(-1);
         var currentVentas = await _context.Ventas
+            .AsNoTracking()
             .Include(v => v.VentaDetalles)
                 .ThenInclude(d => d.IdProductoNavigation)
-            .Where(v => v.FechaVenta >= start && v.FechaVenta <= end && !v.Anulada)
+            .Include(v => v.Pagos)
+                .ThenInclude(p => p.IdMetodoPagoNavigation)
+            .Where(v => v.FechaVenta >= start && v.FechaVenta <= end)
             .ToListAsync();
 
         // Calcular periodo anterior equivalente
@@ -53,35 +56,192 @@ public class ReportService : IReportService
         var prevEnd = start.AddTicks(-1);
 
         var prevVentas = await _context.Ventas
+            .AsNoTracking()
             .Where(v => v.FechaVenta >= prevStart && v.FechaVenta <= prevEnd && !v.Anulada)
             .ToListAsync();
 
+        var turnos = await _context.Turnos
+            .AsNoTracking()
+            .Include(t => t.MovimientosVarios)
+            .Include(t => t.Venta)
+                .ThenInclude(v => v.Pagos)
+                .ThenInclude(p => p.IdMetodoPagoNavigation)
+            .Where(t => t.FechaApertura <= end && t.FechaCierre != null && t.FechaCierre >= start)
+            .ToListAsync();
+
+        // Filtrar validas y reversadas (anuladas)
+        var validVentas = currentVentas.Where(v => !v.Anulada).ToList();
+        var reversedVentas = currentVentas.Where(v => v.Anulada).ToList();
+        
+        // Ventas por moneda usando Pagos (USD vs NIO)
+        var usdPayments = validVentas.SelectMany(v => v.Pagos).Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).ToList();
+        var nioPayments = validVentas.SelectMany(v => v.Pagos).Where(p => !p.IdMetodoPagoNavigation.Nombre.Contains("USD")).ToList();
+
+        // Desglose de Ventas Brutas y Descuentos
+        decimal ventasUsd = usdPayments.Sum(p => p.MontoRecibido ?? 0m); // Lo cobrado neto en USD
+        decimal descuentoUsd = 0; // Descuentos se aplican gralmente al NIO, pero se puede aproximar
+        decimal utilidadUsd = 0;
+        
+        decimal ventasNio = validVentas.Sum(v => v.TotalNio) - (ventasUsd * validVentas.FirstOrDefault()?.TasaCambioUsd ?? 36.5m);
+        if (ventasNio < 0) ventasNio = 0; // Fallback en caso de redondeos extraños
+        
+        // Forma correcta: Dividimos cada venta proporcionalmente según sus pagos
+        decimal vBrutasNio = 0, vBrutasUsd = 0, uNetaNio = 0, uNetaUsd = 0, dNio = 0, dUsd = 0;
+        int facturasRegalia = 0;
+        decimal valorRegaliasNio = 0, valorRegaliasUsd = 0;
+
+        foreach (var v in validVentas)
+        {
+            decimal tasa = v.TasaCambioUsd > 0 ? v.TasaCambioUsd : 36.5m;
+            decimal utilidadFactura = v.VentaDetalles.Sum(d => d.SubtotalNio - ((d.IdProductoNavigation?.PrecioCompra ?? 0) * d.Cantidad));
+
+            // Calcular regalías basadas en los detalles (excluyendo las que fueron devueltas/reversadas)
+            if (v.VentaDetalles.Any(d => d.EsRegalia && !d.Devuelto))
+            {
+                var regalias = v.VentaDetalles.Where(d => d.EsRegalia && !d.Devuelto).ToList();
+                facturasRegalia += regalias.Sum(r => r.Cantidad);
+                
+                foreach (var regalia in regalias)
+                {
+                    // Valor estimado usando el precio actual del producto (ya que en DB se guarda 0)
+                    decimal lostNio = (regalia.IdProductoNavigation?.PrecioVenta ?? 0) * regalia.Cantidad;
+                    valorRegaliasNio += lostNio;
+                    valorRegaliasUsd += lostNio / tasa;
+                }
+            }
+
+            // Calcular porcentajes en base a MontoEnNio de cada pago
+            decimal pagoTotalNio = v.Pagos.Sum(p => p.MontoEnNio);
+            decimal pagoUsdNio = v.Pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).Sum(p => p.MontoEnNio);
+            decimal pagoNioNio = pagoTotalNio - pagoUsdNio;
+
+            decimal porcentajeUsd = pagoTotalNio > 0 ? pagoUsdNio / pagoTotalNio : 0;
+            decimal porcentajeNio = pagoTotalNio > 0 ? pagoNioNio / pagoTotalNio : (pagoTotalNio == 0 ? 1 : 0);
+
+            vBrutasUsd += (v.TotalNio * porcentajeUsd) / tasa;
+            vBrutasNio += v.TotalNio * porcentajeNio;
+
+            uNetaUsd += (utilidadFactura * porcentajeUsd) / tasa;
+            uNetaNio += utilidadFactura * porcentajeNio;
+
+            dNio += v.DescuentoNio;
+            dUsd += v.DescuentoNio / tasa;
+        }
+
+        // Calcular Montos Reversados
+        decimal montoReversadoNio = 0, montoReversadoUsd = 0;
+        foreach (var v in reversedVentas)
+        {
+            decimal tasa = v.TasaCambioUsd > 0 ? v.TasaCambioUsd : 36.5m;
+            decimal pagoTotalNio = v.Pagos.Sum(p => p.MontoEnNio);
+            decimal pagoUsdNio = v.Pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).Sum(p => p.MontoEnNio);
+            decimal porcentajeUsd = pagoTotalNio > 0 ? pagoUsdNio / pagoTotalNio : 0;
+            decimal porcentajeNio = pagoTotalNio > 0 ? (pagoTotalNio - pagoUsdNio) / pagoTotalNio : (pagoTotalNio == 0 ? 1 : 0);
+            
+            montoReversadoUsd += (v.TotalNio * porcentajeUsd) / tasa;
+            montoReversadoNio += v.TotalNio * porcentajeNio;
+        }
+
+        foreach (var v in validVentas)
+        {
+            var devueltos = v.VentaDetalles.Where(d => d.Devuelto).ToList();
+            if (devueltos.Any())
+            {
+                decimal totalDevueltoNio = devueltos.Sum(d => d.SubtotalNio);
+                decimal tasa = v.TasaCambioUsd > 0 ? v.TasaCambioUsd : 36.5m;
+                decimal pagoTotalNio = v.Pagos.Sum(p => p.MontoEnNio);
+                decimal pagoUsdNio = v.Pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).Sum(p => p.MontoEnNio);
+                decimal porcentajeUsd = pagoTotalNio > 0 ? pagoUsdNio / pagoTotalNio : 0;
+                decimal porcentajeNio = pagoTotalNio > 0 ? (pagoTotalNio - pagoUsdNio) / pagoTotalNio : (pagoTotalNio == 0 ? 1 : 0);
+                
+                montoReversadoUsd += (totalDevueltoNio * porcentajeUsd) / tasa;
+                montoReversadoNio += totalDevueltoNio * porcentajeNio;
+            }
+        }
+
+        decimal faltantesNio = 0, sobrantesNio = 0;
+        decimal faltantesUsd = 0, sobrantesUsd = 0;
+
+        foreach (var t in turnos)
+        {
+            var pagosCaja = t.Venta.SelectMany(v => v.Pagos).ToList();
+            
+            // NIO
+            decimal ingresosNio = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO" && m.IdMoneda == 1).Sum(m => m.Monto);
+            decimal retirosNio = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 1 && !m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal reversosNio = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 1 && m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal vueltoEntregadoNio = pagosCaja.Sum(p => p.VueltoNio ?? 0);
+            decimal cobroEfectivoNio = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
+
+            // Teórico solo incluye efectivo físico e ingresos/retiros manuales
+            decimal saldoTeoricoNio = t.MontoInicialNio + cobroEfectivoNio + ingresosNio - retirosNio - reversosNio - vueltoEntregadoNio;
+            decimal difNio = (t.MontoContadoNio ?? 0) - saldoTeoricoNio;
+
+            if (difNio > 0) sobrantesNio += difNio;
+            if (difNio < 0) faltantesNio += Math.Abs(difNio);
+
+            // USD
+            decimal ingresosUsd = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO" && m.IdMoneda == 2).Sum(m => m.Monto);
+            decimal retirosUsd = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 2 && !m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal reversosUsd = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 2 && m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal cobroEfectivoUsd = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
+            
+            // Teórico solo incluye efectivo físico e ingresos/retiros manuales
+            decimal saldoTeoricoUsd = t.MontoInicialUsd + cobroEfectivoUsd + ingresosUsd - retirosUsd - reversosUsd;
+            decimal difUsd = (t.MontoContadoUsd ?? 0) - saldoTeoricoUsd;
+
+            if (difUsd > 0) sobrantesUsd += difUsd;
+            if (difUsd < 0) faltantesUsd += Math.Abs(difUsd);
+        }
+
         var stats = new DashboardStatsDTO
         {
-            VentasBrutas = currentVentas.Sum(v => v.TotalNio),
-            TotalFacturas = currentVentas.Count,
-            ProductosVendidos = currentVentas.SelectMany(v => v.VentaDetalles).Sum(d => d.Cantidad),
-            TicketPromedio = currentVentas.Any() ? currentVentas.Average(v => v.TotalNio) : 0,
-            UtilidadNeta = currentVentas.SelectMany(v => v.VentaDetalles).Sum(d => 
-                d.SubtotalNio - ((d.IdProductoNavigation?.PrecioCompra ?? 0) * d.Cantidad)),
-            ClientesNuevos = await _context.Personas.CountAsync(p => p.FechaCreacion >= start && p.FechaCreacion <= end && p.EsCliente),
-            Anulaciones = await _context.Ventas.CountAsync(v => v.FechaVenta >= start && v.FechaVenta <= end && v.Anulada)
+            // Entradas por Método de Pago
+            TotalEfectivoNio = nioPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO")).Sum(p => p.MontoPagado),
+            TotalEfectivoUsd = usdPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO")).Sum(p => p.MontoPagado),
+            TotalTarjetaNio = nioPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TARJETA")).Sum(p => p.MontoPagado),
+            TotalTarjetaUsd = usdPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TARJETA")).Sum(p => p.MontoPagado),
+            TotalTransferenciaNio = nioPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA")).Sum(p => p.MontoPagado),
+            TotalTransferenciaUsd = usdPayments.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA")).Sum(p => p.MontoPagado),
+            
+            // Diferencias de Caja
+            FaltantesCajaNio = faltantesNio,
+            FaltantesCajaUsd = faltantesUsd,
+            SobrantesCajaNio = sobrantesNio,
+            SobrantesCajaUsd = sobrantesUsd,
+
+            // NIO
+            VentasBrutasNio = vBrutasNio,
+            UtilidadNetaNio = uNetaNio,
+            DescuentosNio = dNio,
+            ValorRegaliasNio = valorRegaliasNio,
+            
+            // USD
+            VentasBrutasUsd = vBrutasUsd,
+            UtilidadNetaUsd = uNetaUsd,
+            DescuentosUsd = dUsd,
+            ValorRegaliasUsd = valorRegaliasUsd,
+            
+            MontoReversadoNio = montoReversadoNio,
+            MontoReversadoUsd = montoReversadoUsd,
+
+            // Conteos
+            TotalFacturas = validVentas.Count,
+            FacturasReversadas = reversedVentas.Count,
+            ArticulosReversados = reversedVentas.Sum(v => v.VentaDetalles.Sum(d => d.Cantidad)),
+            FacturasRegalia = facturasRegalia,
+            FacturasConDescuento = validVentas.Count(v => v.DescuentoNio > 0),
+            
+            ProductosVendidos = validVentas.SelectMany(v => v.VentaDetalles).Sum(d => d.Cantidad),
+            Anulaciones = reversedVentas.Count,
+            ClientesNuevos = await _context.Personas.CountAsync(p => p.FechaCreacion >= start && p.FechaCreacion <= end && p.EsCliente)
         };
 
-        // Calcular porcentajes
+        // Porcentajes
         decimal prevVentasTotal = prevVentas.Sum(v => v.TotalNio);
-        stats.PorcentajeVentas = CalcularVariacion(stats.VentasBrutas, prevVentasTotal);
+        stats.PorcentajeVentas = CalcularVariacion(stats.VentasTotalesCalculadasNio, prevVentasTotal);
         stats.PorcentajeFacturas = CalcularVariacion(stats.TotalFacturas, prevVentas.Count);
-        
-        decimal prevUtilidad = prevVentas.SelectMany(v => v.VentaDetalles).Sum(d => 
-            d.SubtotalNio - ((d.IdProductoNavigation?.PrecioCompra ?? 0) * d.Cantidad));
-        stats.PorcentajeUtilidad = CalcularVariacion(stats.UtilidadNeta, prevUtilidad);
-        
-        decimal prevTicket = prevVentas.Any() ? prevVentas.Average(v => v.TotalNio) : 0;
-        stats.PorcentajeTicket = CalcularVariacion(stats.TicketPromedio, prevTicket);
-
-        var prevClientes = await _context.Personas.CountAsync(p => p.FechaCreacion >= prevStart && p.FechaCreacion <= prevEnd && p.EsCliente);
-        stats.PorcentajeClientes = CalcularVariacion(stats.ClientesNuevos, prevClientes);
+        stats.PorcentajeDescuentos = CalcularVariacion(dNio + (dUsd * 36.5m), prevVentas.Sum(v => v.DescuentoNio));
 
         return stats;
     }
@@ -90,18 +250,43 @@ public class ReportService : IReportService
     {
         end = end.Date.AddDays(1).AddTicks(-1);
         var ventas = await _context.Ventas
+            .Include(v => v.Pagos)
+                .ThenInclude(p => p.IdMetodoPagoNavigation)
             .Where(v => v.FechaVenta >= start && v.FechaVenta <= end && !v.Anulada)
             .OrderBy(v => v.FechaVenta)
             .ToListAsync();
 
-        return ventas.GroupBy(v => v.FechaVenta.Date)
-            .Select(g => new TrendPointDTO
+        var result = new List<TrendPointDTO>();
+
+        foreach (var group in ventas.GroupBy(v => v.FechaVenta.Date))
+        {
+            decimal totalNio = 0;
+            decimal totalUsd = 0;
+
+            foreach (var v in group)
             {
-                Label = g.Key.ToString("dd MMM"),
-                ValorNio = g.Sum(v => v.TotalNio),
-                ValorUsd = g.Sum(v => v.TotalNio / 36.5m) // Asumiendo tasa fija por ahora para el gráfico
-            })
-            .ToList();
+                decimal tasa = v.TasaCambioUsd > 0 ? v.TasaCambioUsd : 36.5m;
+
+                decimal pagoTotalNio = v.Pagos.Sum(p => p.MontoEnNio);
+                decimal pagoUsdNio = v.Pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).Sum(p => p.MontoEnNio);
+                decimal pagoNioNio = pagoTotalNio - pagoUsdNio;
+
+                decimal porcentajeUsd = pagoTotalNio > 0 ? pagoUsdNio / pagoTotalNio : 0;
+                decimal porcentajeNio = pagoTotalNio > 0 ? pagoNioNio / pagoTotalNio : (pagoTotalNio == 0 ? 1 : 0);
+
+                totalUsd += (v.TotalNio * porcentajeUsd) / tasa;
+                totalNio += v.TotalNio * porcentajeNio;
+            }
+
+            result.Add(new TrendPointDTO
+            {
+                Label = group.Key.ToString("dd MMM"),
+                ValorNio = totalNio,
+                ValorUsd = totalUsd
+            });
+        }
+
+        return result;
     }
 
     public async Task<List<PaymentMethodStatDTO>> GetPaymentMethodStatsAsync(DateTime start, DateTime end)
@@ -307,6 +492,7 @@ public class ReportService : IReportService
     {
         end = end.Date.AddDays(1).AddTicks(-1);
         var turnos = await _context.Turnos
+            .AsNoTracking()
             .Include(t => t.IdUsuarioNavigation)
             .Include(t => t.MovimientosVarios)
             .Include(t => t.Venta)
@@ -316,34 +502,124 @@ public class ReportService : IReportService
             .OrderByDescending(t => t.FechaApertura)
             .ToListAsync();
 
-        return turnos.Select(t => {
-            decimal ingresosVarios = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO").Sum(m => m.Monto);
-            decimal salidasVarias = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO").Sum(m => m.Monto);
-            
-            var desglose = t.Venta.Where(v => !v.Anulada)
-                .SelectMany(v => v.Pagos)
-                .GroupBy(p => p.IdMetodoPagoNavigation.Nombre)
-                .Select(g => new PaymentMethodStatDTO
-                {
-                    Metodo = g.Key,
-                    Total = g.Sum(p => p.MontoEnNio - (p.VueltoNio ?? 0))
-                }).ToList();
+        var result = new List<ArqueoInsightDTO>();
 
-            return new ArqueoInsightDTO
+        foreach (var t in turnos)
+        {
+            var ventasValidas = t.Venta.Where(v => !v.Anulada).ToList();
+            var ventasAnuladas = t.Venta.Where(v => v.Anulada).ToList();
+            
+            var pagosValidos = ventasValidas.SelectMany(v => v.Pagos).ToList();
+            var pagosCaja = t.Venta.SelectMany(v => v.Pagos).ToList();
+            
+            // Movimientos manuales
+            decimal ingresosNio = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO" && m.IdMoneda == 1).Sum(m => m.Monto);
+            decimal retirosNio = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 1 && !m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal reversosNio = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 1 && m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            
+            decimal ingresosUsd = t.MovimientosVarios.Where(m => m.Tipo == "INGRESO" && m.IdMoneda == 2).Sum(m => m.Monto);
+            decimal retirosUsd = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 2 && !m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+            decimal reversosUsd = t.MovimientosVarios.Where(m => m.Tipo == "EGRESO" && m.IdMoneda == 2 && m.Concepto.StartsWith("Reverso")).Sum(m => m.Monto);
+
+            // Vueltos entregados desde pagos (normalmente en NIO)
+            decimal vueltoEntregadoNio = pagosCaja.Sum(p => p.VueltoNio ?? 0);
+            decimal vueltoEntregadoUsd = 0; // Asumimos vuelto en dolares es 0
+            
+            // Cobros (ingresos fisicos y electronicos) - Usando MontoPagado en lugar de MontoEnNio
+            decimal cobroEfectivoNio = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
+            decimal cobroEfectivoUsd = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("EFECTIVO") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
+            
+            decimal cobroTarjetaNio = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TARJETA") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
+            decimal cobroTarjetaUsd = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TARJETA") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
+            
+            decimal cobroTransferenciaNio = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA") && p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoPagado);
+            decimal cobroTransferenciaUsd = pagosCaja.Where(p => p.IdMetodoPagoNavigation.Nombre.StartsWith("TRANSFERENCIA") && p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoPagado);
+
+            decimal ventasNetasNio = 0;
+            decimal ventasNetasUsd = 0;
+
+            foreach (var v in ventasValidas)
+            {
+                var pagosFactura = pagosValidos.Where(p => p.IdVenta == v.IdVenta).ToList();
+                decimal pagoUSD = pagosFactura.Where(p => p.IdMetodoPagoNavigation.IdMoneda == 2).Sum(p => p.MontoEnNio);
+                decimal pagoNIO = pagosFactura.Where(p => p.IdMetodoPagoNavigation.IdMoneda == 1).Sum(p => p.MontoEnNio);
+                decimal totalPago = pagoUSD + pagoNIO;
+
+                if (totalPago > 0)
+                {
+                    decimal propUSD = pagoUSD / totalPago;
+                    decimal propNIO = pagoNIO / totalPago;
+
+                    decimal ventaAtribuidaUsdEnNio = v.TotalNio * propUSD;
+                    ventasNetasNio += (v.TotalNio * propNIO);
+                    ventasNetasUsd += (ventaAtribuidaUsdEnNio / (v.TasaCambioUsd > 0 ? v.TasaCambioUsd : 36.60m));
+                }
+            }
+
+            string estadoStr = t.FechaCierre == null ? "EN CURSO" : (t.EstadoCuadre ?? "CERRADO");
+
+            // Fila CÓRDOBAS (Fila Principal)
+            result.Add(new ArqueoInsightDTO
             {
                 IdTurno = t.IdTurno,
                 Usuario = t.IdUsuarioNavigation?.Username ?? "Sistema",
+                Moneda = "C$ CORDOBAS",
                 Apertura = t.FechaApertura,
                 Cierre = t.FechaCierre,
                 MontoInicial = t.MontoInicialNio,
-                VentasEfectivo = t.TotalEfectivoNio,
-                VentasTransferencia = t.TotalTransferencia,
-                VentasTarjeta = t.TotalTarjeta,
-                SaldoTeorico = t.MontoInicialNio + t.TotalEfectivoNio + ingresosVarios - salidasVarias,
+                
+                VentasEfectuadas = ventasValidas.Count,
+                VentasAnuladas = ventasAnuladas.Count,
+                VentasNetas = ventasNetasNio,
+                
+                CobrosEfectivo = cobroEfectivoNio,
+                CobrosTransferencia = cobroTransferenciaNio,
+                CobrosTarjeta = cobroTarjetaNio,
+                
+                OtrosIngresos = ingresosNio,
+                OtrosRetiros = retirosNio,
+                Reversos = reversosNio,
+                VueltoEntregado = vueltoEntregadoNio,
+                
+                // Teórico solo incluye efectivo físico e ingresos/retiros manuales
+                SaldoTeorico = t.MontoInicialNio + cobroEfectivoNio + ingresosNio - retirosNio - reversosNio - vueltoEntregadoNio,
                 SaldoReal = t.MontoContadoNio ?? 0,
-                DesglosePagos = desglose
-            };
-        }).ToList();
+                Estado = estadoStr,
+                EsFilaPrincipal = true
+            });
+
+            // Fila DÓLARES
+            result.Add(new ArqueoInsightDTO
+            {
+                IdTurno = t.IdTurno,
+                Usuario = t.IdUsuarioNavigation?.Username ?? "Sistema",
+                Moneda = "$ DOLARES",
+                Apertura = t.FechaApertura,
+                Cierre = t.FechaCierre,
+                MontoInicial = t.MontoInicialUsd,
+                
+                VentasEfectuadas = 0,
+                VentasAnuladas = 0,
+                VentasNetas = ventasNetasUsd,
+                
+                CobrosEfectivo = cobroEfectivoUsd,
+                CobrosTransferencia = cobroTransferenciaUsd,
+                CobrosTarjeta = cobroTarjetaUsd,
+                
+                OtrosIngresos = ingresosUsd,
+                OtrosRetiros = retirosUsd,
+                Reversos = reversosUsd,
+                VueltoEntregado = vueltoEntregadoUsd,
+                
+                // Teórico solo incluye efectivo físico e ingresos/retiros manuales
+                SaldoTeorico = t.MontoInicialUsd + cobroEfectivoUsd + ingresosUsd - retirosUsd - reversosUsd - vueltoEntregadoUsd,
+                SaldoReal = t.MontoContadoUsd ?? 0,
+                Estado = estadoStr,
+                EsFilaPrincipal = false
+            });
+        }
+
+        return result;
     }
 
     public async Task<List<MovimientoTurnoDTO>> GetMovimientosPorTurnoAsync(int idTurno)
@@ -371,33 +647,57 @@ public class ReportService : IReportService
                 metodoPago = string.Join(", ", metodos);
             }
 
+            bool pagoPrincipalUsd = pagoPrincipal?.IdMetodoPagoNavigation?.Nombre.Contains("USD") ?? false;
+            string simPago = pagoPrincipalUsd ? "$" : "C$";
+            decimal pagadoFisico = pagoPrincipalUsd ? v.Pagos.Where(p => p.IdMetodoPagoNavigation.Nombre.Contains("USD")).Sum(p => p.MontoRecibido ?? 0m) : v.Pagos.Sum(p => (p.MontoRecibido ?? 0m) > 0 ? (p.MontoRecibido ?? 0m) : p.MontoEnNio);
+
             var totalVuelto = v.Pagos.Sum(p => p.VueltoNio ?? 0);
+            
+            bool esRegalia = v.TotalNio == 0;
 
             result.Add(new MovimientoTurnoDTO
             {
-                TipoMovimiento = "Venta",
+                TipoMovimiento = esRegalia ? "Regalía" : "Venta",
                 Referencia = v.NumeroFactura ?? $"FAC-{v.IdVenta}",
                 Fecha = v.FechaVenta,
                 Cliente = v.IdPersonaNavigation?.NombreCompleto ?? "Cliente de Contado",
-                Monto = v.TotalNio,
+                Monto = v.SubtotalNio > 0 ? v.SubtotalNio : v.TotalNio, // El monto base
+                Descuento = v.DescuentoNio,
+                MontoPagado = pagadoFisico,
                 Vuelto = totalVuelto,
+                MontoReverso = 0,
+                MontoTotal = v.TotalNio,
                 MetodoPago = metodoPago,
-                Estado = v.Anulada ? "ANULADA" : "EFECTUADA"
+                Estado = v.Anulada ? "ANULADA" : "EFECTUADA",
+                SimboloMonedaMonto = "C$",
+                SimboloMonedaPago = simPago,
+                SimboloMonedaVuelto = "C$"
             });
         }
 
         foreach (var m in movimientos)
         {
+            bool isReverso = m.Concepto.StartsWith("Reverso");
+            string tipo = isReverso ? "Reverso" : (m.Tipo == "INGRESO" ? "Ingreso" : "Egreso");
+            string simMoneda = m.IdMoneda == 2 ? "$" : "C$";
+
             result.Add(new MovimientoTurnoDTO
             {
-                TipoMovimiento = m.Tipo == "INGRESO" ? "Ingreso" : "Egreso",
+                TipoMovimiento = tipo,
                 Referencia = m.Concepto,
                 Fecha = m.Fecha,
-                Cliente = "N/A",
-                Monto = m.Monto,
+                Cliente = "--",
+                Monto = 0,
+                Descuento = 0,
+                MontoPagado = m.Tipo == "INGRESO" ? m.Monto : 0,
                 Vuelto = 0,
+                MontoReverso = isReverso ? m.Monto : 0,
+                MontoTotal = m.Monto,
                 MetodoPago = "EFECTIVO",
-                Estado = "COMPLETADO"
+                Estado = "COMPLETADO",
+                SimboloMonedaMonto = simMoneda,
+                SimboloMonedaPago = simMoneda,
+                SimboloMonedaVuelto = "C$"
             });
         }
 

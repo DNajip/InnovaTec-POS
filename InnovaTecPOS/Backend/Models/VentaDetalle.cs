@@ -25,6 +25,10 @@ public partial class VentaDetalle
 
     public DateOnly? FechaVenceGarantia { get; set; }
 
+    public bool EsRegalia { get; set; }
+    
+    public bool Devuelto { get; set; }
+
     public virtual ICollection<Garantia> Garantia { get; set; } = new List<Garantia>();
 
     public virtual PeriodosGarantium? IdPeriodoGarantiaNavigation { get; set; }

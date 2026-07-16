@@ -109,7 +109,9 @@
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td class="text-end fw-bold align-top py-3 pe-4 text-dark border-bottom">C$ @item.UnitPrice.ToString("N2")</td>
+                                                        <td class="text-end fw-bold align-top py-3 pe-4 text-dark border-bottom">
+                                                            @if (item.IsRegalia) { <span class="badge bg-success">GRATIS</span> } else { <span>C$ @item.UnitPrice.ToString("N2")</span> }
+                                                        </td>
                                                     </tr>
                                                 }
                                             }
@@ -137,7 +139,9 @@
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td class="text-end fw-bold align-top py-3 pe-4 text-dark border-bottom">C$ @((item.UnitPrice * item.Quantity).ToString("N2"))</td>
+                                                    <td class="text-end fw-bold align-top py-3 pe-4 text-dark border-bottom">
+                                                        @if (item.IsRegalia) { <span class="badge bg-success">GRATIS</span> } else { <span>C$ @((item.UnitPrice * item.Quantity).ToString("N2"))</span> }
+                                                    </td>
                                                 </tr>
                                             }
                                         }
@@ -156,7 +160,7 @@
                             <div class="row g-2 mb-3">
                                 <div class="col-7">
                                     <label class="small text-muted mb-1">Método de Pago</label>
-                                    <select class="form-select bg-light border-0" @bind="currentPayment.IdMetodoPago">
+                                    <select class="form-select bg-light border-0" @bind="currentPayment.IdMetodoPago" @bind:after="UpdateSuggestedAmount">
                                         @foreach (var m in metodosPago)
                                         {
                                             <option value="@m.IdMetodo">@m.Nombre (@m.IdMonedaNavigation?.Simbolo)</option>
@@ -189,7 +193,10 @@
                                             @if(!string.IsNullOrEmpty(p.Referencia)){ <div class="x-small text-muted">Ref: @p.Referencia</div> }
                                         </div>
                                         <div class="d-flex align-items-center gap-3">
-                                            <span class="fw-bold text-dark">C$ @p.MontoEnNio.ToString("N2")</span>
+                                            <span class="fw-bold text-dark">
+                                                @p.SimboloMoneda @p.Monto.ToString("N2")
+                                                @if(p.TasaCambio > 1) { <small class="text-muted fw-normal ms-1">(C$ @p.MontoEnNio.ToString("N2"))</small> }
+                                            </span>
                                             <button class="btn btn-sm text-danger p-0 m-0" @onclick="() => RemovePayment(p)"><i class="fas fa-trash-alt"></i></button>
                                         </div>
                                     </div>
@@ -277,7 +284,23 @@
             currentPayment.IdMetodoPago = metodosPago.First().IdMetodo;
         }
         
-        currentPayment.Monto = SaldoRestante > 0 ? SaldoRestante : Total;
+        UpdateSuggestedAmount();
+    }
+
+    private void UpdateSuggestedAmount()
+    {
+        if (SaldoRestante <= 0)
+        {
+            currentPayment.Monto = 0;
+            return;
+        }
+
+        var metodo = metodosPago.FirstOrDefault(m => m.IdMetodo == currentPayment.IdMetodoPago);
+        if (metodo != null)
+        {
+            decimal tasa = metodo.IdMonedaNavigation?.Codigo == "USD" ? 36.60m : 1m;
+            currentPayment.Monto = Math.Round(SaldoRestante / tasa, 2);
+        }
     }
 
     private void AddPayment()
@@ -291,19 +314,20 @@
         {
             IdMetodoPago = currentPayment.IdMetodoPago,
             MetodoNombre = metodo.Nombre,
+            SimboloMoneda = metodo.IdMonedaNavigation?.Simbolo ?? "C$",
             Monto = currentPayment.Monto,
             TasaCambio = metodo.IdMonedaNavigation?.Codigo == "USD" ? 36.60m : 1m, // Logic for exchange rate
             Referencia = currentPayment.Referencia
         });
 
         currentPayment.Referencia = ""; // Reset ref
-        currentPayment.Monto = SaldoRestante > 0 ? SaldoRestante : 0; // Reset for next payment
+        UpdateSuggestedAmount();
     }
     
     private void RemovePayment(PaymentInput p)
     {
         selectedPayments.Remove(p);
-        currentPayment.Monto = SaldoRestante > 0 ? SaldoRestante : 0;
+        UpdateSuggestedAmount();
     }
 
     private async Task SearchClients()
@@ -345,6 +369,15 @@
                     if (string.IsNullOrWhiteSpace(detail.Imei))
                     {
                         ToastService.ShowWarning($"Debe ingresar el IMEI para {item.Description}");
+                        isProcessing = false;
+                        return;
+                    }
+                    
+                    // Verificar si el IMEI ya está duplicado / vendido
+                    bool isAlreadySold = await CheckoutService.IsImeiAlreadySoldAsync(detail.Imei);
+                    if (isAlreadySold)
+                    {
+                        ToastService.ShowError($"El IMEI {detail.Imei} ya está registrado y fue vendido o asignado previamente.");
                         isProcessing = false;
                         return;
                     }
@@ -419,7 +452,7 @@
                         return i.Details.Select(d => new {
                             cantidad = 1,
                             descripcion = i.Description,
-                            total = i.UnitPrice,
+                            total = i.IsRegalia ? 0 : i.UnitPrice,
                             imeis = string.IsNullOrEmpty(d.Imei) ? new List<string>() : new List<string> { d.Imei }
                         });
                     } else {
@@ -427,7 +460,7 @@
                         return new[] { new {
                             cantidad = i.Quantity,
                             descripcion = i.Description,
-                            total = i.UnitPrice * i.Quantity,
+                            total = i.IsRegalia ? 0 : (i.UnitPrice * i.Quantity),
                             imeis = new List<string>()
                         }};
                     }

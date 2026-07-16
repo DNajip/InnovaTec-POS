@@ -72,13 +72,47 @@
                 {
                     @foreach (var v in ventas.Skip((currentPage - 1) * pageSize).Take(pageSize))
                     {
-                        <tr>
-                            <td><span class="fw-bold text-primary">@v.NumeroFactura</span></td>
+                        <tr class="@(v.Anulada ? "opacity-50 bg-light" : "")">
+                            <td><span class="@(v.Anulada ? "fw-bold text-secondary" : "fw-bold text-primary")">@v.NumeroFactura</span></td>
                             <td>@v.FechaVenta.ToString("dd/MM/yyyy hh:mm tt")</td>
                             <td>@(v.IdPersonaNavigation != null ? v.IdPersonaNavigation.NombreCompleto : "Cliente General")</td>
                             <td>@(v.IdUsuarioNavigation != null ? v.IdUsuarioNavigation.Username : "N/A")</td>
-                            <td class="fw-bold">C$ @v.TotalNio.ToString("N2")</td>
+                            <td class="fw-bold">
+                                @if (v.Anulada)
+                                {
+                                    <span class="text-decoration-line-through text-muted">C$ @v.TotalNio.ToString("N2")</span>
+                                }
+                                else
+                                {
+                                    <span>C$ @v.TotalNio.ToString("N2")</span>
+                                }
+                            </td>
                             <td class="text-end">
+                                @if (v.Anulada)
+                                {
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-3 py-1 me-2" title="Factura Anulada">
+                                        <i class="fas fa-ban me-1"></i> ANULADA
+                                    </span>
+                                }
+                                else if (!string.IsNullOrEmpty(v.Observacion) && v.Observacion.Contains("Reverso Parcial"))
+                                {
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-3 py-1 me-2" title="@v.Observacion">
+                                        <i class="fas fa-exclamation-triangle me-1"></i> REVERSO PARCIAL
+                                    </span>
+                                    @if (v.FechaVenta.Date == DateTime.Today)
+                                    {
+                                        <button class="btn btn-outline-danger btn-sm rounded-pill px-3 me-2" @onclick="() => OpenReversoModal(v)">
+                                            <i class="fas fa-undo-alt me-1"></i> Reverso
+                                        </button>
+                                    }
+                                }
+                                else if (v.FechaVenta.Date == DateTime.Today)
+                                {
+                                    <button class="btn btn-outline-danger btn-sm rounded-pill px-3 me-2" @onclick="() => OpenReversoModal(v)">
+                                        <i class="fas fa-undo-alt me-1"></i> Reverso
+                                    </button>
+                                }
+                                
                                 <button class="btn btn-outline-primary btn-sm rounded-pill px-3" @onclick="() => ShowInvoiceDetails(v)">
                                     <i class="fas fa-print me-1"></i> Reimprimir Factura
                                 </button>
@@ -148,7 +182,16 @@
     </div>
 </div>
 
-<!-- Modal: Vista Previa de Factura -->
+<!-- Modal Reverso -->
+@if (showReversoModal && selectedVenta != null)
+{
+    <InnovaTecPOS.Frontend.Components.UI.ReversoModal 
+        Factura="selectedVenta" 
+        OnClose="CloseReversoModal" 
+        OnSuccess="HandleReversoSuccess" />
+}
+
+<!-- Sidebar Detalle Factura -->
 @if (showPreviewModal && selectedVenta != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 1050;">
@@ -303,6 +346,9 @@
     private int currentPage = 1;
     private int pageSize = 10;
 
+    // Modales
+    private bool showReversoModal = false;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
@@ -321,6 +367,7 @@
             var end = endDate.Date.AddDays(1).AddTicks(-1);
 
             var query = DbContext.Ventas
+                .AsNoTracking()
                 .Include(v => v.IdPersonaNavigation)
                 .Include(v => v.IdUsuarioNavigation)
                 .Include(v => v.VentaDetalles)
@@ -371,6 +418,25 @@
         }
     }
 
+    private void OpenReversoModal(Venta venta)
+    {
+        selectedVenta = venta;
+        showReversoModal = true;
+    }
+
+    private void CloseReversoModal()
+    {
+        showReversoModal = false;
+        selectedVenta = null;
+    }
+
+    private async Task HandleReversoSuccess(bool success)
+    {
+        showReversoModal = false;
+        ToastService.ShowSuccess("Reverso procesado exitosamente.");
+        await LoadData(); // Refresh the list
+    }
+
     private async Task PrintInvoice()
     {
         if (selectedVenta == null) return;
@@ -400,7 +466,7 @@
                         return g.Select(x => new {
                             cantidad = x.Cantidad,
                             descripcion = x.DescripcionSnap,
-                            total = x.SubtotalNio,
+                            total = x.EsRegalia == true ? 0 : x.SubtotalNio,
                             imeis = x.VentaDetalleImeis.Select(i => i.ImeiSnap).ToList()
                         });
                     } else {
@@ -408,7 +474,7 @@
                         return new[] { new {
                             cantidad = g.Sum(x => x.Cantidad),
                             descripcion = g.Key.DescripcionSnap,
-                            total = g.Sum(x => x.SubtotalNio),
+                            total = g.Sum(x => x.EsRegalia == true ? 0 : x.SubtotalNio),
                             imeis = new List<string>()
                         }};
                     }

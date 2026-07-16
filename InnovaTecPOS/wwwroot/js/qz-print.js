@@ -330,16 +330,17 @@ window.qzPrintShiftClosing = async (shift, config_negocio) => {
         data.push(`Total Ventas:      C$ ${shift.totalVentasNio.toFixed(2)}\n`);
         data.push(`Efectivo NIO:      C$ ${shift.totalEfectivoNio.toFixed(2)}\n`);
         data.push(`Efectivo USD:      $  ${shift.totalEfectivoUsd.toFixed(2)}\n`);
-        data.push(`Tarjeta:           C$ ${shift.totalTarjeta.toFixed(2)}\n`);
-        data.push(`Transferencia:     C$ ${shift.totalTransferencia.toFixed(2)}\n`);
+        data.push(`Tarjeta:           C$ ${shift.totalTarjeta.toFixed(2)} | $ ${shift.totalTarjetaUsd.toFixed(2)}\n`);
+        data.push(`Transferencia:     C$ ${shift.totalTransferencia.toFixed(2)} | $ ${shift.totalTransferenciaUsd.toFixed(2)}\n`);
         data.push("------------------------------------------------\n");
 
         data.push(boldOn + "CUADRE DE CAJA\n" + boldOff);
         data.push(`Monto Inicial:     C$ ${shift.montoInicialNio.toFixed(2)} | $ ${shift.montoInicialUsd.toFixed(2)}\n`);
         data.push(`Ingresos Manuales: C$ ${(shift.montoManualNio || 0).toFixed(2)} | $ ${(shift.montoManualUsd || 0).toFixed(2)}\n`);
+        data.push(`Reversos/Egresos: -C$ ${(shift.montoReversosNio || 0).toFixed(2)} | -$ ${(shift.montoReversosUsd || 0).toFixed(2)}\n`);
         
-        const esperadoNio = shift.montoInicialNio + shift.totalEfectivoNio + (shift.montoManualNio || 0);
-        const esperadoUsd = shift.montoInicialUsd + shift.totalEfectivoUsd + (shift.montoManualUsd || 0);
+        const esperadoNio = shift.montoInicialNio + shift.totalEfectivoNio + (shift.montoManualNio || 0) - (shift.montoReversosNio || 0);
+        const esperadoUsd = shift.montoInicialUsd + shift.totalEfectivoUsd + (shift.montoManualUsd || 0) - (shift.montoReversosUsd || 0);
         
         data.push(`Total Esperado:    C$ ${esperadoNio.toFixed(2)} | $ ${esperadoUsd.toFixed(2)}\n`);
         data.push(`Total Contado:     C$ ${shift.montoContadoNio.toFixed(2)} | $ ${shift.montoContadoUsd.toFixed(2)}\n`);
@@ -361,6 +362,7 @@ window.qzPrintShiftClosing = async (shift, config_negocio) => {
         await qz.print(config, data);
     } catch (err) {
         console.error("Error al imprimir arqueo:", err);
+        throw new Error("No se pudo conectar a QZ Tray o falló la impresión: " + (err.message || err));
     }
 };
 

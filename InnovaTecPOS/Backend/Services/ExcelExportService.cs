@@ -80,9 +80,9 @@ public class ExcelExportService
         ws.Cell(3, 2).Style.Font.FontColor = XLColor.Gray;
 
         // --- KPI CARDS (Row 5 to 9) ---
-        string[] kpiTitles = { "Ventas Totales", "Utilidad Neta", "Margen Bruto", "Ticket Prom.", "Items Vendidos" };
-        object[] kpiValues = { stats.VentasBrutas, stats.UtilidadNeta, stats.MargenUtilidadPorcentaje / 100, stats.TicketPromedio, stats.ProductosVendidos };
-        string[] kpiFormats = { "C$ #,##0.00", "C$ #,##0.00", "0.0%", "C$ #,##0.00", "#,##0" };
+        string[] kpiTitles = { "Ventas (C$)", "Ventas (US$)", "Utilidad (C$)", "Descuentos (C$)", "Items Vendidos" };
+        object[] kpiValues = { stats.VentasBrutasNio, stats.VentasBrutasUsd, stats.UtilidadNetaNio, stats.DescuentosNio, stats.ProductosVendidos };
+        string[] kpiFormats = { "C$ #,##0.00", "US$ #,##0.00", "C$ #,##0.00", "C$ #,##0.00", "#,##0" };
         string[] kpiColors = { "#2563EB", "#059669", "#7C3AED", "#EA580C", "#0891B2" };
 
         for (int i = 0; i < kpiTitles.Length; i++)
@@ -277,7 +277,7 @@ public class ExcelExportService
         await CreateHeader(ws, "CONCILIACIÓN Y CONTROL DE CAJEROS", start, end);
 
         var row = 7;
-        string[] auditHeaders = { "Turno", "Usuario", "Apertura", "Cierre", "S. Teórico", "S. Real", "Diferencia", "Desglose Pagos" };
+        string[] auditHeaders = { "Turno", "Usuario", "Moneda", "Apertura", "Cierre", "Inicial", "Ventas Netas", "Ingresos", "Retiros", "Reversos", "S. Teórico", "S. Real", "Diferencia", "Estado" };
         for (int i = 0; i < auditHeaders.Length; i++) ws.Cell(row, i + 1).Value = auditHeaders[i];
 
         row++;
@@ -285,18 +285,24 @@ public class ExcelExportService
         {
             ws.Cell(row, 1).Value = a.IdTurno;
             ws.Cell(row, 2).Value = a.Usuario;
-            ws.Cell(row, 3).Value = a.Apertura;
-            if (a.Cierre.HasValue) ws.Cell(row, 4).Value = a.Cierre.Value; else ws.Cell(row, 4).Value = "Abierto";
-            ws.Cell(row, 5).Value = a.SaldoTeorico;
-            ws.Cell(row, 6).Value = a.SaldoReal;
-            ws.Cell(row, 7).Value = a.Diferencia;
-            ws.Cell(row, 8).Value = string.Join(" | ", a.DesglosePagos.Select(p => $"{p.Metodo}: {p.Total:C0}"));
+            ws.Cell(row, 3).Value = a.Moneda;
+            ws.Cell(row, 4).Value = a.Apertura;
+            if (a.Cierre.HasValue) ws.Cell(row, 5).Value = a.Cierre.Value; else ws.Cell(row, 5).Value = "Abierto";
+            ws.Cell(row, 6).Value = a.MontoInicial;
+            ws.Cell(row, 7).Value = a.VentasNetas;
+            ws.Cell(row, 8).Value = a.OtrosIngresos;
+            ws.Cell(row, 9).Value = a.OtrosRetiros;
+            ws.Cell(row, 10).Value = a.Reversos;
+            ws.Cell(row, 11).Value = a.SaldoTeorico;
+            ws.Cell(row, 12).Value = a.SaldoReal;
+            ws.Cell(row, 13).Value = a.Diferencia;
+            ws.Cell(row, 14).Value = a.Estado;
             row++;
         }
 
-        var table = ws.Range(7, 1, row - 1, 8).CreateTable("AuditTable");
+        var table = ws.Range(7, 1, row - 1, 14).CreateTable("AuditTable");
         table.Theme = XLTableTheme.TableStyleMedium1;
-        ws.Range(8, 5, row - 1, 7).Style.NumberFormat.Format = "C$ #,##0.00";
+        ws.Range(8, 6, row - 1, 13).Style.NumberFormat.Format = "#,##0.00";
         ws.Columns().AdjustToContents();
         ws.Column(8).Width = 40;
     }

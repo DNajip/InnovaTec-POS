@@ -9,6 +9,8 @@ public interface ICheckoutService
     Task<List<PeriodosGarantium>> GetPeriodosGarantiaAsync();
     Task<List<MetodosPago>> GetMetodosPagoAsync();
     Task<EquiposImei?> ValidateImeiAsync(int idProducto, string imei);
+    Task<bool> IsImeiAlreadySoldAsync(string imei);
+    Task ReversarTransaccionAsync(int idVenta, int idUsuario, string motivo, string? detalleJson);
 }
 
 public class CheckoutService : ICheckoutService
@@ -47,11 +49,37 @@ public class CheckoutService : ICheckoutService
             .FirstOrDefaultAsync(i => i.IdProducto == idProducto && i.Imei == imei && i.EstadoImei == "DISPONIBLE");
     }
 
+    public async Task<bool> IsImeiAlreadySoldAsync(string imei)
+    {
+        using var context = await _factory.CreateDbContextAsync();
+        
+        // 1. Verificar si está en la tabla de inventario como VENDIDO
+        bool isSoldInInventory = await context.EquiposImeis.AnyAsync(i => i.Imei == imei && i.EstadoImei == "VENDIDO");
+        if (isSoldInInventory) return true;
+        
+        // 2. Verificar si está en la tabla de detalles de venta IMEI (por si se vendió de forma libre)
+        bool isSoldInDetails = await context.VentaDetalleImeis.AnyAsync(i => i.ImeiSnap == imei);
+        return isSoldInDetails;
+    }
+
     public async Task<Venta> ProcessCheckoutAsync(int userId, int? idPersona, decimal discount, List<CartItem> items, List<PaymentInput> payments)
     {
         using var context = await _factory.CreateDbContextAsync();
         // 1. Serializar colecciones a JSON para enviarlas al SP
-        var itemsJson = System.Text.Json.JsonSerializer.Serialize(items);
+        var mappedItems = items.Select(i => new {
+            i.IdProducto,
+            i.Code,
+            i.Description,
+            UnitPrice = i.IsRegalia ? 0 : i.UnitPrice,
+            i.IdCategoria,
+            i.StockMax,
+            i.RequiresImei,
+            i.IsRegalia,
+            i.Quantity,
+            SubTotal = i.IsRegalia ? 0 : (i.UnitPrice * i.Quantity),
+            i.Details
+        });
+        var itemsJson = System.Text.Json.JsonSerializer.Serialize(mappedItems);
         
         // Mapeamos pagos para asegurar que las propiedades coincidan con el SP
         var paymentsMapped = payments.Select(p => new {
@@ -85,6 +113,31 @@ public class CheckoutService : ICheckoutService
         catch (Exception ex)
         {
             throw new Exception($"Error en Checkout (DB): {ex.Message}");
+        }
+    }
+
+    public async Task ReversarTransaccionAsync(int idVenta, int idUsuario, string motivo, string? detalleJson)
+    {
+        using var context = await _factory.CreateDbContextAsync();
+
+        try
+        {
+            string? p3 = string.IsNullOrWhiteSpace(detalleJson) ? null : detalleJson;
+            await context.Database.ExecuteSqlRawAsync(
+                "EXEC VEN.sp_ReversoTransaccion @p0, @p1, @p2, @p3",
+                idVenta, 
+                idUsuario, 
+                motivo, 
+                p3);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex)
+        {
+            // The SP uses THROW with errors > 50000, which SqlException captures nicely
+            throw new Exception(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error interno al reversar: {ex.Message}");
         }
     }
 }
