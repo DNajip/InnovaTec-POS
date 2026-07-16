@@ -164,6 +164,15 @@ public class DailyReportPdfService
             AddHeader(document);
             document.Add(new Paragraph("1. Dashboard de Resultados Financieros").SetFontSize(12).SetFont(boldFont).SetFontColor(primaryColor).SetMarginBottom(10));
 
+            // Fila 0: Ventas Netas, Descuentos, Regalías, Total Facturas
+            Table cardsRow0 = new Table(UnitValue.CreatePercentArray(new float[] { 25, 25, 25, 25 })).UseAllAvailableWidth();
+            cardsRow0.AddCell(CreateDashboardCard("VENTAS NETAS", $"C$ {dashboardStats.VentasBrutasNio:N2}", $"U$ {dashboardStats.VentasBrutasUsd:N2}", new DeviceRgb(202, 138, 4), boldFont, regularFont)); // Amarillo
+            cardsRow0.AddCell(CreateDashboardCard("DESCUENTOS", $"-C$ {Math.Abs(dashboardStats.DescuentosNio):N2}", $"-U$ {Math.Abs(dashboardStats.DescuentosUsd):N2}", new DeviceRgb(239, 68, 68), boldFont, regularFont)); // Rojo
+            cardsRow0.AddCell(CreateDashboardCard("REGALÍAS", $"-C$ {Math.Abs(dashboardStats.ValorRegaliasNio):N2}", $"-U$ {Math.Abs(dashboardStats.ValorRegaliasUsd):N2}", new DeviceRgb(168, 85, 247), boldFont, regularFont)); // Purpura
+            cardsRow0.AddCell(CreateDashboardCard("TOTAL FACTURAS", $"{dashboardStats.TotalFacturas}", "", new DeviceRgb(14, 165, 233), boldFont, regularFont)); // Azul claro
+            document.Add(cardsRow0);
+            document.Add(new Paragraph("\n").SetFontSize(2));
+
             // Fila 1: Total Efectivo, Total Tarjeta, Total Transferencia, Fact. Reversadas
             Table cardsRow1 = new Table(UnitValue.CreatePercentArray(new float[] { 25, 25, 25, 25 })).UseAllAvailableWidth();
             cardsRow1.AddCell(CreateDashboardCard("TOTAL EFECTIVO", $"C$ {dashboardStats.TotalEfectivoNio:N2}", $"U$ {dashboardStats.TotalEfectivoUsd:N2}", new DeviceRgb(22, 163, 74), boldFont, regularFont));
@@ -395,26 +404,29 @@ public class DailyReportPdfService
         t.AddCell(new Cell().Add(new Paragraph(cajeroStr).SetFontSize(7f).SetFont(bold)).SetBackgroundColor(bg).SetPadding(2).SetVerticalAlignment(VerticalAlignment.MIDDLE));
         t.AddCell(new Cell().Add(new Paragraph(moneda).SetFontSize(7f).SetFont(bold)).SetBackgroundColor(bg).SetPadding(2).SetVerticalAlignment(VerticalAlignment.MIDDLE));
 
-        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(inicial)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
-        t.AddCell(new Cell().Add(new Paragraph(isNio ? efectuadas.ToString() : "--").SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.CENTER).SetVerticalAlignment(VerticalAlignment.MIDDLE));
-        t.AddCell(new Cell().Add(new Paragraph(isNio ? anuladas.ToString() : "--").SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.CENTER).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(inicial, false)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph((isNio && efectuadas > 0) ? efectuadas.ToString() : "--").SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.CENTER).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph((isNio && anuladas > 0) ? anuladas.ToString() : "--").SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.CENTER).SetVerticalAlignment(VerticalAlignment.MIDDLE));
         
-        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(netas)).SetFontSize(7f).SetFontColor(new DeviceRgb(37, 99, 235))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(netas, true)).SetFontSize(7f).SetFontColor(new DeviceRgb(37, 99, 235))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
         
-        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(efec)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
-        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(transf)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
-        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(tarj)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(efec, false)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(transf, false)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(tarj, false)).SetFontSize(7f)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
         
-        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(ing)).SetFontSize(7f).SetFontColor(new DeviceRgb(22, 163, 74))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
-        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(ret)).SetFontSize(7f).SetFontColor(new DeviceRgb(220, 38, 38))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
-        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(rev)).SetFontSize(7f).SetFontColor(new DeviceRgb(220, 38, 38))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
-        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(vuelto)).SetFontSize(7f).SetFontColor(new DeviceRgb(220, 38, 38))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(ing, false)).SetFontSize(7f).SetFontColor(new DeviceRgb(22, 163, 74))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(ret, false)).SetFontSize(7f).SetFontColor(new DeviceRgb(220, 38, 38))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(rev, false)).SetFontSize(7f).SetFontColor(new DeviceRgb(220, 38, 38))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(vuelto, false)).SetFontSize(7f).SetFontColor(new DeviceRgb(220, 38, 38))).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
         
-        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(teorico)).SetFontSize(7f).SetFont(bold)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
-        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(real)).SetFontSize(7f).SetFont(bold)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        bool isOpen = estado == "EN CURSO" || estado == "ABIERTO";
+        string realStr = isOpen ? "--" : FormatNumber(real, false);
+
+        t.AddCell(new Cell().Add(new Paragraph(FormatNumber(teorico, false)).SetFontSize(7f).SetFont(bold)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+        t.AddCell(new Cell().Add(new Paragraph(realStr).SetFontSize(7f).SetFont(bold)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
         
-        var diffStr = diff > 0 ? $"+{diff:N2}" : (diff < 0 ? $"{diff:N2}" : "0.00");
-        var diffColor = diff < 0 ? new DeviceRgb(220, 38, 38) : (diff > 0 ? new DeviceRgb(217, 119, 6) : new DeviceRgb(22, 163, 74));
+        string diffStr = isOpen ? "--" : (diff > 0 ? $"+{diff:N2}" : (diff < 0 ? $"{diff:N2}" : "0.00"));
+        var diffColor = isOpen ? new DeviceRgb(100, 116, 139) : (diff < 0 ? new DeviceRgb(220, 38, 38) : (diff > 0 ? new DeviceRgb(217, 119, 6) : new DeviceRgb(22, 163, 74)));
         t.AddCell(new Cell().Add(new Paragraph(diffStr).SetFontSize(7f).SetFont(bold).SetFontColor(diffColor)).SetBackgroundColor(bg).SetPadding(2).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
 
         if(isNio)
@@ -424,7 +436,7 @@ public class DailyReportPdfService
         }
     }
 
-    private string FormatNumber(decimal n) => n == 0 ? "--" : $"{n:N2}";
+    private string FormatNumber(decimal n, bool hideZero = false) => (n == 0 && hideZero) ? "--" : (n == 0 ? "0.00" : $"{n:N2}");
 
     private Cell CreateDashboardCard(string title, string valueNio, string valueUsd, Color iconColor, PdfFont bold, PdfFont regular)
     {
